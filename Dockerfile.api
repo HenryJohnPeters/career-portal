@@ -18,23 +18,26 @@ COPY . .
 WORKDIR /app/apps/api
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# Build TypeScript
+# Build TypeScript - this outputs to /app/dist/apps/api/
 WORKDIR /app
 RUN npx tsc -p apps/api/tsconfig.json
+
+# Verify build output
+RUN ls -la dist/apps/api/ || echo "Build output not found"
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
 # Copy built files
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist/apps/api ./dist/apps/api
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/package.json ./package.json
 
 # Run migrations and start server
-WORKDIR /app
-CMD cd apps/api && npx prisma migrate deploy --schema=./prisma/schema.prisma && cd ../.. && node dist/apps/api/main.js
+WORKDIR /app/apps/api
+CMD npx prisma migrate deploy --schema=./prisma/schema.prisma && node ../../dist/apps/api/main.js
 
 EXPOSE 3000
