@@ -14,8 +14,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client with a placeholder DATABASE_URL
 WORKDIR /app/apps/api
+ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
 # Build TypeScript - outputs to /app/dist/apps/api/
