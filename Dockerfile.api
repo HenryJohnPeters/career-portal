@@ -1,4 +1,5 @@
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 FROM base AS deps
@@ -14,12 +15,12 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY . .
 
-# Generate Prisma client with a placeholder DATABASE_URL
+# Generate Prisma client with placeholder URL for build
 WORKDIR /app/apps/api
 ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
 RUN npx prisma generate --schema=./prisma/schema.prisma
 
-# Build TypeScript - outputs to /app/dist/apps/api/
+# Build TypeScript
 WORKDIR /app
 RUN npx tsc -p apps/api/tsconfig.json
 
