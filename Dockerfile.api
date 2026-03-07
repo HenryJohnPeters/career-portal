@@ -20,7 +20,7 @@ COPY . .
 # Generate Prisma client with placeholder URL for build
 WORKDIR /app/apps/api
 ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
-RUN npx prisma generate --schema=./prisma/schema.prisma
+RUN ../../node_modules/.bin/prisma generate --schema=./prisma/schema.prisma
 
 # Build TypeScript
 WORKDIR /app
@@ -39,7 +39,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/package.json ./package.json
 
-# Run migrations and start server
-CMD cd apps/api && npx prisma migrate deploy --schema=./prisma/schema.prisma && cd /app && node dist/apps/api/main.js
+# Run migrations and start server using local Prisma
+CMD cd apps/api && ../../node_modules/.bin/prisma migrate deploy --schema=./prisma/schema.prisma && cd /app && node dist/apps/api/main.js
 
 EXPOSE 3000
