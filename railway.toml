@@ -3,6 +3,5 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile.api"
 
 [deploy]
-startCommand = "node dist/main.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
