@@ -13,24 +13,28 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY . .
-RUN pnpm nx run api:prisma-generate
-RUN pnpm nx build api --prod
+
+# Generate Prisma client
+WORKDIR /app/apps/api
+RUN npx prisma generate --schema=./prisma/schema.prisma
+
+# Build TypeScript
+WORKDIR /app
+RUN npx tsc -p apps/api/tsconfig.json
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Copy necessary files
-COPY --from=builder /app/dist/apps/api ./dist
+# Copy built files
+COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
-COPY --from=builder /app/package.json ./
-
-# Set working directory for Prisma
-WORKDIR /app/apps/api
+COPY --from=builder /app/package.json ./package.json
 
 # Run migrations and start server
-CMD npx prisma migrate deploy --schema=./prisma/schema.prisma && node ../../dist/main.js
+WORKDIR /app/apps/api
+CMD npx prisma migrate deploy --schema=./prisma/schema.prisma && node ../../dist/apps/api/src/main.js
 
 EXPOSE 3000
