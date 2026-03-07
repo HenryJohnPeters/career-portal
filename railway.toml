@@ -1,0 +1,10 @@
+# Railway configuration for multiple services
+# Each service can have its own build configuration
+
+[environments.production.services.api.build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile.api"
+
+[environments.production.services.web.build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile.web"
