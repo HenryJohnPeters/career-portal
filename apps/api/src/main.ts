@@ -1,4 +1,7 @@
-import "dotenv/config";
+// Only load dotenv in development (Railway injects env vars in production)
+if (process.env.NODE_ENV !== "production") {
+  require("dotenv/config");
+}
 import "reflect-metadata";
 import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
