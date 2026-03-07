@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "commonjs",
+    "lib": ["ES2021"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@careerportal/shared/types": ["libs/shared/types/src/index.ts"],
+      "@careerportal/shared/types/cv-templates": [
+        "libs/shared/types/src/cv-templates.ts"
+      ],
+      "@careerportal/web/data-access": ["libs/web/data-access/src/index.ts"],
+      "@careerportal/web/ui": ["libs/web/ui/src/index.tsx"]
+    }
+  },
+  "exclude": ["node_modules", "dist"]
+}

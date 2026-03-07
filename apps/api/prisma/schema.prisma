@@ -1,0 +1,258 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String           @id @default(uuid())
+  supabaseId     String?          @unique
+  email          String           @unique
+  name           String
+  isPremium      Boolean          @default(false)
+  stripeCustomerId     String?    @unique
+  stripeSubscriptionId String?    @unique
+  stripePriceId        String?
+  stripeCurrentPeriodEnd DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  cvVersions     CvVersion[]
+  answers        QuestionAnswer[]
+  coverLetters   CoverLetter[]
+  jobs           Job[]
+  interviewSessions InterviewSession[]
+  technicalTests    TechnicalTest[]
+  aiUsages          AiUsage[]
+}
+
+model CvVersion {
+  id           String      @id @default(uuid())
+  userId       String
+  title        String
+  isActive     Boolean     @default(false)
+  templateId   String      @default("classic")
+  themeConfig  Json        @default("{}")
+  headerLayout String      @default("split")
+  name         String?
+  email        String?
+  photoUrl     String?
+  phone        String?
+  location     String?
+  website      String?
+  linkedin     String?
+  github       String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  user         User        @relation(fields: [userId], references: [id])
+  sections     CvSection[]
+  jobs         Job[]
+}
+
+model CvSection {
+  id          String    @id @default(uuid())
+  cvVersionId String
+  title       String
+  content     String    @default("")
+  sectionType String    @default("custom")
+  order       Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  cvVersion   CvVersion @relation(fields: [cvVersionId], references: [id], onDelete: Cascade)
+}
+
+model Question {
+  id        String           @id @default(uuid())
+  text      String
+  type      QuestionType
+  category  String
+  createdAt DateTime         @default(now())
+  options   QuestionOption[]
+  answers   QuestionAnswer[]
+}
+
+enum QuestionType {
+  TEXT
+  MULTIPLE_CHOICE
+}
+
+model QuestionOption {
+  id         String           @id @default(uuid())
+  questionId String
+  text       String
+  question   Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers    QuestionAnswer[]
+}
+
+model QuestionAnswer {
+  id               String          @id @default(uuid())
+  userId           String
+  questionId       String
+  answerText       String?
+  selectedOptionId String?
+  skipped          Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  user             User            @relation(fields: [userId], references: [id])
+  question         Question        @relation(fields: [questionId], references: [id])
+  selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id])
+
+  @@unique([userId, questionId])
+}
+
+model CoverLetter {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String   @default("")
+  jobId     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  job       Job?     @relation(fields: [jobId], references: [id])
+  linkedFromJobs Job[] @relation("JobLinkedCoverLetter")
+}
+
+model Job {
+  id            String        @id @default(uuid())
+  userId        String
+  company       String
+  role          String
+  status        String        @default("applied")
+  url           String?
+  notes         String?
+  cvVersionId   String?
+  coverLetterId String?
+  followUpDate  DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  user          User          @relation(fields: [userId], references: [id])
+  coverLetters  CoverLetter[]
+  cvVersion     CvVersion?    @relation(fields: [cvVersionId], references: [id], onDelete: SetNull)
+  linkedCoverLetter CoverLetter? @relation("JobLinkedCoverLetter", fields: [coverLetterId], references: [id], onDelete: SetNull)
+}
+
+// === Interview Prep ===
+
+model InterviewQuestion {
+  id             String   @id @default(uuid())
+  track          String
+  tags           String[]
+  difficulty     Int
+  type           String
+  level          String
+  prompt         String
+  options        Json     @default("[]")
+  correctOptionIndex Int  @default(0)
+  correctOptionIndices Int[] @default([])
+  multiSelect    Boolean  @default(false)
+  expectedPoints String[]
+  redFlags       String[]
+  rubric         Json
+  modelAnswer    String
+  followUpIds    String[]
+  source         String   @default("seed") // "seed" | "ai-generated"
+  generatedForHash String? // hash of the filter combo that triggered generation
+  createdAt      DateTime @default(now())
+  sessionQuestions InterviewSessionQuestion[]
+}
+
+model InterviewSession {
+  id              String   @id @default(uuid())
+  userId          String
+  track           String
+  level           String
+  tags            String[]
+  roleFocus       String   @default("fullstack")
+  interviewType   String   @default("coding")
+  duration        Int      @default(60)
+  difficulty      String   @default("medium")
+  companyStyle    String   @default("startup")
+  questionCount   Int      @default(10)
+  persona         String   @default("neutral")
+  status          String   @default("in_progress")
+  totalScore      Float?
+  report          Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  user            User     @relation(fields: [userId], references: [id])
+  questions       InterviewSessionQuestion[]
+}
+
+model InterviewSessionQuestion {
+  id               String   @id @default(uuid())
+  sessionId        String
+  questionId       String
+  orderIndex       Int
+  userAnswer       String?
+  score            Float?
+  maxScore         Float    @default(10)
+  feedback         Json?
+  isFollowUp       Boolean  @default(false)
+  parentQuestionId String?
+  answeredAt       DateTime?
+  createdAt        DateTime @default(now())
+  session          InterviewSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  question         InterviewQuestion @relation(fields: [questionId], references: [id])
+}
+
+// === Technical Tests ===
+
+model TechnicalTest {
+  id               String   @id @default(uuid())
+  userId           String
+  title            String
+  track            String
+  level            String
+  difficulty       String   @default("medium")
+  roleFocus        String   @default("fullstack")
+  tags             String[]
+  timeLimit        Int      @default(60)
+  scenario         Json     // full scenario object (brief, requirements, criteria, etc.)
+  status           String   @default("not_started") // not_started | in_progress | submitted | evaluated
+  submission       String?  // user's solution text
+  evaluation       Json?    // evaluation result
+  startedAt        DateTime?
+  submittedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id])
+}
+
+// === AI Usage Tracking ===
+
+model AiUsage {
+  id        String   @id @default(uuid())
+  userId    String
+  action    String   // e.g. "cv-section", "cv-full", "cover-letter", "cover-letter-suggest", "cover-letter-rewrite", "question-generation", "scenario-generation"
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+// === Question Generation Log ===
+
+model QuestionGenerationLog {
+  id                 String   @id @default(uuid())
+  filterHash         String   // hash of the filter combo
+  filterCombo        Json     // { track, level, difficulty, tags }
+  questionsGenerated Int      // how many questions were created
+  triggeredBy        String   // userId or "system"
+  createdAt          DateTime @default(now())
+
+  @@index([filterHash, createdAt])
+}
+
+// === Practice Question Daily Usage ===
+
+model PracticeQuestionUsage {
+  id        String   @id @default(uuid())
+  userId    String
+  questionId String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}

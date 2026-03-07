@@ -1,0 +1,40 @@
+{
+  "name": "@careerportal/source",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "api": "nx serve api",
+    "web": "nx serve web",
+    "db:up": "docker compose up -d",
+    "db:migrate": "nx run api:prisma-migrate",
+    "db:seed": "nx run api:prisma-seed",
+    "db:generate": "nx run api:prisma-generate"
+  },
+  "devDependencies": {
+    "@nx/js": "20.3.0",
+    "@nx/node": "20.3.0",
+    "@nx/react": "20.3.0",
+    "@nx/vite": "20.3.0",
+    "@nx/web": "20.3.0",
+    "@nx/webpack": "20.3.0",
+    "nx": "20.3.0",
+    "ts-node": "10.9.2",
+    "typescript": "5.5.4"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@supabase/supabase-js": "^2.97.0",
+    "@tanstack/react-query": "^5.62.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "^18.3.12",
+      "@types/react-dom": "^18.3.1",
+      "react": "^18.3.1",
+      "react-dom": "^18.3.1"
+    }
+  }
+}

@@ -1,0 +1,13 @@
+node_modules
+.nx
+dist
+.git
+.vscode
+*.log
+.env
+.env.local
+apps/web/.env
+apps/api/.env
+coverage
+.cache
+tmp
