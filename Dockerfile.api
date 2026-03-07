@@ -34,7 +34,7 @@ COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/package.json ./package.json
 
 # Run migrations and start server
-WORKDIR /app/apps/api
-CMD npx prisma migrate deploy --schema=./prisma/schema.prisma && node ../../dist/apps/api/src/main.js
+WORKDIR /app
+CMD cd apps/api && npx prisma migrate deploy --schema=./prisma/schema.prisma && cd ../.. && node dist/apps/api/main.js
 
 EXPOSE 3000
