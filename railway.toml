@@ -1,0 +1,2 @@
+# This file is intentionally empty to remove the global Dockerfile configuration
+# Each service should use its own railway.json or railway.web.json file
