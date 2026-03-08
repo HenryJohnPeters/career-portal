@@ -5,9 +5,7 @@ FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
-COPY libs/shared/types/package.json ./libs/shared/types/
-COPY libs/web/data-access/package.json ./libs/web/data-access/
-COPY libs/web/ui/package.json ./libs/web/ui/
+COPY libs ./libs
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
