@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'dist/apps/web')));
 
 // Handle client-side routing - return index.html for all routes
-app.get('*', (req, res) => {
+app.get('/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist/apps/web/index.html'));
 });
 
