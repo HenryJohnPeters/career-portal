@@ -8,5 +8,5 @@ cmds = ['pnpm install --frozen-lockfile']
 cmds = ['pnpm nx build web --prod']
 
 [start]
-cmd = 'npx serve dist/apps/web -s -l $PORT'
+cmd = 'npx serve dist/apps/web -s -l ${PORT:-8080} --no-clipboard'
 # Force Railway to use Nixpacks
