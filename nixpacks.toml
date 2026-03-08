@@ -2,11 +2,11 @@
 nixPkgs = ['nodejs_20', 'pnpm']
 
 [phases.install]
-cmds = ['pnpm install --frozen-lockfile']
+cmds = ['pnpm install --frozen-lockfile', 'pnpm add express']
 
 [phases.build]
 cmds = ['pnpm nx build web --prod']
 
 [start]
-cmd = 'sh -c "npx serve dist/apps/web -s -l $PORT --no-clipboard"'
+cmd = 'node server.js'
 # Force Railway to use Nixpacks
