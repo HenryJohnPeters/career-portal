@@ -9,7 +9,7 @@ cmds = [
   'echo "Building with environment variables..."',
   'echo "VITE_API_URL=$VITE_API_URL"',
   'echo "VITE_SUPABASE_URL=$VITE_SUPABASE_URL"',
-  'pnpm nx build web --prod'
+  'pnpm nx build web --prod --verbose'
 ]
 
 [start]
