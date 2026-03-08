@@ -7,8 +7,8 @@ import React, {
 } from "react";
 import type { User } from "@careerportal/shared/types";
 import { supabase, queryKeys } from "@careerportal/web/data-access";
-import { useMe } from "@careerportal/web/data-access";
 import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@careerportal/web/data-access";
 
 interface AuthContextType {
   user: User | null;
@@ -23,12 +23,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabaseReady, setSupabaseReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [user, setUser] = useState<User | null>(null);
-  const [queryClientReady, setQueryClientReady] = useState(false);
+  const [isLoadingUser, setIsLoadingUser] = useState(false);
   const queryClient = useQueryClient();
 
-  // Ensure QueryClient is ready before using any hooks
-  useEffect(() => {
-    setQueryClientReady(true);
+  // Fetch user data manually instead of using useMe hook
+  const fetchUser = useCallback(async () => {
+    try {
+      setIsLoadingUser(true);
+      const response = await api.get<{ data: User }>("/auth/me");
+      setUser(response.data);
+    } catch (error) {
+      console.error("Failed to fetch user:", error);
+      setUser(null);
+    } finally {
+      setIsLoadingUser(false);
+    }
   }, []);
 
   // Wait for Supabase to restore session from storage
@@ -41,34 +50,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setHasSession(!!session);
-        // Force React Query to refetch /auth/me when session changes
-        queryClient.invalidateQueries({ queryKey: queryKeys.me });
+        if (session) {
+          fetchUser();
+        } else {
+          setUser(null);
+        }
       }
     );
 
     return () => listener.subscription.unsubscribe();
-  }, [queryClient]);
+  }, [fetchUser]);
 
-  // Only call /auth/me once we know QueryClient is ready AND there's a Supabase session
-  const shouldFetchUser = queryClientReady && hasSession;
-  const { data, isLoading, isError } = useMe(shouldFetchUser);
-
+  // Fetch user when supabase session is ready
   useEffect(() => {
-    if (data?.data) {
-      setUser(data.data);
+    if (supabaseReady && hasSession) {
+      fetchUser();
     }
-    if (isError) {
-      setUser(null);
-    }
-  }, [data, isError]);
+  }, [supabaseReady, hasSession, fetchUser]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
     setHasSession(false);
-  }, []);
+    queryClient.invalidateQueries({ queryKey: queryKeys.me });
+  }, [queryClient]);
 
-  const loading = !supabaseReady || !queryClientReady || (hasSession && isLoading);
+  const loading = !supabaseReady || (hasSession && isLoadingUser);
 
   return (
     <AuthContext.Provider
