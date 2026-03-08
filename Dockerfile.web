@@ -4,14 +4,21 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY apps/web/package.json ./apps/web/
-COPY libs ./libs
+COPY apps/web/package.json ./apps/web/package.json
+COPY libs/shared/types/package.json ./libs/shared/types/package.json
+COPY libs/web/data-access/package.json ./libs/web/data-access/package.json
+COPY libs/web/ui/package.json ./libs/web/ui/package.json
 RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY --from=deps /app/package.json ./package.json
+COPY --from=deps /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
+COPY nx.json ./
+COPY tsconfig.base.json ./
+COPY apps/web ./apps/web
+COPY libs ./libs
 RUN pnpm nx build web --prod
 
 FROM nginx:alpine AS runner
