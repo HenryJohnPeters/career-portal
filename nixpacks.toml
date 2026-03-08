@@ -9,3 +9,4 @@ cmds = ['pnpm nx build web --prod']
 
 [start]
 cmd = 'npx serve dist/apps/web -s -l $PORT'
+# Force Railway to use Nixpacks
