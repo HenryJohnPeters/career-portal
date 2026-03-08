@@ -5,12 +5,7 @@ nixPkgs = ['nodejs_20', 'pnpm']
 cmds = ['pnpm install --frozen-lockfile', 'pnpm add express -w']
 
 [phases.build]
-cmds = [
-  'export VITE_API_URL="${VITE_API_URL:-http://localhost:3000}"',
-  'export VITE_SUPABASE_URL="${VITE_SUPABASE_URL}"',
-  'export VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY}"',
-  'pnpm nx build web --prod'
-]
+cmds = ['VITE_API_URL="${VITE_API_URL:-http://localhost:3000}" VITE_SUPABASE_URL="${VITE_SUPABASE_URL}" VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY}" pnpm nx build web --prod']
 
 [start]
 cmd = 'node server.js'
