@@ -9,13 +9,13 @@ import { ToastProvider } from "./features/tracker/components/Toast";
 import "./index.css";
 
 const queryClient = new QueryClient({
-  defaultOptions: { 
-    queries: { 
-      retry: 1, 
+  defaultOptions: {
+    queries: {
+      retry: 1,
       refetchOnWindowFocus: false,
       // Add error handling
       throwOnError: false,
-    } 
+    },
   },
 });
 
@@ -36,7 +36,7 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '20px', textAlign: 'center' }}>
+        <div style={{ padding: "20px", textAlign: "center" }}>
           <h1>Something went wrong</h1>
           <pre>{this.state.error?.message}</pre>
         </div>
