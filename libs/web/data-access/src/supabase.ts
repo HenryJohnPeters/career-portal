@@ -7,13 +7,13 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 console.log('Supabase URL:', supabaseUrl);
 console.log('Supabase Key exists:', !!supabaseAnonKey);
 
+// Create supabase client with fallback to placeholder values
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key'
+);
+
+// Log warning if using placeholder values
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY env vars');
-  // Create a dummy client to prevent app crash
-  export const supabase = createClient(
-    'https://placeholder.supabase.co',
-    'placeholder-key'
-  );
-} else {
-  export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  console.error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY env vars - using placeholder client');
 }
