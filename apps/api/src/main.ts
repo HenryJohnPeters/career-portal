@@ -15,9 +15,27 @@ async function bootstrap() {
   const logger = new Logger("Bootstrap");
   const config = app.get(ConfigService<EnvConfig, true>);
 
+  // Allow multiple origins for CORS
+  const allowedOrigins = [
+    config.get("CLIENT_URL"),
+    "https://web-production-aac8a.up.railway.app",
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: config.get("CLIENT_URL"),
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, Postman, etc.)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+        callback(null, true);
+      } else {
+        logger.warn(`CORS blocked origin: ${origin}`);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   });
 
   app.useGlobalPipes(
