@@ -2,7 +2,7 @@
 nixPkgs = ['nodejs_20', 'pnpm']
 
 [phases.install]
-cmds = ['pnpm install --frozen-lockfile', 'pnpm add express']
+cmds = ['pnpm install --frozen-lockfile', 'pnpm add express -w']
 
 [phases.build]
 cmds = ['pnpm nx build web --prod']
