@@ -23,7 +23,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [supabaseReady, setSupabaseReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [queryClientReady, setQueryClientReady] = useState(false);
   const queryClient = useQueryClient();
+
+  // Ensure QueryClient is ready before using any hooks
+  useEffect(() => {
+    setQueryClientReady(true);
+  }, []);
 
   // Wait for Supabase to restore session from storage
   useEffect(() => {
@@ -43,8 +49,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, [queryClient]);
 
-  // Only call /auth/me once we know there's a Supabase session
-  const { data, isLoading, isError } = useMe(hasSession);
+  // Only call /auth/me once we know QueryClient is ready AND there's a Supabase session
+  const shouldFetchUser = queryClientReady && hasSession;
+  const { data, isLoading, isError } = useMe(shouldFetchUser);
 
   useEffect(() => {
     if (data?.data) {
@@ -61,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setHasSession(false);
   }, []);
 
-  const loading = !supabaseReady || (hasSession && isLoading);
+  const loading = !supabaseReady || !queryClientReady || (hasSession && isLoading);
 
   return (
     <AuthContext.Provider
