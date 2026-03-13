@@ -9,8 +9,8 @@ cmds = [
 
 [phases.build]
 cmds = [
-  'pnpm tsc -p apps/api/tsconfig.json'
+  'pnpm exec tsc -p apps/api/tsconfig.json'
 ]
 
 [start]
-cmd = 'cd apps/api && pnpm prisma migrate deploy && node ../../dist/apps/api/main.js'
+cmd = 'cd apps/api && pnpm prisma migrate deploy && cd /app && node dist/apps/api/main.js'
