@@ -40,7 +40,10 @@ COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
 
+# Set working directory to apps/api for prisma
+WORKDIR /app/apps/api
+
 # Run migrations and start server
-CMD sh -c "cd apps/api && pnpm prisma migrate deploy && cd /app && node dist/apps/api/main.js"
+CMD ["sh", "-c", "pnpm prisma migrate deploy && node /app/dist/apps/api/main.js"]
 
 EXPOSE 3000
