@@ -2,12 +2,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "./lib/auth";
-import { ThemeProvider } from "./lib/theme";
-import { App } from "./App";
-import { ToastProvider } from "./features/tracker/components/Toast";
 import "./index.css";
 
+// Create QueryClient FIRST before any other imports that might use it
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -18,7 +15,13 @@ const queryClient = new QueryClient({
   },
 });
 
-// Add error boundary with better error display
+// Import components AFTER QueryClient is created
+const { AuthProvider } = await import("./lib/auth");
+const { ThemeProvider } = await import("./lib/theme");
+const { App } = await import("./App");
+const { ToastProvider } = await import("./features/tracker/components/Toast");
+
+// Error boundary with better error display
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error: Error | null }
