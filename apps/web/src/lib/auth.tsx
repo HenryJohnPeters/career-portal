@@ -6,8 +6,7 @@ import React, {
   useEffect,
 } from "react";
 import type { User } from "@careerportal/shared/types";
-import { supabase, queryKeys } from "@careerportal/web/data-access";
-import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@careerportal/web/data-access";
 import { api } from "@careerportal/web/data-access";
 
 interface AuthContextType {
@@ -24,7 +23,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [hasSession, setHasSession] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(false);
-  const queryClient = useQueryClient();
 
   // Fetch user data manually instead of using useMe hook
   const fetchUser = useCallback(async () => {
@@ -72,8 +70,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setHasSession(false);
-    queryClient.invalidateQueries({ queryKey: queryKeys.me });
-  }, [queryClient]);
+    // Don't use queryClient here - just clear local state
+  }, []);
 
   const loading = !supabaseReady || (hasSession && isLoadingUser);
 
