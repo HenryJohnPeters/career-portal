@@ -1,3 +1,4 @@
+# Railway Career Portal API Dockerfile - Updated 2026-03-13
 FROM node:20-slim AS base
 RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
@@ -7,7 +8,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY libs/shared/types/package.json ./libs/shared/types/
-RUN pnpm install --frozen-lockfile --prod
+RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
@@ -30,7 +31,7 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Copy production dependencies
+# Copy ALL dependencies (not just production ones) - NestJS needs reflect-metadata at runtime
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 
