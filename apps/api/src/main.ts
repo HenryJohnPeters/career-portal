@@ -19,14 +19,17 @@ async function bootstrap() {
   const allowedOrigins = [
     config.get("CLIENT_URL"),
     "https://web-production-aac8a.up.railway.app",
+    "http://localhost:4200",
   ].filter(Boolean);
+
+  logger.log(`Allowed CORS origins: ${allowedOrigins.join(", ")}`);
 
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, Postman, etc.)
       if (!origin) return callback(null, true);
-      
-      if (allowedOrigins.some(allowed => origin.startsWith(allowed))) {
+
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         logger.warn(`CORS blocked origin: ${origin}`);
