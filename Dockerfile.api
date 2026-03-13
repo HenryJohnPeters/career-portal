@@ -1,0 +1,46 @@
+FROM node:20-slim AS base
+RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+FROM base AS deps
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json ./apps/api/
+COPY libs/shared/types/package.json ./libs/shared/types/
+RUN pnpm install --frozen-lockfile --prod
+
+FROM base AS builder
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json ./apps/api/
+COPY libs/shared/types/package.json ./libs/shared/types/
+RUN pnpm install --frozen-lockfile
+COPY . .
+
+# Generate Prisma client
+ENV DATABASE_URL="postgresql://placeholder:placeholder@placeholder:5432/placeholder"
+WORKDIR /app/apps/api
+RUN pnpm prisma generate
+
+# Build TypeScript
+WORKDIR /app
+RUN pnpm exec tsc -p apps/api/tsconfig.json
+
+FROM base AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+
+# Copy production dependencies
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+
+# Copy built application
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+
+# Run migrations and start server
+CMD cd apps/api && pnpm prisma migrate deploy && cd /app && node dist/apps/api/main.js
+
+EXPOSE 3000
