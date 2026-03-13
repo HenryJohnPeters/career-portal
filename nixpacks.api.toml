@@ -7,5 +7,10 @@ cmds = [
   'cd apps/api && pnpm prisma generate'
 ]
 
+[phases.build]
+cmds = [
+  'pnpm tsc -p apps/api/tsconfig.json'
+]
+
 [start]
-cmd = 'cd apps/api && pnpm ts-node -r tsconfig-paths/register src/main.ts'
+cmd = 'cd apps/api && pnpm prisma migrate deploy && node ../../dist/apps/api/main.js'
