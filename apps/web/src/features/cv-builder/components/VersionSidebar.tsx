@@ -100,15 +100,14 @@ export function VersionSidebar({
         <button
           onClick={() => !atFreeLimit && onShowCreateVersion(true)}
           disabled={atFreeLimit}
-          className={`w-full flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed py-3 text-xs font-medium transition-all duration-200 group ${
+          className={`w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed py-4 text-sm font-medium transition-all duration-200 group ${
             atFreeLimit
               ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
               : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-accent hover:text-accent-dark dark:hover:text-accent hover:bg-accent-muted/10"
           }`}
         >
-          <PlusCircle className="h-4 w-4 group-hover:scale-110 transition-transform" />
-          <span className="hidden xl:inline">New Version</span>
-          <span className="xl:hidden">New</span>
+          <PlusCircle className="h-4.5 w-4.5 group-hover:scale-110 transition-transform" />
+          New Version
         </button>
       )}
 
@@ -125,7 +124,7 @@ export function VersionSidebar({
           </p>
         </div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {versions.map((v) => (
             <VersionCard
               key={v.id}

@@ -344,11 +344,11 @@ export function DashboardLayout() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 overflow-auto">
-          <div className="p-8 max-w-7xl mx-auto">
+        <main className="flex-1 overflow-auto flex flex-col">
+          <div className="flex-1 p-4 sm:p-6">
             <Outlet />
           </div>
-          <footer className="border-t border-border py-4 px-8 text-center text-xs text-text-tertiary">
+          <footer className="border-t border-border py-4 px-8 text-center text-xs text-text-tertiary mt-auto">
             Career Portal &copy; {new Date().getFullYear()}
           </footer>
         </main>

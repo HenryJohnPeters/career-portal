@@ -1,4 +1,4 @@
-import { FileText, List, Palette, Code2 } from "lucide-react";
+import { FileText, List, Palette, Code2, ArrowLeft } from "lucide-react";
 import { Spinner, ErrorState, ConfirmDialog } from "@careerportal/web/ui";
 import { PageHero } from "../shared";
 import { useAuth } from "../../lib/auth";
@@ -32,10 +32,8 @@ export function CvBuilderPage() {
       <ErrorState message={(cv.error as Error).message} onRetry={cv.refetch} />
     );
 
-  const sidebarSpan =
-    cv.selectedVersion && cv.showPreview ? "lg:col-span-2" : "lg:col-span-3";
-  const editorSpan =
-    cv.selectedVersion && cv.showPreview ? "lg:col-span-5" : "lg:col-span-9";
+  const previewSpan = cv.showPreview ? "lg:col-span-7" : "";
+  const editorSpan = cv.showPreview ? "lg:col-span-5" : "lg:col-span-12";
 
   return (
     <div className="space-y-6">
@@ -55,185 +53,192 @@ export function CvBuilderPage() {
         ]}
       />
 
-      {cv.selectedVersion && (
-        <VersionToolbar
-          version={cv.selectedVersion}
-          sections={cv.sections}
-          showPreview={cv.showPreview}
-          onTogglePreview={() => cv.setShowPreview((p) => !p)}
-          onPreviewPdf={cv.handlePreviewPdf}
-          onDownloadPdf={cv.handleDownloadPdf}
-        />
-      )}
+      {cv.selectedVersion ? (
+        <>
+          {/* Back button + toolbar */}
+          <div className="space-y-4">
+            <button
+              onClick={() => cv.setSelectedVersionId(null)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to versions
+            </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Version sidebar */}
-        <div className={`${sidebarSpan} space-y-4`}>
-          <VersionSidebar
-            versions={cv.versions}
-            selectedVersionId={cv.selectedVersionId}
-            showCreateVersion={cv.showCreateVersion}
-            newVersionTitle={cv.newVersionTitle}
-            createVersionPending={cv.createVersionPending}
-            renamingVersionId={cv.renamingVersionId}
-            renameTitle={cv.renameTitle}
-            isPremium={isPremium}
-            onSelectVersion={cv.setSelectedVersionId}
-            onNewVersionTitleChange={cv.setNewVersionTitle}
-            onShowCreateVersion={cv.setShowCreateVersion}
-            onCreateVersion={cv.handleCreateVersion}
-            onRenameTitleChange={cv.setRenameTitle}
-            onRenameSubmit={cv.handleRename}
-            onRenameCancel={() => {
-              cv.setRenamingVersionId(null);
-              cv.setRenameTitle("");
-            }}
-            onStartRename={(v) => {
-              cv.setRenamingVersionId(v.id);
-              cv.setRenameTitle(v.title);
-            }}
-            onSetActive={cv.handleSetActive}
-            onDelete={cv.handleDeleteVersion}
-            onDuplicate={cv.handleDuplicateVersion}
-          />
-        </div>
+            <VersionToolbar
+              version={cv.selectedVersion}
+              sections={cv.sections}
+              showPreview={cv.showPreview}
+              onTogglePreview={() => cv.setShowPreview((p) => !p)}
+              onPreviewPdf={cv.handlePreviewPdf}
+              onDownloadPdf={cv.handleDownloadPdf}
+            />
+          </div>
 
-        {/* Main editor area */}
-        <div className={editorSpan}>
-          {cv.selectedVersion ? (
-            <div className="space-y-4">
-              {/* Tab bar */}
-              <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-1 gap-1">
-                {DESIGN_TABS.map((tab) => {
-                  const TabIcon = tab.icon;
-                  return (
-                    <button
-                      key={tab.key}
-                      onClick={() => cv.setDesignTab(tab.key)}
-                      className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
-                        cv.designTab === tab.key
-                          ? "bg-primary-500/10 text-primary-700 dark:text-primary-300 shadow-sm"
-                          : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                      }`}
-                    >
-                      <TabIcon className="h-4 w-4" />
-                      {tab.label}
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Full-width editor + preview grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            <div className={editorSpan}>
+              <div className="space-y-4">
+                {/* Tab bar */}
+                <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-1 gap-1">
+                  {DESIGN_TABS.map((tab) => {
+                    const TabIcon = tab.icon;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => cv.setDesignTab(tab.key)}
+                        className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                          cv.designTab === tab.key
+                            ? "bg-primary-500/10 text-primary-700 dark:text-primary-300 shadow-sm"
+                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        }`}
+                      >
+                        <TabIcon className="h-4 w-4" />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
 
-              {/* Sections tab */}
-              {cv.designTab === "sections" && (
-                <div className="space-y-4">
-                  <RawTextCvPanel
-                    versionId={cv.selectedVersion.id}
-                    existingSections={cv.sections}
-                    onComplete={() => cv.refetchPreview()}
-                  />
-                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-5">
-                    <ContactPanel
-                      name={cv.selectedVersion.name || user?.name || ""}
-                      email={cv.selectedVersion.email || user?.email || ""}
-                      photoUrl={cv.selectedVersion.photoUrl || ""}
-                      phone={cv.selectedVersion.phone || ""}
-                      location={cv.selectedVersion.location || ""}
-                      website={cv.selectedVersion.website || ""}
-                      linkedin={cv.selectedVersion.linkedin || ""}
-                      github={cv.selectedVersion.github || ""}
-                      headerLayout={cv.selectedVersion.headerLayout || "split"}
-                      onUpdateContact={cv.handleUpdateContact}
+                {/* Sections tab */}
+                {cv.designTab === "sections" && (
+                  <div className="space-y-4">
+                    <RawTextCvPanel
+                      versionId={cv.selectedVersion.id}
+                      existingSections={cv.sections}
+                      onComplete={() => cv.refetchPreview()}
+                    />
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-5">
+                      <ContactPanel
+                        name={cv.selectedVersion.name || user?.name || ""}
+                        email={cv.selectedVersion.email || user?.email || ""}
+                        photoUrl={cv.selectedVersion.photoUrl || ""}
+                        phone={cv.selectedVersion.phone || ""}
+                        location={cv.selectedVersion.location || ""}
+                        website={cv.selectedVersion.website || ""}
+                        linkedin={cv.selectedVersion.linkedin || ""}
+                        github={cv.selectedVersion.github || ""}
+                        headerLayout={cv.selectedVersion.headerLayout || "split"}
+                        onUpdateContact={cv.handleUpdateContact}
+                      />
+                    </div>
+                    <SectionEditor
+                      selectedVersion={cv.selectedVersion}
+                      sections={cv.sections}
+                      editingSectionId={cv.editingSectionId}
+                      sectionEdits={cv.sectionEdits}
+                      newSectionTitle={cv.newSectionTitle}
+                      createSectionPending={cv.createSectionPending}
+                      updateSectionPending={cv.updateSectionPending}
+                      autoSaveStatus={cv.autoSaveStatus}
+                      collapsedSections={cv.collapsedSections}
+                      showTemplates={cv.showTemplates}
+                      onNewSectionTitleChange={cv.setNewSectionTitle}
+                      onAddSection={cv.handleAddSection}
+                      onAddFromTemplate={cv.handleAddFromTemplate}
+                      onEditChange={cv.setSectionEdits}
+                      onStartEdit={cv.startEditSection}
+                      onSaveSection={cv.handleSaveSection}
+                      onCancelEdit={cv.handleCancelEditSection}
+                      onDeleteSection={cv.handleDeleteSection}
+                      onMoveSection={(id, direction) =>
+                        cv.moveSection.mutate({ id, direction })
+                      }
+                      onReorderSections={cv.handleReorderSections}
+                      onToggleCollapse={cv.toggleSectionCollapse}
+                      onShowTemplates={cv.setShowTemplates}
                     />
                   </div>
-                  <SectionEditor
-                    selectedVersion={cv.selectedVersion}
-                    sections={cv.sections}
-                    editingSectionId={cv.editingSectionId}
-                    sectionEdits={cv.sectionEdits}
-                    newSectionTitle={cv.newSectionTitle}
-                    createSectionPending={cv.createSectionPending}
-                    updateSectionPending={cv.updateSectionPending}
-                    autoSaveStatus={cv.autoSaveStatus}
-                    collapsedSections={cv.collapsedSections}
-                    showTemplates={cv.showTemplates}
-                    onNewSectionTitleChange={cv.setNewSectionTitle}
-                    onAddSection={cv.handleAddSection}
-                    onAddFromTemplate={cv.handleAddFromTemplate}
-                    onEditChange={cv.setSectionEdits}
-                    onStartEdit={cv.startEditSection}
-                    onSaveSection={cv.handleSaveSection}
-                    onCancelEdit={cv.handleCancelEditSection}
-                    onDeleteSection={cv.handleDeleteSection}
-                    onMoveSection={(id, direction) =>
-                      cv.moveSection.mutate({ id, direction })
-                    }
-                    onReorderSections={cv.handleReorderSections}
-                    onToggleCollapse={cv.toggleSectionCollapse}
-                    onShowTemplates={cv.setShowTemplates}
-                  />
-                </div>
-              )}
+                )}
 
-              {/* Design tab */}
-              {cv.designTab === "design" && (
-                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-5 space-y-6">
-                  <TemplateSelector
-                    selectedTemplate={
-                      cv.selectedVersion.templateId || "classic"
-                    }
-                    onSelectTemplate={cv.handleUpdateTemplate}
-                    isPremium={isPremium}
-                  />
-                  <div className="border-t border-gray-200 dark:border-gray-700" />
-                  <ThemeCustomiser
-                    themeConfig={cv.resolvedThemeConfig}
-                    onUpdateTheme={cv.handleUpdateTheme}
-                  />
-                </div>
-              )}
+                {/* Design tab */}
+                {cv.designTab === "design" && (
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-5 space-y-6">
+                    <TemplateSelector
+                      selectedTemplate={
+                        cv.selectedVersion.templateId || "classic"
+                      }
+                      onSelectTemplate={cv.handleUpdateTemplate}
+                      isPremium={isPremium}
+                    />
+                    <div className="border-t border-gray-200 dark:border-gray-700" />
+                    <ThemeCustomiser
+                      themeConfig={cv.resolvedThemeConfig}
+                      onUpdateTheme={cv.handleUpdateTheme}
+                    />
+                  </div>
+                )}
 
-              {/* HTML tab */}
-              {cv.designTab === "html" && (
-                <HtmlEditor
-                  html={cv.previewHtml}
-                  isLoading={cv.isPreviewLoading}
-                  isFetching={cv.isPreviewFetching}
-                  onRefresh={() => cv.refetchPreview()}
-                  onHtmlChange={(html) => cv.setEditedHtml(html)}
-                />
-              )}
+                {/* HTML tab */}
+                {cv.designTab === "html" && (
+                  <HtmlEditor
+                    html={cv.previewHtml}
+                    isLoading={cv.isPreviewLoading}
+                    isFetching={cv.isPreviewFetching}
+                    onRefresh={() => cv.refetchPreview()}
+                    onHtmlChange={(html) => cv.setEditedHtml(html)}
+                  />
+                )}
+              </div>
             </div>
-          ) : (
-            <EmptyVersionState />
-          )}
-        </div>
 
-        {/* Right preview column */}
-        {cv.selectedVersion && cv.showPreview && (
-          <div className="lg:col-span-5">
-            {cv.designTab === "html" ? (
-              <HtmlPreview
-                iframeRef={cv.iframeRef}
-                html={cv.editedHtml || cv.previewHtml || ""}
-                isLoading={cv.isPreviewLoading}
-                isFetching={cv.isPreviewFetching}
-                onRefresh={() => cv.refetchPreview()}
-                onFullPreview={cv.handlePreviewPdf}
-              />
-            ) : (
-              <LivePreview
-                iframeRef={cv.iframeRef}
-                previewHtml={cv.previewHtml}
-                previewSrcDoc={cv.previewSrcDoc}
-                isPreviewLoading={cv.isPreviewLoading}
-                isPreviewFetching={cv.isPreviewFetching}
-                onRefresh={() => cv.refetchPreview()}
-                onFullPreview={cv.handlePreviewPdf}
-              />
+            {/* Right preview column */}
+            {cv.showPreview && (
+              <div className={previewSpan}>
+                {cv.designTab === "html" ? (
+                  <HtmlPreview
+                    iframeRef={cv.iframeRef}
+                    html={cv.editedHtml || cv.previewHtml || ""}
+                    isLoading={cv.isPreviewLoading}
+                    isFetching={cv.isPreviewFetching}
+                    onRefresh={() => cv.refetchPreview()}
+                    onFullPreview={cv.handlePreviewPdf}
+                  />
+                ) : (
+                  <LivePreview
+                    iframeRef={cv.iframeRef}
+                    previewHtml={cv.previewHtml}
+                    previewSrcDoc={cv.previewSrcDoc}
+                    isPreviewLoading={cv.isPreviewLoading}
+                    isPreviewFetching={cv.isPreviewFetching}
+                    onRefresh={() => cv.refetchPreview()}
+                    onFullPreview={cv.handlePreviewPdf}
+                  />
+                )}
+              </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        /* ── Version list when nothing is selected ── */
+        <VersionSidebar
+          versions={cv.versions}
+          selectedVersionId={cv.selectedVersionId}
+          showCreateVersion={cv.showCreateVersion}
+          newVersionTitle={cv.newVersionTitle}
+          createVersionPending={cv.createVersionPending}
+          renamingVersionId={cv.renamingVersionId}
+          renameTitle={cv.renameTitle}
+          isPremium={isPremium}
+          onSelectVersion={cv.setSelectedVersionId}
+          onNewVersionTitleChange={cv.setNewVersionTitle}
+          onShowCreateVersion={cv.setShowCreateVersion}
+          onCreateVersion={cv.handleCreateVersion}
+          onRenameTitleChange={cv.setRenameTitle}
+          onRenameSubmit={cv.handleRename}
+          onRenameCancel={() => {
+            cv.setRenamingVersionId(null);
+            cv.setRenameTitle("");
+          }}
+          onStartRename={(v) => {
+            cv.setRenamingVersionId(v.id);
+            cv.setRenameTitle(v.title);
+          }}
+          onSetActive={cv.handleSetActive}
+          onDelete={cv.handleDeleteVersion}
+          onDuplicate={cv.handleDuplicateVersion}
+        />
+      )}
 
       <ConfirmDialog
         open={cv.confirmDialog.open}

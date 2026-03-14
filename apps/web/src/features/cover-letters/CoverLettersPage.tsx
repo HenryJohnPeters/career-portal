@@ -121,7 +121,7 @@ export function CoverLettersPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <PageHero
         icon={Mail}
         title="Cover Letters"
@@ -134,9 +134,197 @@ export function CoverLettersPage() {
         ]}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Left panel – Letter list */}
-        <div className="lg:col-span-2 space-y-4">
+      {editingId ? (
+        /* ── Full-screen editor when a letter is selected ── */
+        <div className="space-y-5">
+          {/* Back to list */}
+          <button
+            onClick={() => setEditingId(null)}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
+          >
+            <X className="h-4 w-4" />
+            Back to letters
+          </button>
+
+          {/* Editor card */}
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-muted text-accent">
+                <PenLine className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-accent">
+                Editor
+              </span>
+            </div>
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all"
+              placeholder="Cover letter title"
+            />
+            <textarea
+              value={editBody}
+              onChange={(e) => setEditBody(e.target.value)}
+              rows={16}
+              placeholder="Write your cover letter here..."
+              className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all resize-y"
+            />
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  loading={updateMut.isPending}
+                >
+                  <Save className="h-3.5 w-3.5 mr-1.5" />
+                  Save
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingId(null)}
+                >
+                  <X className="h-3.5 w-3.5 mr-1.5" />
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* AI Generate panel */}
+          <AiCoverLetterAssist
+            coverLetterId={editingId}
+            hasBody={editBody.trim().length > 0}
+            onApply={(content) => setEditBody(content)}
+          />
+
+          {/* AI tools card */}
+          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-600 text-white">
+                <Sparkles className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                AI Assistant
+              </span>
+              {!isPremium && (
+                <Crown className="h-3.5 w-3.5 text-amber-500" />
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button
+                onClick={handleSuggest}
+                disabled={suggestMut.isPending || !isPremium}
+                className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+              >
+                <Lightbulb className="h-5 w-5 text-accent shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                    Suggest
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    Get improvements
+                  </p>
+                </div>
+                {!isPremium && (
+                  <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
+                )}
+              </button>
+              <button
+                onClick={() => handleRewrite("professional")}
+                disabled={rewriteMut.isPending || !isPremium}
+                className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+              >
+                <Wand2 className="h-5 w-5 text-accent shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                    Professional
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    Formal rewrite
+                  </p>
+                </div>
+                {!isPremium && (
+                  <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
+                )}
+              </button>
+              <button
+                onClick={() => handleRewrite("friendly")}
+                disabled={rewriteMut.isPending || !isPremium}
+                className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+              >
+                <RefreshCw className="h-5 w-5 text-accent shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                    Friendly
+                  </p>
+                  <p className="text-[10px] text-gray-500">
+                    Casual rewrite
+                  </p>
+                </div>
+                {!isPremium && (
+                  <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
+                )}
+              </button>
+            </div>
+            {!isPremium && (
+              <button
+                onClick={() => navigate("/app/billing")}
+                className="mt-3 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline underline-offset-2"
+              >
+                <Crown className="h-3 w-3" />
+                AI features require Premium — Upgrade now →
+              </button>
+            )}
+          </div>
+
+          {/* Suggestions */}
+          {suggestions.length > 0 && (
+            <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Lightbulb className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
+                  Suggestions
+                </h4>
+              </div>
+              <ul className="space-y-2">
+                {suggestions.map((s, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-xs text-text-secondary"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-primary-500 shrink-0 mt-0.5" />
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Rewrite result */}
+          {rewriteResult && (
+            <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Wand2 className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
+                    Rewritten Version
+                  </h4>
+                </div>
+                <Button size="sm" onClick={applyRewrite}>
+                  <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
+                  Apply
+                </Button>
+              </div>
+              <pre className="text-xs text-text-secondary whitespace-pre-wrap leading-relaxed bg-bg-tertiary rounded-lg p-4 border border-border">
+                {rewriteResult}
+              </pre>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* ── List view when no letter is selected ── */
+        <div className="space-y-4">
           {/* Free-user cap warning */}
           {atFreeLimit && !showCreate && (
             <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10 p-3 flex items-start gap-2">
@@ -206,7 +394,7 @@ export function CoverLettersPage() {
             </button>
           )}
 
-          {/* Letter list */}
+          {/* Letter grid */}
           {letters.length === 0 ? (
             <div className="text-center py-16">
               <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800 mb-4">
@@ -220,25 +408,15 @@ export function CoverLettersPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {letters.map((cl) => (
                 <div
                   key={cl.id}
                   onClick={() => startEdit(cl)}
-                  className={`group relative rounded-xl border p-4 cursor-pointer transition-all duration-200 ${
-                    editingId === cl.id
-                      ? "border-primary-500 bg-primary-500/5 dark:border-primary-500 shadow-sm ring-1 ring-primary-500/20"
-                      : "border-border hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-sm bg-bg-elevated"
-                  }`}
+                  className="group relative rounded-xl border p-4 cursor-pointer transition-all duration-200 border-border hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-sm bg-bg-elevated"
                 >
                   <div className="flex items-start gap-3">
-                    <div
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
-                        editingId === cl.id
-                          ? "bg-violet-500 text-white"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-600"
-                      }`}
-                    >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-600 transition-colors">
                       <Mail className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -269,208 +447,7 @@ export function CoverLettersPage() {
             </div>
           )}
         </div>
-
-        {/* Right panel – Editor */}
-        <div className="lg:col-span-3">
-          {editingId ? (
-            <div className="space-y-5">
-              {/* Editor card */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-muted text-accent">
-                    <PenLine className="h-3.5 w-3.5" />
-                  </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-accent">
-                    Editor
-                  </span>
-                </div>
-                <input
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all"
-                  placeholder="Cover letter title"
-                />
-                <textarea
-                  value={editBody}
-                  onChange={(e) => setEditBody(e.target.value)}
-                  rows={12}
-                  placeholder="Write your cover letter here..."
-                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all resize-y"
-                />
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      onClick={handleSave}
-                      loading={updateMut.isPending}
-                    >
-                      <Save className="h-3.5 w-3.5 mr-1.5" />
-                      Save
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingId(null)}
-                    >
-                      <X className="h-3.5 w-3.5 mr-1.5" />
-                      Close
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* AI Generate panel – NEW */}
-              <AiCoverLetterAssist
-                coverLetterId={editingId}
-                hasBody={editBody.trim().length > 0}
-                onApply={(content) => setEditBody(content)}
-              />
-
-              {/* AI tools card */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-600 text-white">
-                    <Sparkles className="h-3.5 w-3.5" />
-                  </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                    AI Assistant
-                  </span>
-                  {!isPremium && (
-                    <Crown className="h-3.5 w-3.5 text-amber-500" />
-                  )}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <button
-                    onClick={handleSuggest}
-                    disabled={suggestMut.isPending || !isPremium}
-                    className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-                  >
-                    <Lightbulb className="h-5 w-5 text-accent shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                        Suggest
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        Get improvements
-                      </p>
-                    </div>
-                    {!isPremium && (
-                      <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleRewrite("professional")}
-                    disabled={rewriteMut.isPending || !isPremium}
-                    className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-                  >
-                    <Wand2 className="h-5 w-5 text-accent shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                        Professional
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        Formal rewrite
-                      </p>
-                    </div>
-                    {!isPremium && (
-                      <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => handleRewrite("friendly")}
-                    disabled={rewriteMut.isPending || !isPremium}
-                    className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-                  >
-                    <RefreshCw className="h-5 w-5 text-accent shrink-0" />
-                    <div>
-                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                        Friendly
-                      </p>
-                      <p className="text-[10px] text-gray-500">
-                        Casual rewrite
-                      </p>
-                    </div>
-                    {!isPremium && (
-                      <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
-                    )}
-                  </button>
-                </div>
-                {!isPremium && (
-                  <button
-                    onClick={() => navigate("/app/billing")}
-                    className="mt-3 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline underline-offset-2"
-                  >
-                    <Crown className="h-3 w-3" />
-                    AI features require Premium — Upgrade now →
-                  </button>
-                )}
-              </div>
-
-              {/* Suggestions */}
-              {suggestions.length > 0 && (
-                <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Lightbulb className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
-                      Suggestions
-                    </h4>
-                  </div>
-                  <ul className="space-y-2">
-                    {suggestions.map((s, i) => (
-                      <li
-                        key={i}
-                        className="flex items-start gap-2 text-xs text-text-secondary"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5 text-primary-500 shrink-0 mt-0.5" />
-                        <span>{s}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Rewrite result */}
-              {rewriteResult && (
-                <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Wand2 className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
-                        Rewritten Version
-                      </h4>
-                    </div>
-                    <Button size="sm" onClick={applyRewrite}>
-                      <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
-                      Apply
-                    </Button>
-                  </div>
-                  <pre className="text-xs text-text-secondary whitespace-pre-wrap leading-relaxed bg-bg-tertiary rounded-lg p-4 border border-border">
-                    {rewriteResult}
-                  </pre>
-                </div>
-              )}
-            </div>
-          ) : (
-            /* No letter selected */
-            <div className="flex flex-col items-center justify-center py-24 text-center">
-              <div className="relative mb-6">
-                <div className="h-20 w-20 rounded-2xl bg-bg-tertiary flex items-center justify-center">
-                  <Mail className="h-10 w-10 text-text-tertiary" />
-                </div>
-                <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-lg bg-primary-600 flex items-center justify-center shadow-sm">
-                  <PenLine className="h-4 w-4 text-white" />
-                </div>
-              </div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">
-                Select a cover letter
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
-                Choose a letter from the left panel to edit, or create a new one
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
