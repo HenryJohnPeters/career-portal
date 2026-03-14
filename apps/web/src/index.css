@@ -4,17 +4,197 @@
 
 @layer base {
   :root {
-    /* Accent colour tokens – single source of truth */
-    --color-accent: 59 130 246; /* blue-500 */
-    --color-accent-dark: 37 99 235; /* blue-600 */
-    --color-accent-light: 96 165 250; /* blue-400 */
-    --color-accent-muted: 219 234 254; /* blue-100 */
+    /* ══════════════════════════════════════════════════════
+       🎨 PRIMARY BRAND COLOR (Easy to customize!)
+       Change these values to rebrand the entire app
+       ══════════════════════════════════════════════════════ */
+    --color-primary-50: 240 249 255; /* Lightest */
+    --color-primary-100: 224 242 254;
+    --color-primary-200: 186 230 253;
+    --color-primary-300: 125 211 252;
+    --color-primary-400: 56 189 248;
+    --color-primary-500: 14 165 233; /* Main brand color */
+    --color-primary-600: 2 132 199; /* Darker */
+    --color-primary-700: 3 105 161;
+    --color-primary-800: 7 89 133;
+    --color-primary-900: 12 74 110;
+    --color-primary-950: 8 47 73; /* Darkest */
+
+    /* ══════════════════════════════════════════════════════
+       🌈 ACCENT COLOR (For highlights & CTAs)
+       ══════════════════════════════════════════════════════ */
+    --color-accent-50: 255 251 235;
+    --color-accent-100: 254 243 199;
+    --color-accent-200: 253 224 71;
+    --color-accent-300: 250 204 21;
+    --color-accent-400: 234 179 8; /* Main accent */
+    --color-accent-500: 202 138 4;
+    --color-accent-600: 161 98 7;
+    --color-accent-700: 113 63 18;
+    --color-accent-800: 66 32 6;
+    --color-accent-900: 42 23 11;
+
+    /* ══════════════════════════════════════════════════════
+       ⚪ NEUTRAL COLORS (Grays)
+       ══════════════════════════════════════════════════════ */
+    --color-neutral-50: 250 250 250;
+    --color-neutral-100: 244 244 245;
+    --color-neutral-200: 228 228 231;
+    --color-neutral-300: 212 212 216;
+    --color-neutral-400: 161 161 170;
+    --color-neutral-500: 113 113 122;
+    --color-neutral-600: 82 82 91;
+    --color-neutral-700: 63 63 70;
+    --color-neutral-800: 39 39 42;
+    --color-neutral-900: 24 24 27;
+    --color-neutral-950: 9 9 11;
+
+    /* ══════════════════════════════════════════════════════
+       ✅ SEMANTIC COLORS
+       ══════════════════════════════════════════════════════ */
+    --color-success: 34 197 94;
+    --color-warning: 245 158 11;
+    --color-error: 239 68 68;
+    --color-info: 59 130 246;
+
+    /* ══════════════════════════════════════════════════════
+       🎭 LIGHT MODE SEMANTIC TOKENS
+       ══════════════════════════════════════════════════════ */
+    --bg-primary: var(--color-neutral-50);
+    --bg-secondary: 255 255 255;
+    --bg-tertiary: var(--color-neutral-100);
+    --bg-elevated: 255 255 255;
+
+    --text-primary: var(--color-neutral-900);
+    --text-secondary: var(--color-neutral-600);
+    --text-tertiary: var(--color-neutral-400);
+    --text-inverse: 255 255 255;
+
+    --border-primary: var(--color-neutral-200);
+    --border-secondary: var(--color-neutral-100);
+    --border-focus: var(--color-primary-500);
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+
+    /* Legacy accent tokens for backward compatibility */
+    --color-accent: var(--color-primary-500);
+    --color-accent-dark: var(--color-primary-600);
+    --color-accent-light: var(--color-primary-400);
+    --color-accent-muted: var(--color-primary-100);
   }
 
   .dark {
-    --color-accent: 96 165 250; /* blue-400 */
-    --color-accent-dark: 59 130 246; /* blue-500 */
-    --color-accent-light: 147 197 253; /* blue-300 */
-    --color-accent-muted: 30 58 138; /* blue-900 */
+    /* ══════════════════════════════════════════════════════
+       🌙 DARK MODE SEMANTIC TOKENS
+       ══════════════════════════════════════════════════════ */
+    --bg-primary: var(--color-neutral-950);
+    --bg-secondary: var(--color-neutral-900);
+    --bg-tertiary: var(--color-neutral-800);
+    --bg-elevated: var(--color-neutral-900);
+
+    --text-primary: var(--color-neutral-50);
+    --text-secondary: var(--color-neutral-400);
+    --text-tertiary: var(--color-neutral-600);
+    --text-inverse: var(--color-neutral-900);
+
+    --border-primary: var(--color-neutral-800);
+    --border-secondary: var(--color-neutral-900);
+    --border-focus: var(--color-primary-400);
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5);
+
+    /* Legacy accent tokens for backward compatibility */
+    --color-accent: var(--color-primary-400);
+    --color-accent-dark: var(--color-primary-500);
+    --color-accent-light: var(--color-primary-300);
+    --color-accent-muted: var(--color-primary-900);
+  }
+
+  /* ══════════════════════════════════════════════════════
+     🎯 BASE STYLES
+     ══════════════════════════════════════════════════════ */
+  body {
+    background-color: rgb(var(--bg-primary));
+    color: rgb(var(--text-primary));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* ══════════════════════════════════════════════════════
+     📝 TYPOGRAPHY IMPROVEMENTS
+     ══════════════════════════════════════════════════════ */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+
+  /* ══════════════════════════════════════════════════════
+     🎬 SMOOTH SCROLLING
+     ══════════════════════════════════════════════════════ */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+}
+
+@layer utilities {
+  /* ══════════════════════════════════════════════════════
+     🎨 CUSTOM UTILITIES
+     ══════════════════════════════════════════════════════ */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Glass morphism effect */
+  .glass {
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .dark .glass {
+    background-color: rgba(24, 24, 27, 0.8);
+  }
+
+  .glass-border {
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .dark .glass-border {
+    border: 1px solid rgba(63, 63, 70, 0.5);
+  }
+
+  /* Shimmer loading effect */
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 1000px 100%;
   }
 }

@@ -70,7 +70,7 @@ export function PracticeSetup({ state, onStart }: PracticeSetupProps) {
           </div>
           <NavLink
             to="/app/billing"
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-3.5 py-2 text-xs font-bold text-white hover:opacity-90 transition-opacity shadow-sm"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-accent-400 px-3.5 py-2 text-xs font-bold text-white hover:bg-accent-500 transition-colors shadow-sm"
           >
             <Crown className="h-3.5 w-3.5" />
             Upgrade for Unlimited
@@ -167,8 +167,8 @@ function SessionPreviewCard({
   dailyLimitReached?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-      <div className="h-2 bg-gradient-to-r from-accent-dark to-indigo-600" />
+    <div className="rounded-2xl border border-border bg-bg-elevated overflow-hidden shadow-sm">
+      <div className="h-2 bg-primary-600" />
       <div className="p-5 space-y-4">
         <div>
           <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
@@ -226,7 +226,7 @@ function SessionPreviewCard({
         {dailyLimitReached ? (
           <NavLink
             to="/app/billing"
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-3 text-sm font-bold text-white hover:opacity-90 transition-opacity shadow-lg shadow-amber-500/20"
+            className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent-400 px-4 py-3 text-sm font-bold text-white hover:bg-accent-500 transition-colors shadow-sm"
           >
             <Lock className="h-4 w-4" /> Upgrade to Continue
           </NavLink>
@@ -235,7 +235,7 @@ function SessionPreviewCard({
             size="lg"
             onClick={onStart}
             loading={isLoading}
-            className="w-full bg-gradient-to-r from-accent-dark to-indigo-600 hover:opacity-90 text-white border-0 shadow-lg shadow-accent/20"
+            className="w-full"
           >
             <Play className="h-4 w-4 mr-2" /> Start Practicing
           </Button>

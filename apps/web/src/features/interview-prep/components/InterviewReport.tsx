@@ -60,7 +60,7 @@ export function InterviewReport({
             <ChevronRight className="h-4 w-4 rotate-180" />
           </button>
           <span
-            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-gradient-to-r ${trackMeta.gradient} text-white`}
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg ${trackMeta.solid} ${trackMeta.solidText}`}
           >
             {trackMeta.icon} {trackMeta.label}
           </span>
@@ -103,10 +103,10 @@ export function InterviewReport({
           <div
             className={`h-full rounded-full transition-all duration-500 ease-out ${
               pct >= 70
-                ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                ? "bg-emerald-500"
                 : pct >= 40
-                ? "bg-gradient-to-r from-amber-400 to-amber-500"
-                : "bg-gradient-to-r from-red-400 to-red-500"
+                ? "bg-amber-500"
+                : "bg-red-400"
             }`}
             style={{ width: `${pct}%` }}
           />
@@ -118,7 +118,7 @@ export function InterviewReport({
         <div className="space-y-4">
           {/* Summary card */}
           <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-            <div className={`h-1 bg-gradient-to-r ${trackMeta.gradient}`} />
+            <div className={`h-1 ${trackMeta.solid}`} />
             <div className="p-6">
               <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
                 Summary
@@ -212,7 +212,7 @@ export function InterviewReport({
             <Button
               size="lg"
               onClick={onStartNew}
-              className="w-full bg-gradient-to-r from-accent-dark to-indigo-600 hover:opacity-90 text-white border-0 shadow-lg shadow-accent/20"
+              className="w-full"
             >
               <Play className="h-4 w-4 mr-2" /> New Interview
             </Button>

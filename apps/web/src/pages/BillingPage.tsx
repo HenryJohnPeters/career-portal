@@ -139,8 +139,8 @@ export function BillingPage() {
         <div
           className={`px-6 py-5 ${
             isPremium
-              ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5"
-              : "bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-800/50 dark:to-slate-800/50"
+              ? "bg-accent-50 dark:bg-accent-900/10"
+              : "bg-bg-tertiary"
           }`}
         >
           <div className="flex items-center justify-between">
@@ -148,8 +148,8 @@ export function BillingPage() {
               <div
                 className={`flex h-11 w-11 items-center justify-center rounded-xl ${
                   isPremium
-                    ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25"
-                    : "bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                    ? "bg-accent-400 text-white shadow-sm"
+                    : "bg-neutral-200 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400"
                 }`}
               >
                 {isPremium ? (
@@ -159,11 +159,11 @@ export function BillingPage() {
                 )}
               </div>
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                <h2 className="text-lg font-bold text-text-primary">
                   {isPremium ? "Premium Plan" : "Free Plan"}
                 </h2>
                 {isPremium && periodEnd && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary">
                     Renews on{" "}
                     {periodEnd.toLocaleDateString("en-GB", {
                       day: "numeric",
@@ -173,7 +173,7 @@ export function BillingPage() {
                   </p>
                 )}
                 {!isPremium && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary">
                     Upgrade to unlock AI-powered features
                   </p>
                 )}
@@ -211,38 +211,38 @@ export function BillingPage() {
         <Card className="relative overflow-hidden">
           <div className="p-6">
             <div className="flex items-center gap-2 mb-1">
-              <Star className="h-5 w-5 text-gray-400" />
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+              <Star className="h-5 w-5 text-text-tertiary" />
+              <h3 className="text-lg font-bold text-text-primary">
                 Free
               </h3>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-text-secondary mb-4">
               Get started with the essentials
             </p>
             <div className="mb-6">
-              <span className="text-3xl font-extrabold text-gray-900 dark:text-white">
+              <span className="text-3xl font-extrabold text-text-primary">
                 £0
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">
+              <span className="text-sm text-text-secondary ml-1">
                 / month
               </span>
             </div>
             <ul className="space-y-3 mb-6">
               {FREE_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2.5">
-                  <Check className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                  <Check className="h-4 w-4 text-text-tertiary mt-0.5 shrink-0" />
+                  <span className="text-sm text-text-secondary">
                     {f}
                   </span>
                 </li>
               ))}
             </ul>
             {!isPremium ? (
-              <div className="rounded-lg bg-gray-100 dark:bg-gray-800 py-2.5 text-center text-sm font-medium text-gray-500 dark:text-gray-400">
+              <div className="rounded-lg bg-bg-tertiary py-2.5 text-center text-sm font-medium text-text-secondary border border-border">
                 Current Plan
               </div>
             ) : (
-              <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 py-2.5 text-center text-sm text-gray-400 dark:text-gray-500">
+              <div className="rounded-lg bg-bg-tertiary py-2.5 text-center text-sm text-text-tertiary">
                 —
               </div>
             )}
@@ -250,48 +250,48 @@ export function BillingPage() {
         </Card>
 
         {/* Premium tier */}
-        <Card className="relative overflow-hidden ring-2 ring-amber-500/50 shadow-lg shadow-amber-500/10">
+        <Card className="relative overflow-hidden ring-2 ring-accent-400/50 shadow-lg">
           {/* Popular badge */}
           <div className="absolute top-0 right-0">
-            <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-bl-lg">
+            <div className="bg-accent-400 text-white text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-bl-lg">
               Popular
             </div>
           </div>
           <div className="p-6">
             <div className="flex items-center gap-2 mb-1">
-              <Crown className="h-5 w-5 text-amber-500" />
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+              <Crown className="h-5 w-5 text-accent-500" />
+              <h3 className="text-lg font-bold text-text-primary">
                 Premium
               </h3>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            <p className="text-sm text-text-secondary mb-4">
               AI-powered tools for your job search
             </p>
             <div className="mb-6">
-              <span className="text-3xl font-extrabold text-gray-900 dark:text-white">
+              <span className="text-3xl font-extrabold text-text-primary">
                 £9.99
               </span>
-              <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">
+              <span className="text-sm text-text-secondary ml-1">
                 / month
               </span>
             </div>
             <ul className="space-y-3 mb-6">
               {PREMIUM_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2.5">
-                  <Check className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <Check className="h-4 w-4 text-accent-500 mt-0.5 shrink-0" />
+                  <span className="text-sm text-text-primary">
                     {f}
                   </span>
                 </li>
               ))}
             </ul>
             {isPremium ? (
-              <div className="rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5 py-2.5 text-center text-sm font-semibold text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+              <div className="rounded-lg bg-accent-50 dark:bg-accent-900/20 py-2.5 text-center text-sm font-semibold text-accent-700 dark:text-accent-400 border border-accent-400/20">
                 ✓ Current Plan
               </div>
             ) : (
               <Button
-                className="w-full !bg-gradient-to-r !from-amber-500 !to-orange-600 hover:!from-amber-600 hover:!to-orange-700 !shadow-lg !shadow-amber-500/25"
+                className="w-full !bg-accent-400 hover:!bg-accent-500"
                 onClick={handleUpgrade}
                 loading={checkoutMut.isPending}
               >
@@ -307,44 +307,44 @@ export function BillingPage() {
       {/* Trust / FAQ */}
       <Card className="p-6">
         <div className="flex items-center gap-2 mb-4">
-          <Shield className="h-5 w-5 text-gray-400" />
-          <h3 className="font-semibold text-gray-900 dark:text-white">
+          <Shield className="h-5 w-5 text-text-tertiary" />
+          <h3 className="font-semibold text-text-primary">
             Frequently Asked Questions
           </h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
+            <h4 className="text-sm font-semibold text-text-primary mb-1">
               Can I cancel anytime?
             </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-text-secondary">
               Yes — cancel with one click from the billing portal. You keep
               Premium access until the end of your paid period.
             </p>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
+            <h4 className="text-sm font-semibold text-text-primary mb-1">
               What happens when I cancel?
             </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-text-secondary">
               Your account reverts to Free. All your data stays intact — you
               just lose AI features and premium limits.
             </p>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
+            <h4 className="text-sm font-semibold text-text-primary mb-1">
               Is my payment secure?
             </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-text-secondary">
               All payments are processed securely by Stripe. We never see or
               store your card details.
             </p>
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">
+            <h4 className="text-sm font-semibold text-text-primary mb-1">
               Can I switch plans?
             </h4>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-text-secondary">
               Currently we offer Free and Premium. Manage your subscription via
               the Stripe billing portal at any time.
             </p>

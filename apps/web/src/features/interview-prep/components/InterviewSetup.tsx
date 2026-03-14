@@ -133,7 +133,7 @@ export function InterviewSetup({
         <div className="lg:col-span-1">
           <div className="sticky top-6 space-y-4">
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="h-2 bg-gradient-to-r from-accent-dark to-indigo-600" />
+              <div className="h-2 bg-primary-600" />
               <div className="p-5 space-y-4">
                 <div>
                   <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
@@ -201,7 +201,7 @@ export function InterviewSetup({
                   size="lg"
                   onClick={onCreateSession}
                   loading={isCreating}
-                  className="w-full bg-gradient-to-r from-accent-dark to-indigo-600 hover:opacity-90 text-white border-0 shadow-lg shadow-accent/20"
+                  className="w-full"
                 >
                   <Play className="h-4 w-4 mr-2" /> Start Interview
                 </Button>
@@ -210,7 +210,7 @@ export function InterviewSetup({
 
             {/* Practice card */}
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="h-2 bg-gradient-to-r from-emerald-500 to-teal-500" />
+              <div className="h-2 bg-emerald-500" />
               <div className="p-5 space-y-3">
                 <div>
                   <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
@@ -228,7 +228,7 @@ export function InterviewSetup({
                   size="lg"
                   onClick={onStartPractice}
                   loading={isPracticeStarting}
-                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white border-0 shadow-lg shadow-emerald-500/20"
+                  className="w-full"
                 >
                   <Brain className="h-4 w-4 mr-2" /> Start Practicing
                 </Button>

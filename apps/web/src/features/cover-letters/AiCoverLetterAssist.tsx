@@ -109,27 +109,27 @@ export function AiCoverLetterAssist({
   // Free tier cap reached
   if (!hasUsesLeft) {
     return (
-      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-5">
+      <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-5">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2 mb-2">
-            <Crown className="h-5 w-5 text-amber-500" />
-            <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
+            <Crown className="h-5 w-5 text-accent-500" />
+            <span className="text-sm font-bold text-accent-700 dark:text-accent-300">
               Monthly Limit Reached
             </span>
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="rounded-md p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="rounded-md p-1 text-text-tertiary hover:text-text-primary transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="text-xs text-amber-800 dark:text-amber-200 leading-relaxed mb-1">
+        <p className="text-xs text-accent-800 dark:text-accent-200 leading-relaxed mb-1">
           You've used all {usage?.limit} free AI uses this month. Upgrade to
           Premium for unlimited AI-powered cover letter generation.
         </p>
         {usage?.resetsAt && (
-          <p className="text-[10px] text-amber-600 dark:text-amber-400 mb-3">
+          <p className="text-[10px] text-accent-600 dark:text-accent-400 mb-3">
             Resets{" "}
             {new Date(usage.resetsAt).toLocaleDateString("en-GB", {
               day: "numeric",
@@ -139,7 +139,7 @@ export function AiCoverLetterAssist({
         )}
         <Button
           size="sm"
-          className="!bg-gradient-to-r !from-amber-500 !to-orange-600 hover:!from-amber-600 hover:!to-orange-700 !shadow-lg !shadow-amber-500/25"
+          className="!bg-accent-400 hover:!bg-accent-500"
           onClick={() => navigate("/app/billing")}
         >
           <Sparkles className="h-3.5 w-3.5 mr-1.5" />
@@ -151,20 +151,20 @@ export function AiCoverLetterAssist({
   }
 
   return (
-    <div className="rounded-xl border border-accent-muted dark:border-accent-muted bg-gradient-to-br from-accent-muted/50 to-accent-muted/30 dark:from-accent-muted/15 dark:to-accent-muted/10 p-5 space-y-4">
+    <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-accent-dark to-accent text-white">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-white">
             <Sparkles className="h-3.5 w-3.5" />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-accent-dark dark:text-accent">
+          <span className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
             AI Cover Letter Generator
           </span>
         </div>
         <div className="flex items-center gap-2">
           {!isPremium && usage && (
-            <span className="text-[10px] font-medium text-accent-light dark:text-accent-light">
+            <span className="text-[10px] font-medium text-text-tertiary">
               {usage.remaining}/{usage.limit} uses left
             </span>
           )}
@@ -175,7 +175,7 @@ export function AiCoverLetterAssist({
               setAction(null);
               setError(null);
             }}
-            className="rounded-md p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="rounded-md p-1 text-text-tertiary hover:text-text-primary transition-colors"
           >
             <X className="h-4 w-4" />
           </button>

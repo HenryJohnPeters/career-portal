@@ -71,7 +71,7 @@ export function PracticeQuiz({ state }: PracticeQuizProps) {
           >
             <ChevronRight className="h-4 w-4 rotate-180" />
           </button>
-          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-gradient-to-r from-accent-dark to-indigo-600 text-white">
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-primary-600 text-white">
             {roleMeta?.icon ?? "🔗"} {roleMeta?.label ?? "Fullstack"}
           </span>
           <span
@@ -84,7 +84,7 @@ export function PracticeQuiz({ state }: PracticeQuizProps) {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {streak > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-200/50 dark:border-orange-800/50">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/10 border border-orange-200/50 dark:border-orange-800/50">
               <Flame className="h-3.5 w-3.5 text-orange-500 animate-pulse" />
               <span className="text-xs font-bold text-orange-600 dark:text-orange-400">
                 {streak} streak
@@ -102,7 +102,7 @@ export function PracticeQuiz({ state }: PracticeQuizProps) {
 
       {/* Daily limit reached banner */}
       {(dailyLimitReached || dailyLimitError) && (
-        <div className="mb-6 rounded-2xl border-2 border-amber-200 dark:border-amber-800/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-8 text-center">
+        <div className="mb-6 rounded-2xl border-2 border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 p-8 text-center">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-800/30 mb-4">
             <Lock className="h-8 w-8 text-amber-600 dark:text-amber-400" />
           </div>
@@ -123,7 +123,7 @@ export function PracticeQuiz({ state }: PracticeQuizProps) {
           <div className="flex justify-center gap-3">
             <NavLink
               to="/app/billing"
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-bold text-white hover:opacity-90 transition-opacity shadow-lg shadow-amber-500/20"
+              className="inline-flex items-center gap-2 rounded-xl bg-accent-400 px-6 py-3 text-sm font-bold text-white hover:bg-accent-500 transition-colors shadow-sm"
             >
               <Crown className="h-4 w-4" /> Upgrade to Premium
             </NavLink>
@@ -152,10 +152,10 @@ export function PracticeQuiz({ state }: PracticeQuizProps) {
             <div
               className={`h-full rounded-full transition-all duration-500 ease-out ${
                 accuracy >= 70
-                  ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                  ? "bg-emerald-500"
                   : accuracy >= 40
-                  ? "bg-gradient-to-r from-amber-400 to-amber-500"
-                  : "bg-gradient-to-r from-red-400 to-red-500"
+                  ? "bg-amber-500"
+                  : "bg-red-400"
               }`}
               style={{ width: `${accuracy}%` }}
             />
@@ -217,7 +217,7 @@ export function PracticeQuiz({ state }: PracticeQuizProps) {
                   onClick={state.handleSubmitAnswer}
                   loading={isChecking}
                   disabled={!hasSelection}
-                  className="w-full bg-gradient-to-r from-accent-dark to-indigo-600 hover:opacity-90 text-white border-0 shadow-lg shadow-accent/10 disabled:opacity-40 disabled:shadow-none"
+                  className="w-full disabled:opacity-40"
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   {isMultiSelect
@@ -252,7 +252,7 @@ export function PracticeQuiz({ state }: PracticeQuizProps) {
                   size="lg"
                   onClick={state.handleNextQuestion}
                   loading={isLoadingNext}
-                  className="w-full bg-gradient-to-r from-accent-dark to-indigo-600 hover:opacity-90 text-white border-0 shadow-lg shadow-accent/10"
+                  className="w-full"
                 >
                   Next Question <ChevronRight className="h-4 w-4 ml-2" />
                 </Button>
@@ -396,7 +396,7 @@ function QuestionCard({
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-      <div className="h-1 bg-gradient-to-r from-accent-dark to-indigo-600" />
+      <div className="h-1 bg-primary-600" />
       <div className="p-6">
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">

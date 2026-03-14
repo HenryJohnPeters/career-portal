@@ -106,7 +106,6 @@ export function TechTestSession({ state }: TechTestSessionProps) {
               size="sm"
               onClick={() => setShowConfirm(true)}
               disabled={state.submission.trim().length === 0}
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white border-0"
             >
               <Send className="h-3 w-3 mr-1" /> Submit
             </Button>
@@ -258,7 +257,6 @@ export function TechTestSession({ state }: TechTestSessionProps) {
                   state.handleSubmit();
                 }}
                 loading={state.isSubmitting}
-                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white border-0"
               >
                 <Send className="h-4 w-4 mr-2" /> Submit
               </Button>

@@ -79,11 +79,7 @@ export function InterviewHome({
 
       {/* Mobile start button */}
       <div className="sm:hidden">
-        <Button
-          size="lg"
-          onClick={onStartSetup}
-          className="w-full bg-gradient-to-r from-accent-dark to-indigo-600 hover:opacity-90 text-white border-0 shadow-lg shadow-accent/20"
-        >
+        <Button size="lg" onClick={onStartSetup} className="w-full">
           <Play className="h-4 w-4 mr-2" /> New Interview
         </Button>
       </div>
@@ -159,7 +155,7 @@ export function InterviewHome({
         <div className="hidden lg:block">
           <div className="sticky top-6 space-y-4">
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="h-2 bg-gradient-to-r from-accent-dark to-indigo-600" />
+              <div className="h-2 bg-primary-600" />
               <div className="p-5 space-y-4">
                 <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                   Quick Start
@@ -168,11 +164,7 @@ export function InterviewHome({
                   Create a new interview session with custom settings tailored
                   to your preparation goals.
                 </p>
-                <Button
-                  size="lg"
-                  onClick={onStartSetup}
-                  className="w-full bg-gradient-to-r from-accent-dark to-indigo-600 hover:opacity-90 text-white border-0 shadow-lg shadow-accent/20"
-                >
+                <Button size="lg" onClick={onStartSetup} className="w-full">
                   <Play className="h-4 w-4 mr-2" /> New Interview
                 </Button>
               </div>
@@ -228,13 +220,11 @@ function SessionCard({
       onClick={onClick}
       className="text-left rounded-2xl border-2 border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-blue-300 dark:hover:border-blue-700 transition-all group overflow-hidden shadow-sm hover:shadow-md"
     >
-      <div
-        className={`h-1 -mt-5 -mx-5 mb-4 bg-gradient-to-r ${meta.gradient}`}
-      />
+      <div className={`h-1 -mt-5 -mx-5 mb-4 ${meta.solid}`} />
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span
-            className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-gradient-to-r ${meta.gradient} text-white`}
+            className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md ${meta.solid} ${meta.solidText}`}
           >
             {meta.icon} {meta.label}
           </span>
@@ -251,9 +241,9 @@ function SessionCard({
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 line-clamp-1">
         {s.tags.slice(0, 4).join(", ")} · {s.persona} interviewer
       </p>
-      <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
+      <div className={`w-full ${meta.solid} opacity-20 rounded-full h-1.5 overflow-hidden`}>
         <div
-          className={`bg-gradient-to-r ${meta.gradient} h-1.5 rounded-full transition-all`}
+          className={`${meta.solid} h-1.5 rounded-full transition-all`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -287,13 +277,11 @@ function CompletedCard({
       onClick={onClick}
       className="text-left rounded-2xl border-2 border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:border-emerald-300 dark:hover:border-emerald-700 transition-all group overflow-hidden shadow-sm hover:shadow-md"
     >
-      <div
-        className={`h-1 -mt-5 -mx-5 mb-4 bg-gradient-to-r ${meta.gradient}`}
-      />
+      <div className={`h-1 -mt-5 -mx-5 mb-4 ${meta.solid}`} />
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span
-            className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-gradient-to-r ${meta.gradient} text-white`}
+            className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md ${meta.solid} ${meta.solidText}`}
           >
             {meta.icon} {meta.label}
           </span>
@@ -324,10 +312,10 @@ function CompletedCard({
             <div
               className={`h-1.5 rounded-full transition-all ${
                 pct >= 70
-                  ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
+                  ? "bg-emerald-500"
                   : pct >= 40
-                  ? "bg-gradient-to-r from-amber-400 to-amber-500"
-                  : "bg-gradient-to-r from-red-400 to-red-500"
+                  ? "bg-amber-500"
+                  : "bg-red-400"
               }`}
               style={{ width: `${pct}%` }}
             />

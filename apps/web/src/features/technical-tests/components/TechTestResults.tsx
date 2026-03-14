@@ -37,10 +37,10 @@ export function TechTestResults({ state }: TechTestResultsProps) {
 
   const gradeColor =
     evaluation.percentage >= 70
-      ? "from-emerald-500 to-teal-500"
+      ? "bg-emerald-500"
       : evaluation.percentage >= 40
-      ? "from-amber-500 to-orange-500"
-      : "from-red-500 to-rose-500";
+      ? "bg-amber-500"
+      : "bg-red-500";
 
   const gradeTextColor =
     evaluation.percentage >= 70
@@ -74,7 +74,7 @@ export function TechTestResults({ state }: TechTestResultsProps) {
 
       {/* Score hero */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-        <div className={`h-2 bg-gradient-to-r ${gradeColor}`} />
+        <div className={`h-2 ${gradeColor}`} />
         <div className="p-6 flex flex-col sm:flex-row items-center gap-6">
           {/* Score ring */}
           <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">

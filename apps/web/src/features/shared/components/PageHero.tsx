@@ -31,7 +31,7 @@ export function PageHero({
       </div>
 
       {/* Top accent line */}
-      <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent opacity-40" />
+      <div className="h-[2px] bg-primary-600 opacity-60" />
 
       <div className="relative px-6 py-6 sm:px-8 sm:py-7">
         <div className="flex items-center justify-between gap-4">

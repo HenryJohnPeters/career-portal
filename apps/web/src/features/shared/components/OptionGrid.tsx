@@ -44,7 +44,7 @@ export function OptionGrid<T extends string | number>({
               </p>
             )}
             {selected && (
-              <div className="absolute top-2.5 right-2.5 h-2.5 w-2.5 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500" />
+              <div className="absolute top-2.5 right-2.5 h-2.5 w-2.5 rounded-full bg-primary-600" />
             )}
           </button>
         );

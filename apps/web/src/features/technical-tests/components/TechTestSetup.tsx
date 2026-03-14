@@ -107,7 +107,7 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
         <div className="lg:col-span-1">
           <div className="sticky top-6 space-y-4">
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="h-2 bg-gradient-to-r from-violet-600 to-fuchsia-600" />
+              <div className="h-2 bg-violet-600" />
               <div className="p-5 space-y-4">
                 <div>
                   <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
@@ -164,7 +164,7 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
                   size="lg"
                   onClick={state.handleGenerate}
                   loading={state.isGenerating}
-                  className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:opacity-90 text-white border-0 shadow-lg shadow-violet-500/20"
+                  className="w-full"
                 >
                   <Play className="h-4 w-4 mr-2" /> Generate Test Scenario
                 </Button>
@@ -185,8 +185,7 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
                 ].map((tip) => (
                   <li
                     key={tip}
-                    className="text-[11px] text-accent/80 leading-relaxed flex items-start gap-1.5"
-                  >
+                    className="text-[11px] text-accent/80 leading-relaxed flex items-start gap-1.5">
                     <span className="mt-1 h-1 w-1 rounded-full bg-accent shrink-0" />
                     {tip}
                   </li>

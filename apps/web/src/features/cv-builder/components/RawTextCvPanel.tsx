@@ -152,26 +152,26 @@ export function RawTextCvPanel({
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="group w-full rounded-xl border-2 border-dashed border-accent-muted dark:border-accent-muted/60 bg-gradient-to-r from-accent-muted/20 to-accent-muted/10 dark:from-accent-muted/10 dark:to-accent-muted/5 p-5 text-left hover:border-accent-dark/50 dark:hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200"
+        className="group w-full rounded-xl border-2 border-dashed border-primary-500/20 bg-primary-500/5 p-5 text-left hover:border-primary-500/40 hover:bg-primary-500/10 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200"
       >
         <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-dark to-accent text-white shadow-md shadow-accent/20 group-hover:shadow-lg group-hover:shadow-accent/30 transition-shadow">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm">
             <Wand2 className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-accent-dark dark:group-hover:text-accent transition-colors">
+              <h3 className="text-sm font-bold text-text-primary">
                 AI Brain Dump → Full CV
               </h3>
               {!isPremium && usage && (
-                <span className="text-[9px] font-medium text-accent-light dark:text-accent-light">
+                <span className="text-[9px] font-medium text-text-tertiary">
                   {usage.remaining}/{usage.limit} uses
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+            <p className="text-xs text-text-secondary mt-1 leading-relaxed">
               Paste{" "}
-              <span className="font-medium text-accent-dark dark:text-accent">
+              <span className="font-medium text-primary-600 dark:text-primary-400">
                 everything
               </span>{" "}
               you know about yourself in one big text dump — your jobs, skills,
@@ -179,7 +179,7 @@ export function RawTextCvPanel({
               polished, ready-to-use CV. No formatting needed.
             </p>
           </div>
-          <Sparkles className="h-5 w-5 shrink-0 text-accent-light dark:text-accent-light group-hover:text-accent dark:group-hover:text-accent transition-colors mt-1" />
+          <Sparkles className="h-5 w-5 shrink-0 text-text-tertiary group-hover:text-primary-500 transition-colors mt-1" />
         </div>
       </button>
     );
@@ -188,27 +188,27 @@ export function RawTextCvPanel({
   // Free tier cap reached
   if (!hasUsesLeft) {
     return (
-      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-5">
+      <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-5">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
-            <Crown className="h-5 w-5 text-amber-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+            <Crown className="h-5 w-5 text-accent-500" />
+            <span className="text-xs font-bold uppercase tracking-wider text-accent-700 dark:text-accent-300">
               Monthly Limit Reached
             </span>
           </div>
           <button
             onClick={() => setIsOpen(false)}
-            className="rounded-md p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="rounded-md p-1 text-text-tertiary hover:text-text-primary transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
-        <p className="text-sm text-amber-800 dark:text-amber-200 mb-1">
+        <p className="text-sm text-accent-800 dark:text-accent-200 mb-1">
           You've used all {usage?.limit} free AI uses this month. Upgrade to
           Premium for unlimited AI-powered tools.
         </p>
         {usage?.resetsAt && (
-          <p className="text-[10px] text-amber-600 dark:text-amber-400 mb-3">
+          <p className="text-[10px] text-accent-600 dark:text-accent-400 mb-3">
             Resets{" "}
             {new Date(usage.resetsAt).toLocaleDateString("en-GB", {
               day: "numeric",
@@ -218,7 +218,7 @@ export function RawTextCvPanel({
         )}
         <Button
           size="sm"
-          className="!bg-gradient-to-r !from-amber-500 !to-orange-600 hover:!from-amber-600 hover:!to-orange-700 !shadow-lg !shadow-amber-500/25"
+          className="!bg-accent-400 hover:!bg-accent-500"
           onClick={() => navigate("/app/billing")}
         >
           <Sparkles className="h-3.5 w-3.5 mr-1.5" />
@@ -229,25 +229,25 @@ export function RawTextCvPanel({
   }
 
   return (
-    <div className="rounded-xl border border-accent-muted dark:border-accent-muted bg-gradient-to-br from-accent-muted/30 to-accent-muted/20 dark:from-accent-muted/10 dark:to-accent-muted/5 shadow-lg shadow-accent/5 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+    <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 shadow-sm overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-accent-muted dark:border-accent-muted/50">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-primary-500/10">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-dark to-accent text-white shadow-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white shadow-sm">
             <Wand2 className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+            <h3 className="text-sm font-bold text-text-primary">
               AI Brain Dump → Full CV
             </h3>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+            <p className="text-[10px] text-text-secondary mt-0.5">
               Paste everything. We'll handle the rest.
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {!isPremium && usage && (
-            <span className="text-[10px] font-medium text-accent-light dark:text-accent-light">
+            <span className="text-[10px] font-medium text-text-tertiary">
               {usage.remaining}/{usage.limit} uses left
             </span>
           )}
@@ -257,7 +257,7 @@ export function RawTextCvPanel({
               setResult(null);
               setError(null);
             }}
-            className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="rounded-lg p-1.5 text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -331,16 +331,16 @@ export function RawTextCvPanel({
         {generateFullCv.isPending && (
           <div className="flex flex-col items-center justify-center py-12 gap-4">
             <div className="relative">
-              <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-accent-dark to-accent flex items-center justify-center shadow-lg shadow-accent/30">
+              <div className="h-16 w-16 rounded-2xl bg-primary-600 flex items-center justify-center shadow-sm">
                 <Sparkles className="h-7 w-7 text-white animate-pulse" />
               </div>
-              <Loader2 className="absolute -top-2 -right-2 h-6 w-6 text-accent-dark animate-spin" />
+              <Loader2 className="absolute -top-2 -right-2 h-6 w-6 text-primary-600 animate-spin" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-semibold text-accent-dark dark:text-accent">
+              <p className="text-sm font-semibold text-primary-700 dark:text-primary-300">
                 AI is building your CV…
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-text-secondary mt-1">
                 Extracting info, organising sections, polishing language
               </p>
             </div>
@@ -348,7 +348,7 @@ export function RawTextCvPanel({
               {[0, 1, 2].map((i) => (
                 <div
                   key={i}
-                  className="h-1.5 w-1.5 rounded-full bg-accent-light animate-bounce"
+                  className="h-1.5 w-1.5 rounded-full bg-primary-400 animate-bounce"
                   style={{ animationDelay: `${i * 0.15}s` }}
                 />
               ))}

@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useDashboardSummary } from "@careerportal/web/data-access";
 import { useAuth } from "../../lib/auth";
-import { Spinner, ErrorState } from "@careerportal/web/ui";
+import { Spinner, ErrorState, Card, Badge } from "@careerportal/web/ui";
 import {
   FileText,
   Mail,
@@ -22,7 +22,7 @@ const STAT_CARDS = [
     key: "cvVersions" as const,
     subtitleFn: (n: number) => `${n === 1 ? "version" : "versions"} created`,
     icon: FileText,
-    iconBg: "bg-accent-dark",
+    iconBg: "bg-primary-600",
     link: "/app/cv",
   },
   {
@@ -30,7 +30,7 @@ const STAT_CARDS = [
     key: "coverLetters" as const,
     subtitleFn: (n: number) => `${n === 1 ? "letter" : "letters"} drafted`,
     icon: Mail,
-    iconBg: "bg-accent-dark",
+    iconBg: "bg-primary-600",
     link: "/app/cover-letters",
   },
   {
@@ -39,7 +39,7 @@ const STAT_CARDS = [
     subtitleFn: (n: number) =>
       `${n === 1 ? "application" : "applications"} tracked`,
     icon: Briefcase,
-    iconBg: "bg-accent-dark",
+    iconBg: "bg-primary-600",
     link: "/app/jobs",
   },
 ];
@@ -73,149 +73,142 @@ export function DashboardPage() {
   const summary = data?.data;
   if (!summary)
     return (
-      <div className="text-center py-20 text-gray-400">No data available.</div>
+      <div className="text-center py-20 text-text-tertiary">
+        No data available.
+      </div>
     );
 
   const { counts, recentActivity } = summary;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* ── Welcome Banner ── */}
-      <div className="relative overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
-        {/* Subtle accent glow */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-20 -right-20 h-56 w-56 rounded-full bg-accent/8 dark:bg-accent/10 blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-accent/5 dark:bg-accent/8 blur-3xl" />
-        </div>
-
-        {/* Top accent line */}
-        <div className="h-[2px] bg-gradient-to-r from-transparent via-accent to-transparent opacity-40" />
-
-        <div className="relative px-6 py-6 sm:px-8 sm:py-7">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-muted dark:bg-accent-muted/60">
-                  <TrendingUp className="h-4.5 w-4.5 text-accent" />
+      <Card gradient className="relative overflow-hidden border-0 shadow-md">
+        <div className="relative px-6 py-8 sm:px-8">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-600 shadow-sm">
+                  <TrendingUp className="h-5 w-5 text-white" />
                 </div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-accent">
-                  Overview
-                </span>
+                <div>
+                  <Badge variant="primary" className="mb-1">
+                    Overview
+                  </Badge>
+                  <h1 className="text-2xl font-bold tracking-tight text-text-primary">
+                    Welcome back! 👋
+                  </h1>
+                </div>
               </div>
-              <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white ml-11">
-                Welcome back 👋
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-md leading-relaxed ml-11">
+              <p className="text-sm text-text-secondary max-w-2xl leading-relaxed ml-14">
                 Here's a snapshot of your career progress. Keep building, keep
-                growing.
+                growing, and stay focused on your goals.
               </p>
             </div>
-            <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-xl bg-accent-muted dark:bg-accent-muted/60">
-              <Activity className="h-6 w-6 text-accent" />
+            <div className="hidden lg:flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-500/10 dark:bg-primary-400/10">
+              <Activity className="h-7 w-7 text-primary-600 dark:text-primary-400" />
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* ── Premium Upgrade CTA (for free users) ── */}
       {!isPremium && (
         <button
           onClick={() => navigate("/app/billing")}
-          className="w-full relative overflow-hidden rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-orange-500/5 to-amber-500/5 dark:from-amber-500/10 dark:via-orange-500/10 dark:to-amber-500/10 p-5 sm:p-6 text-left group hover:border-amber-500/40 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300"
+          className="w-full rounded-2xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/10 p-6 text-left group hover:border-accent-400/50 hover:bg-accent-50 dark:hover:bg-accent-900/20 hover:shadow-md transition-all duration-200 active:scale-[0.99]"
         >
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-amber-500/10 blur-2xl group-hover:bg-amber-500/15 transition-colors" />
-          </div>
-          <div className="relative flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25">
-                <Crown className="h-5 w-5" />
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-400 text-white shadow-sm">
+                <Crown className="h-6 w-6" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-                    Unlock Premium
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-base font-bold text-text-primary">
+                    Unlock Premium Features
                   </h3>
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 rounded px-1.5 py-0.5">
-                    £9.99/mo
-                  </span>
+                  <Badge variant="warning">£9.99/mo</Badge>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
-                  <Sparkles className="h-3 w-3 text-amber-500" />
-                  AI-powered CV rewriting, cover letter generation, and more
+                <p className="text-sm text-text-secondary flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-accent-500" />
+                  AI-powered CV rewriting, cover letter generation, interview
+                  prep & more
                 </p>
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-1.5 text-sm font-semibold text-amber-600 dark:text-amber-400 group-hover:gap-2.5 transition-all">
-              <Zap className="h-4 w-4" />
-              Upgrade
-              <ArrowRight className="h-4 w-4" />
+            <div className="hidden sm:flex items-center gap-2 text-sm font-bold text-accent-600 dark:text-accent-400 group-hover:gap-3 transition-all">
+              <Zap className="h-5 w-5" />
+              Upgrade Now
+              <ArrowRight className="h-5 w-5" />
             </div>
           </div>
         </button>
       )}
 
       {/* ── Stat cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {STAT_CARDS.map((c) => {
           const Icon = c.icon;
           const value = counts[c.key];
           return (
-            <button
+            <Card
               key={c.label}
+              hover
+              className="group cursor-pointer p-6 border-0 shadow-md"
               onClick={() => navigate(c.link)}
-              className="group relative text-left rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 hover:shadow-lg hover:shadow-gray-200/50 dark:hover:shadow-gray-900/50 transition-all duration-300 hover:-translate-y-0.5"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div
-                  className={`flex h-11 w-11 items-center justify-center rounded-xl ${c.iconBg} shadow-sm`}
-                >
+              <div className="flex items-start justify-between mb-5">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-600 shadow-sm">
                   <Icon className="h-5 w-5 text-white" />
                 </div>
-                <ArrowRight className="h-4 w-4 text-gray-300 dark:text-gray-600 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                <ArrowRight className="h-5 w-5 text-text-tertiary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </div>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+              <p className="text-4xl font-bold text-text-primary tracking-tight mb-1">
                 {value}
               </p>
-              <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mt-1">
+              <p className="text-sm font-semibold text-text-primary mb-0.5">
                 {c.label}
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+              <p className="text-xs text-text-tertiary">
                 {c.subtitleFn(value)}
               </p>
-            </button>
+            </Card>
           );
         })}
       </div>
 
       {/* ── Recent Activity ── */}
-      <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
-        <div className="flex items-center justify-between p-5 pb-0">
+      <Card className="overflow-hidden border-0 shadow-md">
+        <div className="flex items-center justify-between p-6 pb-5 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-muted">
-              <Clock className="h-4 w-4 text-accent" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-500/10 dark:bg-primary-400/10">
+              <Clock className="h-5 w-5 text-primary-600 dark:text-primary-400" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-gray-900 dark:text-white">
+              <h2 className="text-base font-bold text-text-primary">
                 Recent Activity
               </h2>
-              <p className="text-xs text-gray-400">
-                {recentActivity.length} recent items
+              <p className="text-xs text-text-tertiary">
+                {recentActivity.length} recent{" "}
+                {recentActivity.length === 1 ? "item" : "items"}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="p-5">
+        <div className="p-6">
           {recentActivity.length === 0 ? (
-            <div className="text-center py-10">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-muted mb-3">
-                <Activity className="h-5 w-5 text-accent" />
+            <div className="text-center py-12">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-500/10 dark:bg-primary-400/10 mb-4">
+                <Activity className="h-6 w-6 text-primary-600 dark:text-primary-400" />
               </div>
-              <p className="text-sm text-gray-400">No recent activity yet.</p>
-              <p className="text-xs text-gray-300 dark:text-gray-600 mt-1">
+              <p className="text-sm font-medium text-text-secondary mb-1">
+                No recent activity yet
+              </p>
+              <p className="text-xs text-text-tertiary">
                 Start by creating a CV, writing a cover letter, or tracking a
-                job.
+                job application.
               </p>
             </div>
           ) : (
@@ -224,26 +217,28 @@ export function DashboardPage() {
                 const config = ACTIVITY_TYPE_CONFIG[item.type] || {
                   label: item.type,
                   icon: Activity,
-                  color: "text-gray-500 bg-gray-50 dark:bg-gray-800",
+                  color: "text-neutral-500 bg-neutral-100 dark:bg-neutral-800",
                 };
                 const TypeIcon = config.icon;
                 return (
                   <div
                     key={item.id}
-                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
+                    className="flex items-center gap-4 p-4 rounded-xl hover:bg-bg-tertiary transition-colors group"
                   >
                     <div
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.color}`}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${config.color}`}
                     >
-                      <TypeIcon className="h-3.5 w-3.5" />
+                      <TypeIcon className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
+                      <p className="text-sm font-semibold text-text-primary truncate">
                         {item.title}
                       </p>
-                      <p className="text-xs text-gray-400">{config.label}</p>
+                      <p className="text-xs text-text-tertiary">
+                        {config.label}
+                      </p>
                     </div>
-                    <span className="text-xs text-gray-400 whitespace-nowrap shrink-0">
+                    <span className="text-xs text-text-tertiary whitespace-nowrap shrink-0 font-medium">
                       {new Date(item.updatedAt).toLocaleDateString()}
                     </span>
                   </div>
@@ -252,7 +247,7 @@ export function DashboardPage() {
             </div>
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

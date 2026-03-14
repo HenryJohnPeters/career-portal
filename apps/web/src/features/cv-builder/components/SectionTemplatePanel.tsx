@@ -13,7 +13,7 @@ export function SectionTemplatePanel({
   onClose,
 }: SectionTemplatePanelProps) {
   return (
-    <div className="rounded-xl border border-accent-muted dark:border-accent-muted/50 bg-gradient-to-b from-accent-muted/20 to-white dark:from-accent-muted/10 dark:to-gray-800/50 shadow-lg shadow-accent/5 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+    <div className="rounded-xl border border-border bg-bg-elevated shadow-sm overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
       <div className="flex items-center justify-between px-4 py-3 border-b border-accent-muted/50">
         <div>
           <h3 className="text-sm font-bold text-gray-900 dark:text-white">

@@ -30,8 +30,8 @@ export function TechnicalTestsPage() {
 function TechTestPremiumGate() {
   return (
     <div className="w-full max-w-2xl mx-auto py-16 text-center">
-      <div className="rounded-3xl border-2 border-amber-200 dark:border-amber-800/50 bg-gradient-to-br from-amber-50 via-white to-orange-50 dark:from-amber-950/30 dark:via-gray-900 dark:to-orange-950/30 p-12 shadow-xl shadow-amber-500/5">
-        <div className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-800/30 dark:to-orange-800/30 mb-6 shadow-lg shadow-amber-500/10">
+      <div className="rounded-3xl border-2 border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 p-12 shadow-sm">
+        <div className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-amber-100 dark:bg-amber-800/30 mb-6">
           <Code2 className="h-10 w-10 text-amber-600 dark:text-amber-400" />
         </div>
 
@@ -64,9 +64,9 @@ function TechTestPremiumGate() {
 
         <NavLink
           to="/app/billing"
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-3.5 text-sm font-bold text-white hover:opacity-90 transition-opacity shadow-lg shadow-amber-500/25"
+          className="inline-flex items-center gap-2 rounded-xl bg-accent px-8 py-3.5 text-sm font-bold text-white hover:bg-accent-dark transition-colors shadow-sm"
         >
-          <Crown className="h-4.5 w-4.5" />
+          <Crown className="h-4 w-4" />
           Upgrade to Premium
         </NavLink>
 

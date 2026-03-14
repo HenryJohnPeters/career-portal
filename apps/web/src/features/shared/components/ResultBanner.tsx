@@ -15,8 +15,8 @@ export function ResultBanner({
     <div
       className={`rounded-2xl border-2 p-6 ${
         isCorrect
-          ? "border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 via-emerald-50/50 to-teal-50 dark:from-emerald-950/30 dark:via-emerald-950/20 dark:to-teal-950/10"
-          : "border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 via-red-50/50 to-orange-50 dark:from-red-950/30 dark:via-red-950/20 dark:to-orange-950/10"
+          ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/20"
+          : "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/20"
       }`}
     >
       <div className="flex items-center gap-4">

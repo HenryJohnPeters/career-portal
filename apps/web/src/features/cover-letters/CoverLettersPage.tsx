@@ -227,8 +227,8 @@ export function CoverLettersPage() {
                   onClick={() => startEdit(cl)}
                   className={`group relative rounded-xl border p-4 cursor-pointer transition-all duration-200 ${
                     editingId === cl.id
-                      ? "border-violet-500 bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-900/20 dark:to-purple-900/20 dark:border-violet-500 shadow-sm shadow-violet-500/10 ring-1 ring-violet-500/20"
-                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm bg-white dark:bg-gray-800/50"
+                      ? "border-primary-500 bg-primary-500/5 dark:border-primary-500 shadow-sm ring-1 ring-primary-500/20"
+                      : "border-border hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-sm bg-bg-elevated"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -329,10 +329,10 @@ export function CoverLettersPage() {
               {/* AI tools card */}
               <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-accent-dark to-indigo-600 text-white">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-600 text-white">
                     <Sparkles className="h-3.5 w-3.5" />
                   </div>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
                     AI Assistant
                   </span>
                   {!isPremium && (
@@ -408,10 +408,10 @@ export function CoverLettersPage() {
 
               {/* Suggestions */}
               {suggestions.length > 0 && (
-                <div className="rounded-xl border border-accent/20 bg-gradient-to-br from-accent-muted to-accent-muted/50 p-5">
+                <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <Lightbulb className="h-4 w-4 text-accent" />
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-accent">
+                    <Lightbulb className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
                       Suggestions
                     </h4>
                   </div>
@@ -419,9 +419,9 @@ export function CoverLettersPage() {
                     {suggestions.map((s, i) => (
                       <li
                         key={i}
-                        className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300"
+                        className="flex items-start gap-2 text-xs text-text-secondary"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5 text-accent shrink-0 mt-0.5" />
+                        <CheckCircle2 className="h-3.5 w-3.5 text-primary-500 shrink-0 mt-0.5" />
                         <span>{s}</span>
                       </li>
                     ))}
@@ -431,11 +431,11 @@ export function CoverLettersPage() {
 
               {/* Rewrite result */}
               {rewriteResult && (
-                <div className="rounded-xl border border-accent/20 bg-gradient-to-br from-accent-muted to-accent-muted/50 p-5">
+                <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <Wand2 className="h-4 w-4 text-accent" />
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-accent">
+                      <Wand2 className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
                         Rewritten Version
                       </h4>
                     </div>
@@ -444,7 +444,7 @@ export function CoverLettersPage() {
                       Apply
                     </Button>
                   </div>
-                  <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed bg-white/50 dark:bg-gray-800/50 rounded-lg p-4 border border-accent/10">
+                  <pre className="text-xs text-text-secondary whitespace-pre-wrap leading-relaxed bg-bg-tertiary rounded-lg p-4 border border-border">
                     {rewriteResult}
                   </pre>
                 </div>
@@ -454,10 +454,10 @@ export function CoverLettersPage() {
             /* No letter selected */
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <div className="relative mb-6">
-                <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
-                  <Mail className="h-10 w-10 text-gray-400 dark:text-gray-500" />
+                <div className="h-20 w-20 rounded-2xl bg-bg-tertiary flex items-center justify-center">
+                  <Mail className="h-10 w-10 text-text-tertiary" />
                 </div>
-                <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-lg bg-accent-dark flex items-center justify-center shadow-lg shadow-accent/30">
+                <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-lg bg-primary-600 flex items-center justify-center shadow-sm">
                   <PenLine className="h-4 w-4 text-white" />
                 </div>
               </div>

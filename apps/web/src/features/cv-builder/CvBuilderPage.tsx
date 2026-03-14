@@ -112,7 +112,7 @@ export function CvBuilderPage() {
                       onClick={() => cv.setDesignTab(tab.key)}
                       className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
                         cv.designTab === tab.key
-                          ? "bg-gradient-to-br from-accent-dark/10 to-accent/10 dark:from-accent-dark/20 dark:to-accent/20 text-accent-dark dark:text-accent shadow-sm"
+                          ? "bg-primary-500/10 text-primary-700 dark:text-primary-300 shadow-sm"
                           : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                       }`}
                     >

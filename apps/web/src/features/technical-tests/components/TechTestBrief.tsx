@@ -66,7 +66,7 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
       </div>
 
       {/* Company context */}
-      <div className="rounded-2xl border border-violet-200/50 dark:border-violet-800/50 bg-gradient-to-br from-violet-50/80 to-fuchsia-50/50 dark:from-violet-950/30 dark:to-fuchsia-950/20 p-5">
+      <div className="rounded-2xl border border-violet-200/50 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-950/20 p-5">
         <div className="flex items-start gap-3">
           <Building2 className="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
           <div>
@@ -226,7 +226,7 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
               key={ec.name}
               className="flex items-start gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/20"
             >
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white text-xs font-bold">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white text-xs font-bold">
                 {ec.weight}%
               </div>
               <div>
@@ -257,7 +257,7 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
             size="lg"
             onClick={state.handleStart}
             loading={state.isStarting}
-            className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:opacity-90 text-white border-0 shadow-lg shadow-emerald-500/20 shrink-0"
+            className="shrink-0"
           >
             <Play className="h-4 w-4 mr-2" /> Start Test
           </Button>

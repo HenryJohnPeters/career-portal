@@ -4,10 +4,10 @@ export function EmptyVersionState() {
   return (
     <div className="flex flex-col items-center justify-center py-24 text-center">
       <div className="relative mb-6">
-        <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
-          <FileText className="h-10 w-10 text-gray-400 dark:text-gray-500" />
+        <div className="h-20 w-20 rounded-2xl bg-bg-tertiary flex items-center justify-center">
+          <FileText className="h-10 w-10 text-text-tertiary" />
         </div>
-        <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-lg bg-accent-dark flex items-center justify-center shadow-lg shadow-accent/30">
+        <div className="absolute -bottom-1 -right-1 h-7 w-7 rounded-lg bg-primary-600 flex items-center justify-center shadow-sm">
           <ChevronRight className="h-4 w-4 text-white" />
         </div>
       </div>

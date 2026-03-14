@@ -39,7 +39,7 @@ export function VersionCard({
       onClick={() => onSelect(version.id)}
       className={`group relative rounded-xl border p-3 cursor-pointer transition-all duration-200 ${
         isSelected
-          ? "border-accent bg-gradient-to-r from-accent-muted/20 to-accent-muted/10 dark:from-accent-muted/10 dark:to-accent-muted/5 dark:border-accent shadow-sm shadow-accent/10 ring-1 ring-accent/20"
+          ? "border-accent bg-accent-muted/20 dark:bg-accent-muted/10 dark:border-accent shadow-sm shadow-accent/10 ring-1 ring-accent/20"
           : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm bg-white dark:bg-gray-800/50"
       }`}
     >

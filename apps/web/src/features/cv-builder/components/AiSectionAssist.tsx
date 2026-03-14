@@ -89,12 +89,12 @@ export function AiSectionAssist({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-accent-muted dark:border-accent-muted bg-gradient-to-r from-accent-muted/60 to-accent-muted/40 dark:from-accent-muted/20 dark:to-accent-muted/10 px-3 py-1.5 text-xs font-medium text-accent-dark dark:text-accent hover:shadow-md hover:shadow-accent/10 hover:-translate-y-0.5 transition-all duration-200"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-primary-500/20 bg-primary-500/5 px-3 py-1.5 text-xs font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 hover:-translate-y-0.5 transition-all duration-200"
       >
         <Sparkles className="h-3.5 w-3.5" />
         AI Assist
         {!isPremium && usage && (
-          <span className="text-[9px] text-accent-light dark:text-accent-light">
+          <span className="text-[9px] text-primary-400 dark:text-primary-500">
             {usage.remaining}/{usage.limit}
           </span>
         )}
@@ -105,27 +105,27 @@ export function AiSectionAssist({
   // Free tier cap reached
   if (!hasUsesLeft) {
     return (
-      <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 p-4">
+      <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-4">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-2 mb-2">
-            <Crown className="h-4 w-4 text-amber-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+            <Crown className="h-4 w-4 text-accent-500" />
+            <span className="text-xs font-bold uppercase tracking-wider text-accent-700 dark:text-accent-300">
               Monthly Limit Reached
             </span>
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="rounded-md p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="rounded-md p-1 text-text-tertiary hover:text-text-primary transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
-        <p className="text-xs text-amber-800 dark:text-amber-200 mb-2">
+        <p className="text-xs text-accent-800 dark:text-accent-200 mb-2">
           You've used all {usage?.limit} free AI uses this month. Upgrade to
           Premium for unlimited AI-powered tools.
         </p>
         {usage?.resetsAt && (
-          <p className="text-[10px] text-amber-600 dark:text-amber-400 mb-3">
+          <p className="text-[10px] text-accent-600 dark:text-accent-400 mb-3">
             Resets{" "}
             {new Date(usage.resetsAt).toLocaleDateString("en-GB", {
               day: "numeric",
@@ -135,7 +135,7 @@ export function AiSectionAssist({
         )}
         <Button
           size="sm"
-          className="!bg-gradient-to-r !from-amber-500 !to-orange-600 hover:!from-amber-600 hover:!to-orange-700 !shadow-lg !shadow-amber-500/25"
+          className="!bg-accent-400 hover:!bg-accent-500"
           onClick={() => navigate("/app/billing")}
         >
           <Sparkles className="h-3.5 w-3.5 mr-1.5" />
@@ -146,20 +146,20 @@ export function AiSectionAssist({
   }
 
   return (
-    <div className="rounded-xl border border-accent-muted dark:border-accent-muted bg-gradient-to-br from-accent-muted/50 to-accent-muted/30 dark:from-accent-muted/15 dark:to-accent-muted/10 p-4 space-y-3">
+    <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 dark:bg-primary-500/5 p-4 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-to-br from-accent-dark to-accent text-white">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary-600 text-white">
             <Sparkles className="h-3.5 w-3.5" />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-accent-dark dark:text-accent">
+          <span className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
             AI Assist — {sectionTitle}
           </span>
         </div>
         <div className="flex items-center gap-2">
           {!isPremium && usage && (
-            <span className="text-[10px] font-medium text-accent-light dark:text-accent-light">
+            <span className="text-[10px] font-medium text-text-tertiary">
               {usage.remaining}/{usage.limit} uses left
             </span>
           )}
@@ -170,7 +170,7 @@ export function AiSectionAssist({
               setAction(null);
               setError(null);
             }}
-            className="rounded-md p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+            className="rounded-md p-1 text-text-tertiary hover:text-text-primary transition-colors"
           >
             <X className="h-3.5 w-3.5" />
           </button>

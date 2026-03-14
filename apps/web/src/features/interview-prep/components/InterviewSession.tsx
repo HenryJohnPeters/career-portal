@@ -60,7 +60,7 @@ export function InterviewSession({
     return (
       <div className="w-full">
         <div className="max-w-2xl mx-auto">
-          <div className="rounded-2xl border-2 border-accent/30 bg-gradient-to-br from-accent-muted via-accent-muted/50 to-accent-muted/30 p-8 text-center">
+          <div className="rounded-2xl border-2 border-primary-500/30 bg-primary-500/5 p-8 text-center">
             <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-muted mb-4">
               <Trophy className="h-8 w-8 text-accent" />
             </div>
@@ -72,11 +72,7 @@ export function InterviewSession({
               report to see how you did.
             </p>
             <div className="flex justify-center gap-3">
-              <Button
-                size="lg"
-                onClick={onViewReport}
-                className="bg-gradient-to-r from-accent-dark to-indigo-600 hover:opacity-90 text-white border-0 shadow-lg shadow-accent/20"
-              >
+              <Button size="lg" onClick={onViewReport}>
                 <BarChart3 className="h-4 w-4 mr-2" /> View Report
               </Button>
               <Button variant="ghost" onClick={onBackToSetup}>
@@ -101,7 +97,7 @@ export function InterviewSession({
             <ChevronRight className="h-4 w-4 rotate-180" />
           </button>
           <span
-            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-gradient-to-r ${trackMeta.gradient} text-white`}
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg ${trackMeta.solid} ${trackMeta.solidText}`}
           >
             {trackMeta.icon} {trackMeta.label}
           </span>
@@ -119,7 +115,7 @@ export function InterviewSession({
           </span>
           <div className="w-32 bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
             <div
-              className="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 rounded-full transition-all"
+              className="bg-primary-600 h-1.5 rounded-full transition-all"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -147,7 +143,7 @@ export function InterviewSession({
         <div className="mb-6">
           <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
             <div
-              className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-blue-400 to-indigo-500"
+              className="h-full rounded-full transition-all duration-500 ease-out bg-primary-600"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -248,7 +244,7 @@ export function InterviewSession({
               <Button
                 size="lg"
                 onClick={onNextQuestion}
-                className="w-full bg-gradient-to-r from-accent-dark to-indigo-600 hover:opacity-90 text-white border-0 shadow-lg shadow-accent/10"
+                className="w-full"
               >
                 {isCompleted ? (
                   <>
@@ -279,7 +275,7 @@ export function InterviewSession({
           {!lastFeedback && sq && (
             <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-                <div className={`h-1 bg-gradient-to-r ${trackMeta.gradient}`} />
+                <div className={`h-1 ${trackMeta.solid}`} />
                 <div className="p-6">
                   <div className="flex items-center gap-2 mb-4 flex-wrap">
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
@@ -330,7 +326,7 @@ export function InterviewSession({
                 onClick={onSubmitAnswer}
                 loading={isSubmitting}
                 disabled={selectedOptionIndex === null}
-                className={`w-full bg-gradient-to-r ${trackMeta.gradient} hover:opacity-90 text-white border-0 shadow-lg shadow-accent/10 disabled:opacity-40 disabled:shadow-none`}
+                className="w-full disabled:opacity-40"
               >
                 <Send className="h-4 w-4 mr-2" /> Submit Answer
               </Button>

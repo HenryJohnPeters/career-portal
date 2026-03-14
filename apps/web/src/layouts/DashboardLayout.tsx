@@ -98,21 +98,21 @@ function NavItemLink({
   return (
     <NavLink
       to={item.to}
-      className={({ isActive }) =>
+      className={({ isActive }: { isActive: boolean }) =>
         `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
           isActive
-            ? "bg-gradient-to-r from-accent/10 to-indigo-500/10 text-accent-dark dark:text-accent shadow-sm shadow-accent/5"
-            : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200"
+            ? "bg-primary-500/10 text-primary-700 dark:text-primary-300"
+            : "text-text-secondary hover:bg-bg-tertiary hover:text-text-primary"
         }`
       }
     >
-      {({ isActive }) => (
+      {({ isActive }: { isActive: boolean }) => (
         <>
           <div
             className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
               isActive
-                ? "bg-accent-dark text-white shadow-sm shadow-accent/25"
-                : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                ? "bg-primary-600 text-white"
+                : "bg-bg-tertiary text-text-tertiary"
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -158,15 +158,15 @@ function NavGroupSection({
         onClick={onToggle}
         className={`flex w-full items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
           isGroupActive
-            ? "text-accent-dark dark:text-accent"
-            : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200"
+            ? "text-primary-700 dark:text-primary-300"
+            : "text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary"
         }`}
       >
         <div
           className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
             isGroupActive
-              ? "bg-accent-dark/10 dark:bg-accent/10 text-accent-dark dark:text-accent"
-              : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+              ? "bg-primary-500/10 text-primary-600 dark:text-primary-400"
+              : "bg-bg-tertiary text-text-tertiary"
           }`}
         >
           <Icon className="h-4 w-4" />
@@ -179,18 +179,18 @@ function NavGroupSection({
         />
       </button>
       {expanded && (
-        <div className="ml-5 pl-3 mt-1 space-y-0.5 border-l-2 border-gray-200 dark:border-gray-700">
+        <div className="ml-5 pl-3 mt-1 space-y-0.5 border-l-2 border-border">
           {group.children.map((child) => {
             const ChildIcon = child.icon;
             return (
               <NavLink
                 key={child.to}
                 to={child.to}
-                className={({ isActive }) =>
+                className={({ isActive }: { isActive: boolean }) =>
                   `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-gradient-to-r from-accent/10 to-indigo-500/10 text-accent-dark dark:text-accent"
-                      : "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200"
+                      ? "bg-primary-500/10 text-primary-700 dark:text-primary-300"
+                      : "text-text-tertiary hover:bg-bg-tertiary hover:text-text-primary"
                   }`
                 }
               >
@@ -223,59 +223,57 @@ export function DashboardLayout() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen flex flex-col bg-bg-primary">
       {/* Header */}
-      <header className="h-14 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 shrink-0 z-10 backdrop-blur-sm bg-white/80 dark:bg-gray-900/80">
-        <div className="flex items-center gap-3">
+      <header className="h-16 glass glass-border flex items-center justify-between px-6 shrink-0 z-20 sticky top-0">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+            className="p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-secondary hover:text-text-primary transition-all active:scale-95"
             aria-label="Toggle sidebar"
           >
             {collapsed ? (
-              <Menu className="h-4.5 w-4.5" />
+              <Menu className="h-5 w-5" />
             ) : (
-              <ChevronLeft className="h-4.5 w-4.5" />
+              <ChevronLeft className="h-5 w-5" />
             )}
           </button>
-          <div className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
-          <h1 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-            {pageTitle}
-          </h1>
+          <div className="h-6 w-px bg-border" />
+          <h1 className="text-base font-bold text-text-primary">{pageTitle}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {user?.isPremium && (
-            <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 px-2.5 py-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-              <Crown className="h-3 w-3" />
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-accent-100 dark:bg-accent-900/20 border border-accent-400/30 px-3 py-1.5 text-xs font-bold text-accent-600 dark:text-accent-400">
+              <Crown className="h-3.5 w-3.5" />
               Premium
             </span>
           )}
           <button
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+            className="p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-secondary hover:text-text-primary transition-all active:scale-95"
             aria-label="Toggle theme"
           >
             {theme === "light" ? (
-              <Moon className="h-4 w-4" />
+              <Moon className="h-4.5 w-4.5" />
             ) : (
-              <Sun className="h-4 w-4" />
+              <Sun className="h-4.5 w-4.5" />
             )}
           </button>
-          <div className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
-          <div className="flex items-center gap-2 pl-1">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-accent-dark to-indigo-600 text-white">
-              <User className="h-3.5 w-3.5" />
+          <div className="h-6 w-px bg-border" />
+          <div className="flex items-center gap-2.5 pl-1">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm">
+              <User className="h-4 w-4" />
             </div>
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 hidden sm:inline">
+            <span className="text-sm font-semibold text-text-primary hidden sm:inline">
               {user?.name}
             </span>
           </div>
           <button
             onClick={logout}
-            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+            className="p-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-text-tertiary hover:text-red-600 dark:hover:text-red-400 transition-all active:scale-95"
             aria-label="Logout"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4.5 w-4.5" />
           </button>
         </div>
       </header>
@@ -284,16 +282,16 @@ export function DashboardLayout() {
         {/* Sidebar */}
         <aside
           className={`${
-            collapsed ? "w-[68px]" : "w-56"
-          } bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 transition-all duration-300 ease-in-out shrink-0 flex flex-col`}
+            collapsed ? "w-20" : "w-64"
+          } bg-bg-secondary border-r border-border transition-all duration-300 ease-in-out shrink-0 flex flex-col`}
         >
-          <nav className="flex-1 py-4 px-3 space-y-1">
+          <nav className="flex-1 py-5 px-3 space-y-1.5 overflow-y-auto">
             {NAV_ENTRIES.map((entry, idx) => {
               if (entry.type === "separator") {
                 return (
                   <div
                     key={`sep-${idx}`}
-                    className="!my-3 mx-2 border-t border-gray-200 dark:border-gray-700/50"
+                    className="!my-4 mx-2 border-t border-border"
                   />
                 );
               }
@@ -324,18 +322,20 @@ export function DashboardLayout() {
 
           {/* Upgrade CTA for free users */}
           {!user?.isPremium && !collapsed && (
-            <div className="px-3 pb-4">
+            <div className="px-3 pb-5">
               <NavLink
                 to="/app/billing"
-                className="block rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 p-3.5 hover:from-amber-500/15 hover:to-orange-500/15 transition-all duration-200"
+                className="block rounded-xl bg-accent-50 dark:bg-accent-900/20 border border-accent-400/20 p-4 hover:bg-accent-100 dark:hover:bg-accent-900/30 hover:border-accent-400/30 transition-all duration-200 group"
               >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <Sparkles className="h-4 w-4 text-amber-500" />
-                  <span className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                <div className="flex items-center gap-2.5 mb-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-400 shadow-sm">
+                    <Sparkles className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="text-sm font-bold text-accent-700 dark:text-accent-400">
                     Go Premium
                   </span>
                 </div>
-                <p className="text-[11px] leading-relaxed text-amber-600/70 dark:text-amber-400/60">
+                <p className="text-xs leading-relaxed text-accent-600/80 dark:text-accent-400/70">
                   Unlock AI features for £9.99/mo
                 </p>
               </NavLink>
@@ -345,10 +345,10 @@ export function DashboardLayout() {
 
         {/* Main content */}
         <main className="flex-1 overflow-auto">
-          <div className="p-6">
+          <div className="p-8 max-w-7xl mx-auto">
             <Outlet />
           </div>
-          <footer className="border-t border-gray-200 dark:border-gray-800 py-3 px-6 text-center text-xs text-gray-400 dark:text-gray-600">
+          <footer className="border-t border-border py-4 px-8 text-center text-xs text-text-tertiary">
             Career Portal &copy; {new Date().getFullYear()}
           </footer>
         </main>

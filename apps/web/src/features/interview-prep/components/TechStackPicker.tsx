@@ -31,8 +31,8 @@ export function TechStackPicker({
       {/* Header with role context + selected count */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-dark/10 to-indigo-500/10 dark:from-accent-dark/20 dark:to-indigo-500/20">
-            <Layers className="h-4 w-4 text-accent-dark dark:text-accent" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-500/10">
+            <Layers className="h-4 w-4 text-primary-600 dark:text-primary-400" />
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">

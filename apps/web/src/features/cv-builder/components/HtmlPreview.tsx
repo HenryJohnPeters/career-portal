@@ -21,17 +21,17 @@ export function HtmlPreview({
 }: HtmlPreviewProps) {
   return (
     <div className="sticky top-6 space-y-3">
-      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-3">
+      <div className="rounded-xl border border-border bg-bg-elevated p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-dark to-accent text-white shadow-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white shadow-sm">
               <Eye className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+              <h3 className="text-sm font-bold text-text-primary">
                 Live Preview
               </h3>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+              <p className="text-[10px] text-text-tertiary">
                 Updates as you type
               </p>
             </div>
