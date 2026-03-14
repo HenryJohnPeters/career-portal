@@ -138,9 +138,7 @@ export function BillingPage() {
       <Card className="overflow-hidden">
         <div
           className={`px-6 py-5 ${
-            isPremium
-              ? "bg-accent-50 dark:bg-accent-900/10"
-              : "bg-bg-tertiary"
+            isPremium ? "bg-accent-50 dark:bg-accent-900/10" : "bg-bg-tertiary"
           }`}
         >
           <div className="flex items-center justify-between">
@@ -212,9 +210,7 @@ export function BillingPage() {
           <div className="p-6">
             <div className="flex items-center gap-2 mb-1">
               <Star className="h-5 w-5 text-text-tertiary" />
-              <h3 className="text-lg font-bold text-text-primary">
-                Free
-              </h3>
+              <h3 className="text-lg font-bold text-text-primary">Free</h3>
             </div>
             <p className="text-sm text-text-secondary mb-4">
               Get started with the essentials
@@ -223,17 +219,13 @@ export function BillingPage() {
               <span className="text-3xl font-extrabold text-text-primary">
                 £0
               </span>
-              <span className="text-sm text-text-secondary ml-1">
-                / month
-              </span>
+              <span className="text-sm text-text-secondary ml-1">/ month</span>
             </div>
             <ul className="space-y-3 mb-6">
               {FREE_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2.5">
                   <Check className="h-4 w-4 text-text-tertiary mt-0.5 shrink-0" />
-                  <span className="text-sm text-text-secondary">
-                    {f}
-                  </span>
+                  <span className="text-sm text-text-secondary">{f}</span>
                 </li>
               ))}
             </ul>
@@ -260,9 +252,7 @@ export function BillingPage() {
           <div className="p-6">
             <div className="flex items-center gap-2 mb-1">
               <Crown className="h-5 w-5 text-accent-500" />
-              <h3 className="text-lg font-bold text-text-primary">
-                Premium
-              </h3>
+              <h3 className="text-lg font-bold text-text-primary">Premium</h3>
             </div>
             <p className="text-sm text-text-secondary mb-4">
               AI-powered tools for your job search
@@ -271,17 +261,13 @@ export function BillingPage() {
               <span className="text-3xl font-extrabold text-text-primary">
                 £9.99
               </span>
-              <span className="text-sm text-text-secondary ml-1">
-                / month
-              </span>
+              <span className="text-sm text-text-secondary ml-1">/ month</span>
             </div>
             <ul className="space-y-3 mb-6">
               {PREMIUM_FEATURES.map((f) => (
                 <li key={f} className="flex items-start gap-2.5">
                   <Check className="h-4 w-4 text-accent-500 mt-0.5 shrink-0" />
-                  <span className="text-sm text-text-primary">
-                    {f}
-                  </span>
+                  <span className="text-sm text-text-primary">{f}</span>
                 </li>
               ))}
             </ul>

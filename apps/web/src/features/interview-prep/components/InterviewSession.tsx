@@ -241,11 +241,7 @@ export function InterviewSession({
                 />
               )}
 
-              <Button
-                size="lg"
-                onClick={onNextQuestion}
-                className="w-full"
-              >
+              <Button size="lg" onClick={onNextQuestion} className="w-full">
                 {isCompleted ? (
                   <>
                     <Trophy className="h-4 w-4 mr-2" /> View Results

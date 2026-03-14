@@ -241,7 +241,9 @@ function SessionCard({
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 line-clamp-1">
         {s.tags.slice(0, 4).join(", ")} · {s.persona} interviewer
       </p>
-      <div className={`w-full ${meta.solid} opacity-20 rounded-full h-1.5 overflow-hidden`}>
+      <div
+        className={`w-full ${meta.solid} opacity-20 rounded-full h-1.5 overflow-hidden`}
+      >
         <div
           className={`${meta.solid} h-1.5 rounded-full transition-all`}
           style={{ width: `${pct}%` }}

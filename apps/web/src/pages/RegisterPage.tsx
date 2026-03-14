@@ -308,7 +308,9 @@ export function RegisterPage() {
                 type="submit"
                 loading={loading}
                 className={`w-full ${
-                  selectedPlan === "premium" ? "!bg-accent-400 hover:!bg-accent-500" : ""
+                  selectedPlan === "premium"
+                    ? "!bg-accent-400 hover:!bg-accent-500"
+                    : ""
                 }`}
               >
                 {!loading &&

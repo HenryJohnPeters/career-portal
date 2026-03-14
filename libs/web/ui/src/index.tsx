@@ -94,9 +94,7 @@ export function Card({
       onClick={onClick}
       className={`bg-bg-elevated rounded-2xl shadow-sm border border-border transition-all duration-200 ${
         hover ? "hover:shadow-lg hover:-translate-y-0.5" : ""
-      } ${
-        gradient ? "border-l-2 border-l-primary-500" : ""
-      } ${className}`}
+      } ${gradient ? "border-l-2 border-l-primary-500" : ""} ${className}`}
     >
       {children}
     </div>

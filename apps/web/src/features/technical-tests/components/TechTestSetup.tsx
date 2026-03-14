@@ -185,7 +185,8 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
                 ].map((tip) => (
                   <li
                     key={tip}
-                    className="text-[11px] text-accent/80 leading-relaxed flex items-start gap-1.5">
+                    className="text-[11px] text-accent/80 leading-relaxed flex items-start gap-1.5"
+                  >
                     <span className="mt-1 h-1 w-1 rounded-full bg-accent shrink-0" />
                     {tip}
                   </li>

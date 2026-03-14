@@ -209,11 +209,7 @@ export function InterviewReport({
 
           {/* Actions */}
           <div>
-            <Button
-              size="lg"
-              onClick={onStartNew}
-              className="w-full"
-            >
+            <Button size="lg" onClick={onStartNew} className="w-full">
               <Play className="h-4 w-4 mr-2" /> New Interview
             </Button>
           </div>
