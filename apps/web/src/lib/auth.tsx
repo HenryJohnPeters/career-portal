@@ -46,8 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         setHasSession(!!session);
+
+        // On password recovery, Supabase establishes a session but we
+        // should NOT fetch user data — the ResetPasswordPage handles it.
+        if (event === "PASSWORD_RECOVERY") {
+          return;
+        }
+
         if (session) {
           fetchUser();
         } else {
@@ -70,7 +77,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setHasSession(false);
-    // Don't use queryClient here - just clear local state
   }, []);
 
   const loading = !supabaseReady || (hasSession && isLoadingUser);

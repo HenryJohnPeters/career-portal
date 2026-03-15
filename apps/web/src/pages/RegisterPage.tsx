@@ -5,7 +5,7 @@ import { z } from "zod";
 import { supabase, api } from "@careerportal/web/data-access";
 import { useAuth } from "../lib/auth";
 import { Button } from "@careerportal/web/ui";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Mail,
   Lock,
@@ -18,6 +18,7 @@ import {
   Star,
   Zap,
   ArrowRight,
+  CheckCircle2,
 } from "lucide-react";
 
 const schema = z
@@ -35,14 +36,34 @@ const schema = z
 
 type FormData = z.infer<typeof schema>;
 
+/** Map Supabase error messages to user-friendly text */
+function friendlyError(msg: string): string {
+  if (msg.includes("User already registered"))
+    return "An account with this email already exists. Try signing in instead.";
+  if (msg.includes("Password should be at least"))
+    return "Password must be at least 6 characters.";
+  if (msg.includes("Too many requests"))
+    return "Too many attempts. Please wait a moment and try again.";
+  if (msg.includes("Unable to validate email"))
+    return "Please enter a valid email address.";
+  return msg;
+}
+
 export function RegisterPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
 
-  if (isAuthenticated) navigate("/app/dashboard", { replace: true });
+  // Redirect if already authenticated (in an effect to avoid React warnings)
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/app/dashboard", { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const initialPlan =
     searchParams.get("plan") === "premium" ? "premium" : "free";
@@ -64,16 +85,43 @@ export function RegisterPage() {
     setError(null);
     setLoading(true);
     try {
-      const { error: authError } = await supabase.auth.signUp({
+      const siteUrl = window.location.origin;
+
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
-        options: { data: { name: data.name } },
+        options: {
+          data: { name: data.name },
+          emailRedirectTo: `${siteUrl}/auth/callback`,
+        },
       });
       if (authError) {
-        setError(authError.message);
+        setError(friendlyError(authError.message));
         return;
       }
 
+      // Supabase returns a user with identities = [] if the email is already taken
+      // (when "Confirm email" is enabled and the user already exists)
+      if (
+        authData.user &&
+        authData.user.identities &&
+        authData.user.identities.length === 0
+      ) {
+        setError(
+          "An account with this email already exists. Try signing in instead."
+        );
+        return;
+      }
+
+      // If Supabase requires email confirmation, show the "check your email" screen
+      // A session will be null when confirmation is required
+      if (!authData.session) {
+        setRegisteredEmail(data.email);
+        setEmailSent(true);
+        return;
+      }
+
+      // Session exists (email confirmation disabled in Supabase) — proceed directly
       if (data.plan === "premium") {
         try {
           const res = await api.post<{ data: { url: string } }>(
@@ -87,6 +135,26 @@ export function RegisterPage() {
         }
       }
       navigate("/app/dashboard");
+    } catch {
+      setError("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!registeredEmail) return;
+    setLoading(true);
+    try {
+      const siteUrl = window.location.origin;
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: registeredEmail,
+        options: { emailRedirectTo: `${siteUrl}/auth/callback` },
+      });
+      if (error) {
+        setError(friendlyError(error.message));
+      }
     } finally {
       setLoading(false);
     }
@@ -94,6 +162,80 @@ export function RegisterPage() {
 
   const inputClass =
     "w-full rounded-xl border-2 border-border bg-bg-tertiary pl-10 pr-4 py-2.5 text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 transition-all";
+
+  // ── "Check your email" confirmation screen ──
+  if (emailSent) {
+    return (
+      <div className="min-h-screen bg-bg-primary flex flex-col">
+        <header className="h-16 bg-bg-secondary/80 backdrop-blur-xl border-b border-border flex items-center px-6">
+          <Link
+            to="/"
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+          >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 shadow-sm">
+              <Code2 className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm font-bold text-text-primary">
+              Career Portal
+            </span>
+          </Link>
+        </header>
+
+        <div className="flex-1 flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-md text-center">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 mb-6">
+              <CheckCircle2 className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-text-primary mb-3">
+              Check your email
+            </h1>
+            <p className="text-sm text-text-secondary mb-2">
+              We've sent a confirmation link to
+            </p>
+            <p className="text-sm font-semibold text-text-primary mb-6">
+              {registeredEmail}
+            </p>
+
+            <div className="bg-bg-elevated border border-border rounded-2xl shadow-lg p-6 mb-6">
+              <p className="text-sm text-text-secondary mb-4">
+                Click the link in the email to verify your account and get
+                started. It may take a minute to arrive — check your spam folder
+                if you don't see it.
+              </p>
+              <button
+                onClick={handleResendConfirmation}
+                disabled={loading}
+                className="text-sm text-primary-600 dark:text-primary-400 font-semibold hover:underline disabled:opacity-50"
+              >
+                {loading ? "Sending…" : "Resend confirmation email"}
+              </button>
+            </div>
+
+            {error && (
+              <div className="flex items-center justify-center gap-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 mb-6">
+                <AlertCircle className="h-4 w-4 text-error shrink-0" />
+                <p className="text-error text-sm font-medium">{error}</p>
+              </div>
+            )}
+
+            <p className="text-sm text-text-tertiary">
+              Wrong email?{" "}
+              <button
+                onClick={() => {
+                  setEmailSent(false);
+                  setRegisteredEmail("");
+                  setError(null);
+                }}
+                className="text-primary-600 dark:text-primary-400 font-semibold hover:underline"
+              >
+                Go back and try again
+              </button>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-bg-primary flex flex-col">
