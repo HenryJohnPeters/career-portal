@@ -192,33 +192,41 @@ export class QuestionsService {
 
     // ── If the pool is empty, try to generate questions on-demand ──────
     if (!pickedQuestion && filters.track && filters.level) {
-      const genDifficulty = difficulty ?? "medium";
-      try {
-        const generated =
-          await this.aiQuestionGenerator.ensurePoolForFiltersUrgent({
-            track: filters.track,
-            level: filters.level,
-            difficulty: genDifficulty,
-            tags: normalizedTags ?? [],
-          });
+      // Fix #3: Re-check daily limit before firing an expensive AI call.
+      // This prevents AI from being triggered on a user's final free request.
+      const canTriggerAi = isPremium || (await this.getDailyUsageCount(userId)) < FREE_DAILY_QUESTION_LIMIT;
 
-        if (generated) {
-          for (const where of attempts) {
-            const count = await this.prisma.interviewQuestion.count({
-              where: where as any,
-            });
-            if (count > 0) {
-              const skip = Math.floor(Math.random() * count);
-              pickedQuestion = await this.prisma.interviewQuestion.findFirst({
+      if (canTriggerAi) {
+        const genDifficulty = difficulty ?? "medium";
+        try {
+          // Fix #1: Pass userId instead of hardcoded "system" so the per-user
+          // daily AI generation cap (AI_MAX_USER_DAILY_GENERATIONS) is enforced.
+          const generated =
+            await this.aiQuestionGenerator.ensurePoolForFiltersUrgent({
+              track: filters.track,
+              level: filters.level,
+              difficulty: genDifficulty,
+              tags: normalizedTags ?? [],
+            }, userId);
+
+          if (generated) {
+            for (const where of attempts) {
+              const count = await this.prisma.interviewQuestion.count({
                 where: where as any,
-                skip,
               });
-              break;
+              if (count > 0) {
+                const skip = Math.floor(Math.random() * count);
+                pickedQuestion = await this.prisma.interviewQuestion.findFirst({
+                  where: where as any,
+                  skip,
+                });
+                break;
+              }
             }
           }
+        } catch {
+          // Non-critical — if AI fails we still return null below
         }
-      } catch {
-        // Non-critical — if AI fails we still return null below
       }
     }
 

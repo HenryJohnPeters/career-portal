@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { AuthGuard } from "../auth/auth.guard";
 import { QuestionsService } from "./questions.service";
 import {
@@ -53,6 +54,8 @@ export class QuestionsController {
     return { data };
   }
 
+  // 30 requests per minute, max 1 per second — prevents pool-drain / AI-spam
+  @Throttle({ short: { ttl: 1000, limit: 1 }, long: { ttl: 60000, limit: 30 } })
   @Post("practice/next")
   async practiceNext(
     @CurrentUserId() userId: string,
@@ -68,6 +71,8 @@ export class QuestionsController {
     return { data };
   }
 
+  // 60 per minute, max 2 per second — generous for UX, but blocks hammering
+  @Throttle({ short: { ttl: 1000, limit: 2 }, long: { ttl: 60000, limit: 60 } })
   @Post("practice/check")
   async practiceCheck(@Body() dto: PracticeCheckDto) {
     const data = await this.questionsService.checkPracticeAnswer(
