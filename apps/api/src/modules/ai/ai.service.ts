@@ -71,7 +71,7 @@ export class AiService {
     try {
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
-        temperature: 0.7,
+        temperature: 0.4,
         max_tokens: 1500,
         messages: [
           { role: "system", content: systemPrompt },
@@ -108,6 +108,13 @@ Rules:
 - Do NOT include the section title itself — the user already has that.
 - Do NOT wrap the output in code fences or add any preamble/explanation — return ONLY the section content.
 - Keep content appropriately sized: profile ~3-5 lines, experience ~3-5 bullet points per role, skills as categorised lists.
+
+STRICT ANTI-HALLUCINATION RULES (critical):
+- The user's own content is SACRED. Every skill, technology, qualification, degree, certification, and achievement the user has written MUST be preserved in the output. Never drop, omit, or replace anything the user provided.
+- You may ALSO include relevant skills and keywords from the provided job description to help tailor the CV — but these are additions, not replacements. User content always comes first.
+- Do NOT invent, assume, or add ANY skill, technology, or achievement that does not appear in EITHER the user's own content OR the job description.
+- If the user's input is vague or sparse AND no job description is provided, keep the output short and honest — do NOT pad it with made-up technologies or generic skills.
+- Do NOT fabricate metrics, percentages, or numbers that the user did not provide or clearly imply.
 ${
   sectionContext
     ? `\nHere is the rest of this CV for context (do not repeat information already covered):\n\n${sectionContext}`
@@ -126,12 +133,14 @@ ${
     } = req;
 
     if (action === "generate") {
-      let prompt = `Generate professional content for a CV "${sectionTitle}" section (type: ${sectionType}).`;
+      let prompt = `Generate professional content for a CV "${sectionTitle}" section (type: ${sectionType}). IMPORTANT: Only include skills and technologies that are explicitly mentioned in my notes below, in the other CV sections provided as context, or in the job description if provided. Do not invent any skills beyond those sources.`;
       if (jobTitle) prompt += `\nThe user's target role is: ${jobTitle}.`;
       if (jobDescription)
-        prompt += `\nTarget job description:\n${jobDescription}`;
+        prompt += `\nTarget job description (you may include relevant skills from this):\n${jobDescription}`;
       if (currentContent?.trim())
         prompt += `\nThe user has started writing some notes — use them as a base and expand into polished CV content:\n${currentContent}`;
+      else
+        prompt += `\nNote: The user has not provided any notes yet. Without any input to work from, produce a minimal placeholder and ask the user to add their details.`;
       return prompt;
     }
 
@@ -140,7 +149,8 @@ ${
     }
 
     // tailor
-    let prompt = `Rewrite this CV "${sectionTitle}" section to be specifically tailored for the following role.`;
+    let prompt = `Rewrite this CV "${sectionTitle}" section to be specifically tailored for the following role.
+CRITICAL: You MUST keep ALL of the user's existing content — every skill, qualification, degree, certification, and achievement they wrote must appear in your output. Do not drop or omit anything. Then you may add relevant skills from the job description on top of what the user already has.`;
     if (jobTitle) prompt += `\nTarget role: ${jobTitle}`;
     if (jobDescription) prompt += `\nJob description:\n${jobDescription}`;
     prompt += `\n\nCurrent content to tailor:\n${currentContent}`;
@@ -188,7 +198,7 @@ FORMATTING RULES (critical — the content gets rendered by a markdown→HTML en
 SECTION RULES:
 1. EXTRACT all contact info (name, email, phone, location, website, linkedin, github) from the text. If not found, leave as empty string.
 2. Use these sectionTypes: "profile", "experience", "education", "skills", "projects", "certifications", "languages", "interests", "custom". Only include sections that have real content.
-3. Always include a "Profile" section (sectionType: "profile") — write a punchy 3-4 sentence summary as if introducing yourself. Developer-focused: mention years of experience, core stack, what you're known for, what you care about. No generic waffle.
+3. Always include a "Profile" section (sectionType: "profile") — write a punchy 3-4 sentence summary as if introducing yourself. Developer-focused: mention years of experience, core stack, what you're known for, what you care about. No generic waffle. ONLY reference skills and technologies the user actually mentioned.
 4. For "Experience" (sectionType: "experience"), format each role as:
    ### Company Name | Role Title | Jan 2023 – Present
    - Built/Led/Shipped [specific thing] using [specific tech]
@@ -216,25 +226,33 @@ SECTION RULES:
 
 REWRITING RULES:
 - Use strong developer-appropriate action verbs: Built, Shipped, Architected, Migrated, Optimised, Automated, Designed, Debugged, Refactored, Scaled, Deployed, Maintained, Owned.
-- Quantify everything you can — users, requests/sec, latency reduction, team size, lines of code, uptime, deployment frequency.
-- Be honest. If the raw text is vague, write something reasonable but don't fabricate numbers or achievements that weren't implied.
+- Quantify achievements where possible — but ONLY use numbers/metrics the user actually provided or clearly implied. Do NOT invent statistics.
 - Remove filler ("responsible for", "helped with", "was involved in") — replace with direct statements ("Owned", "Built", "Shipped").
 - Fix grammar, spelling, and inconsistencies.
 - Keep it tight. No padding sentences. Every line should earn its place.
+
+STRICT ANTI-HALLUCINATION RULES (critical — follow these above all else):
+- The user's own content is SACRED. Every skill, technology, qualification, degree, certification, and achievement the user has written MUST be preserved in the output. Never drop, omit, or replace anything the user provided.
+- You may ALSO include relevant skills and keywords from the provided job description to help tailor the CV — but these are additions, not replacements. User content always comes first.
+- Do NOT invent, assume, or add ANY technology, skill, or achievement that does not appear in EITHER the user's own content OR the job description.
+- In Experience bullet points, only reference technologies and accomplishments the user described for that role. Do NOT embellish with extra technologies not from the user's input or job description.
+- In the Profile summary, reference skills from the user's input first, then relevant skills from the job description if provided.
+- If the user's input is short or vague AND no job description is provided, produce a SHORT CV. Do NOT pad it with fabricated content. It is better to have a sparse but honest CV than a detailed but fictional one.
+- Do NOT add metrics, percentages, or numbers that the user did not provide or clearly imply.
 
 ORDER: Profile → Experience → Projects → Skills → Education → Certifications → Languages → Interests.
 
 TAILORING (if a job description is provided):
 - Carefully read the job description and identify the key skills, technologies, responsibilities, and qualifications the employer is looking for.
-- Tailor the Profile section to directly address the role's core requirements — lead with the most relevant experience and skills.
+- Tailor the Profile section to directly address the role's core requirements — lead with the most relevant experience and skills THE USER ACTUALLY HAS.
 - In Experience, emphasise bullet points and achievements that align with the job description. Reorder or expand relevant points, and de-emphasise less relevant ones.
-- In Skills, prioritise and lead with technologies and tools mentioned in the job description.
-- Use keywords and phrases from the job description naturally throughout the CV (this helps with ATS screening).
-- Do NOT fabricate experience or skills — only highlight and reframe what the user actually has.
+- In Skills, prioritise and lead with the user's technologies that match the job description.
+- Use keywords and phrases from the job description naturally throughout the CV — but ONLY where they match the user's actual experience.
+- Do NOT fabricate experience or skills — only highlight and reframe what the user actually has. If the user lacks a skill the job requires, simply omit it.
 
 Return ONLY the JSON object. No preamble, no explanation, no code fences.`;
 
-    let userPrompt = `Here's my raw brain-dump. Turn this into my CV:\n\n${req.rawText}`;
+    let userPrompt = `Here's my raw brain-dump. Turn this into my CV. IMPORTANT: Only use skills and technologies from my text below and from the job description if provided — do not invent anything beyond those two sources:\n\n${req.rawText}`;
     if (req.jobTitle)
       userPrompt += `\n\nI'm targeting a ${req.jobTitle} role — tailor my profile and skill emphasis for that.`;
     if (req.jobDescription)
@@ -244,7 +262,7 @@ Return ONLY the JSON object. No preamble, no explanation, no code fences.`;
     try {
       const response = await this.openai.chat.completions.create({
         model: "gpt-4o",
-        temperature: 0.6,
+        temperature: 0.3,
         max_tokens: 4000,
         messages: [
           { role: "system", content: systemPrompt },
