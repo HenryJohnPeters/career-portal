@@ -61,7 +61,9 @@ export class AuthService {
         if (!this.jwtSecret) {
           throw new Error("SUPABASE_JWT_SECRET env var is not set");
         }
-        return jwt.verify(token, this.jwtSecret) as SupabaseJwtPayload;
+        return jwt.verify(token, this.jwtSecret, {
+          algorithms: ["HS256"],
+        }) as SupabaseJwtPayload;
       }
     } catch (err) {
       if (err instanceof UnauthorizedException) throw err;

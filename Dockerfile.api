@@ -22,6 +22,11 @@ RUN pnpm exec tsc -p apps/api/tsconfig.json
 # Verify reflect-metadata exists
 RUN ls -la node_modules/reflect-metadata || echo "reflect-metadata NOT FOUND"
 
+# Create non-root user for security
+RUN groupadd -r appuser && useradd -r -g appuser -d /app -s /sbin/nologin appuser
+RUN chown -R appuser:appuser /app
+USER appuser
+
 ENV NODE_ENV=production
 
 # Start the server from /app directory

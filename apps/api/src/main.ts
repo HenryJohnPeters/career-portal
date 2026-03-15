@@ -7,6 +7,7 @@ import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import { Logger, ValidationPipe } from "@nestjs/common";
 import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import helmet from "helmet";
 import { AppModule } from "./app.module";
 import type { EnvConfig } from "./common/env.config";
 
@@ -15,6 +16,9 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule, { rawBody: true });
     const logger = new Logger("Bootstrap");
     const config = app.get(ConfigService<EnvConfig, true>);
+
+    // Security headers
+    app.use(helmet());
 
     // Allow multiple origins for CORS
     const allowedOrigins = [

@@ -11,6 +11,7 @@ import {
   Logger,
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
+import { SkipThrottle } from "@nestjs/throttler";
 import { Request, Response } from "express";
 import Stripe from "stripe";
 import { AuthGuard } from "../auth/auth.guard";
@@ -53,6 +54,7 @@ export class BillingController {
 
   /* ── Stripe Webhook (no auth guard — verified by signature) */
   @Post("webhook")
+  @SkipThrottle()
   async handleWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers("stripe-signature") signature: string,
