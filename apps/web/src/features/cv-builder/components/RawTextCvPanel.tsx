@@ -14,6 +14,7 @@ import {
   Code2,
   Trophy,
   AlertCircle,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@careerportal/web/ui";
 import {
@@ -64,6 +65,7 @@ export function RawTextCvPanel({
   const [isOpen, setIsOpen] = useState(false);
   const [rawText, setRawText] = useState("");
   const [jobTitle, setJobTitle] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
   const [result, setResult] = useState<AiFullCvResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isApplying, setIsApplying] = useState(false);
@@ -84,6 +86,7 @@ export function RawTextCvPanel({
         versionId,
         rawText: rawText.trim(),
         jobTitle: jobTitle.trim() || undefined,
+        jobDescription: jobDescription.trim() || undefined,
       });
       setResult(res.data);
     } catch (err: any) {
@@ -138,6 +141,7 @@ export function RawTextCvPanel({
       setResult(null);
       setRawText("");
       setJobTitle("");
+      setJobDescription("");
       setIsOpen(false);
       onComplete();
     } catch (err: any) {
@@ -304,6 +308,21 @@ export function RawTextCvPanel({
               placeholder="Target role (e.g. Senior Frontend Engineer) — optional, helps tailor the profile"
               className="w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow"
             />
+
+            {/* Optional job description */}
+            <details className="group">
+              <summary className="flex items-center gap-1 cursor-pointer text-[10px] font-medium text-accent-dark dark:text-accent hover:text-accent dark:hover:text-accent-light transition-colors select-none">
+                <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
+                Add job description for better tailoring
+              </summary>
+              <textarea
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                placeholder="Paste the full job description here — the AI will tailor your CV's profile, skills emphasis, and wording to match this role…"
+                rows={4}
+                className="mt-2 w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow resize-y leading-relaxed"
+              />
+            </details>
 
             {/* Character count + generate */}
             <div className="flex items-center justify-between">

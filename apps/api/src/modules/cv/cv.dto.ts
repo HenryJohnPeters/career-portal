@@ -155,4 +155,12 @@ export class AiGenerateFullCvDto {
   @IsString()
   @IsOptional()
   jobTitle?: string;
+
+  @ApiPropertyOptional({
+    example:
+      "We are looking for a Senior Frontend Engineer with 5+ years of experience...",
+  })
+  @IsString()
+  @IsOptional()
+  jobDescription?: string;
 }

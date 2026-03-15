@@ -331,7 +331,7 @@ export class CvService {
 
   async aiGenerateFullCv(
     userId: string,
-    dto: { rawText: string; jobTitle?: string }
+    dto: { rawText: string; jobTitle?: string; jobDescription?: string }
   ): Promise<AiFullCvResult> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -341,6 +341,7 @@ export class CvService {
     const result = await this.aiService.generateFullCvFromRawText({
       rawText: dto.rawText,
       jobTitle: dto.jobTitle,
+      jobDescription: dto.jobDescription,
       userName: user?.name,
     });
 

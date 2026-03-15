@@ -12,6 +12,7 @@ export type AiCvAction = "generate" | "improve" | "tailor";
 export interface AiFullCvFromTextRequest {
   rawText: string;
   jobTitle?: string;
+  jobDescription?: string;
   userName?: string;
 }
 
@@ -222,11 +223,22 @@ REWRITING RULES:
 - Keep it tight. No padding sentences. Every line should earn its place.
 
 ORDER: Profile → Experience → Projects → Skills → Education → Certifications → Languages → Interests.
+
+TAILORING (if a job description is provided):
+- Carefully read the job description and identify the key skills, technologies, responsibilities, and qualifications the employer is looking for.
+- Tailor the Profile section to directly address the role's core requirements — lead with the most relevant experience and skills.
+- In Experience, emphasise bullet points and achievements that align with the job description. Reorder or expand relevant points, and de-emphasise less relevant ones.
+- In Skills, prioritise and lead with technologies and tools mentioned in the job description.
+- Use keywords and phrases from the job description naturally throughout the CV (this helps with ATS screening).
+- Do NOT fabricate experience or skills — only highlight and reframe what the user actually has.
+
 Return ONLY the JSON object. No preamble, no explanation, no code fences.`;
 
     let userPrompt = `Here's my raw brain-dump. Turn this into my CV:\n\n${req.rawText}`;
     if (req.jobTitle)
       userPrompt += `\n\nI'm targeting a ${req.jobTitle} role — tailor my profile and skill emphasis for that.`;
+    if (req.jobDescription)
+      userPrompt += `\n\nHere's the job description for context:\n${req.jobDescription}`;
     if (req.userName) userPrompt += `\n\nMy name is ${req.userName}.`;
 
     try {

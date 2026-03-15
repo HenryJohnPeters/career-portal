@@ -261,6 +261,7 @@ export function useAiGenerateFullCv() {
       versionId: string;
       rawText: string;
       jobTitle?: string;
+      jobDescription?: string;
     }) =>
       api.post<ApiResponse<AiFullCvResult>>(
         `/cv/versions/${versionId}/ai-generate-full`,
