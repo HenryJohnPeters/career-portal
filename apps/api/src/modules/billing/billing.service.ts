@@ -82,18 +82,23 @@ export class BillingService {
     const priceId = this.config.get("STRIPE_PRICE_ID");
     const clientUrl = this.config.get("CLIENT_URL");
 
-    const session = await this.stripe.checkout.sessions.create({
-      customer: customerId,
-      mode: "subscription",
-      payment_method_types: ["card"],
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${clientUrl}/app/billing?success=true`,
-      cancel_url: `${clientUrl}/app/billing?cancelled=true`,
-      subscription_data: {
+    const session = await this.stripe.checkout.sessions.create(
+      {
+        customer: customerId,
+        mode: "subscription",
+        payment_method_types: ["card"],
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: `${clientUrl}/app/billing?success=true`,
+        cancel_url: `${clientUrl}/app/billing?cancelled=true`,
+        subscription_data: {
+          metadata: { userId: user.id },
+        },
         metadata: { userId: user.id },
       },
-      metadata: { userId: user.id },
-    });
+      // Fix #6: Idempotency key scoped to userId prevents duplicate checkout
+      // sessions from concurrent requests racing past the isPremium check above.
+      { idempotencyKey: `checkout-${userId}` }
+    );
 
     if (!session.url) {
       throw new BadRequestException("Failed to create checkout session.");

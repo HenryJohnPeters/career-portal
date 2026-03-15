@@ -6,6 +6,7 @@ import {
   IsIn,
   Min,
   Max,
+  MaxLength,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -28,6 +29,7 @@ export class CreateTechnicalTestDto {
   @ApiProperty({ type: [String], example: ["React", "TypeScript"] })
   @IsArray()
   @IsString({ each: true })
+  @MaxLength(50, { each: true })
   tags!: string[];
 
   @ApiPropertyOptional({ default: 60, description: "Time limit in minutes" })
@@ -41,5 +43,6 @@ export class CreateTechnicalTestDto {
 export class SubmitTechnicalTestDto {
   @ApiProperty({ description: "The user's solution / submission text" })
   @IsString()
+  @MaxLength(50000)
   submission!: string;
 }

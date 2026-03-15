@@ -6,6 +6,7 @@ import {
   IsIn,
   Min,
   Max,
+  MaxLength,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -23,6 +24,7 @@ export class CreateInterviewSessionDto {
   @ApiProperty({ type: [String], example: ["react", "typescript"] })
   @IsArray()
   @IsString({ each: true })
+  @MaxLength(50, { each: true })
   tags!: string[];
 
   @ApiPropertyOptional({
@@ -79,5 +81,6 @@ export class CreateInterviewSessionDto {
 export class SubmitAnswerDto {
   @ApiProperty()
   @IsString()
+  @MaxLength(10000)
   answer!: string;
 }

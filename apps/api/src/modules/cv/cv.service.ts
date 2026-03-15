@@ -307,6 +307,9 @@ export class CvService {
       select: { name: true },
     });
 
+    // Record usage BEFORE the OpenAI call so it always counts against the limit
+    await this.aiUsage.recordUsage(userId, "cv-section");
+
     const content = await this.aiService.generateCvSectionContent({
       action: dto.action,
       sectionType: section.sectionType,
@@ -324,8 +327,6 @@ export class CvService {
         })),
     });
 
-    await this.aiUsage.recordUsage(userId, "cv-section");
-
     return { content };
   }
 
@@ -338,14 +339,15 @@ export class CvService {
       select: { name: true },
     });
 
+    // Record usage BEFORE the OpenAI call so it always counts against the limit
+    await this.aiUsage.recordUsage(userId, "cv-full");
+
     const result = await this.aiService.generateFullCvFromRawText({
       rawText: dto.rawText,
       jobTitle: dto.jobTitle,
       jobDescription: dto.jobDescription,
       userName: user?.name,
     });
-
-    await this.aiUsage.recordUsage(userId, "cv-full");
 
     return result;
   }

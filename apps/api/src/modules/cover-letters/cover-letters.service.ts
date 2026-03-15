@@ -80,14 +80,16 @@ export class CoverLettersService {
     const { jobTitle, companyName, jobDescription } =
       await this.resolveJobContext(letter.jobId);
 
+    // Record usage BEFORE the OpenAI call
+    await this.aiUsage.recordUsage(userId, "cover-letter-suggest");
+
     const result = await this.aiService.suggestCoverLetterImprovements(
-      letter.body,
+      // Truncate to 3000 chars to cap token usage
+      letter.body.slice(0, 3000),
       jobTitle,
       companyName,
       jobDescription
     );
-
-    await this.aiUsage.recordUsage(userId, "cover-letter-suggest");
 
     return result;
   }
@@ -111,14 +113,16 @@ export class CoverLettersService {
       letter.jobId
     );
 
+    // Record usage BEFORE the OpenAI call
+    await this.aiUsage.recordUsage(userId, "cover-letter-rewrite");
+
     const result = await this.aiService.rewriteCoverLetter(
-      body,
+      // Truncate to 3000 chars to cap token usage
+      body.slice(0, 3000),
       selectedTone,
       jobTitle,
       companyName
     );
-
-    await this.aiUsage.recordUsage(userId, "cover-letter-rewrite");
 
     return result;
   }
@@ -157,9 +161,13 @@ export class CoverLettersService {
       }
     }
 
+    // Record usage BEFORE the OpenAI call
+    await this.aiUsage.recordUsage(userId, "cover-letter");
+
     const content = await this.aiService.generateCoverLetterContent({
       action: dto.action,
-      currentBody: letter.body || undefined,
+      // Truncate existing body to 3000 chars to cap token usage
+      currentBody: letter.body ? letter.body.slice(0, 3000) : undefined,
       jobTitle,
       companyName,
       companyUrl,
@@ -172,8 +180,6 @@ export class CoverLettersService {
         content: s.content,
       })),
     });
-
-    await this.aiUsage.recordUsage(userId, "cover-letter");
 
     return { content };
   }

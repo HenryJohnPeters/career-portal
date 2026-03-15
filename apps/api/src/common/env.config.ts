@@ -26,6 +26,9 @@ const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
+
+  // ── Admin ──
+  ADMIN_API_KEY: z.string().min(1).optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

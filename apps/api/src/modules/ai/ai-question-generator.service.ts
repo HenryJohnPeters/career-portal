@@ -2,7 +2,6 @@ import { Injectable, Inject, Logger } from "@nestjs/common";
 import OpenAI from "openai";
 import * as crypto from "crypto";
 import { PrismaService } from "../../common/prisma.service";
-import { AiUsageService } from "./ai-usage.service";
 import { OPENAI_CLIENT } from "./openai.provider";
 import {
   DIFFICULTY_MAP,
@@ -63,8 +62,7 @@ export class AiQuestionGeneratorService {
 
   constructor(
     @Inject(OPENAI_CLIENT) private readonly openai: OpenAI,
-    private readonly prisma: PrismaService,
-    private readonly aiUsage: AiUsageService
+    private readonly prisma: PrismaService
   ) {}
 
   /**
@@ -136,11 +134,13 @@ export class AiQuestionGeneratorService {
   }
 
   /**
-   * Urgent pool fill: bypasses cooldown and per-user daily limits.
-   * Still respects a short 5-minute cooldown to prevent runaway loops.
+   * Urgent pool fill: bypasses cooldown but still enforces a short 5-minute
+   * per-hash cooldown and a per-user daily cap to prevent bill-spiking attacks
+   * where a user cycles through different tag combos.
    */
   async ensurePoolForFiltersUrgent(
-    filters: QuestionGenerationFilters
+    filters: QuestionGenerationFilters,
+    triggeredBy = "system"
   ): Promise<boolean> {
     const poolSize = await this.getPoolSize(filters);
     if (poolSize >= AI_QUESTION_POOL_THRESHOLD) return false;
@@ -153,6 +153,17 @@ export class AiQuestionGeneratorService {
       },
     });
     if (recentGen) return false;
+
+    // Apply the same per-user daily cap as the normal path — prevents a free
+    // user from cycling through unique tag combos to trigger unlimited AI calls.
+    if (triggeredBy !== "system") {
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
+      const userGenCount = await this.prisma.questionGenerationLog.count({
+        where: { triggeredBy, createdAt: { gte: todayStart } },
+      });
+      if (userGenCount >= AI_MAX_USER_DAILY_GENERATIONS) return false;
+    }
 
     return this.doGenerate(filters, "system");
   }
@@ -208,9 +219,9 @@ export class AiQuestionGeneratorService {
       },
     });
 
-    if (triggeredBy !== "system") {
-      await this.aiUsage.recordUsage(triggeredBy, "question-generation");
-    }
+    // Fix #5: Never charge pool-fill (which benefits all users) against an
+    // individual user's monthly AI usage counter. Only the guard-protected
+    // user-facing AI actions (cv, cover-letter, etc.) should count.
 
     this.logger.log(
       `Generated ${questions.length} questions for hash=${filterHash} triggered by ${triggeredBy}`
@@ -220,7 +231,8 @@ export class AiQuestionGeneratorService {
 
   /**
    * Piggyback generation: called after a premium user finishes a session.
-   * Only triggers ~15% of the time to spread cost.
+   * Always runs as "system" — does not charge the user's AI usage counter
+   * and respects the normal per-hash cooldown.
    */
   async maybePiggybackGenerate(
     filters: QuestionGenerationFilters,
@@ -228,7 +240,8 @@ export class AiQuestionGeneratorService {
   ): Promise<void> {
     if (Math.random() > AI_PIGGYBACK_CHANCE) return;
     try {
-      await this.ensurePoolForFilters(filters, userId);
+      // Pass "system" so no per-user daily cap or usage recording applies
+      await this.ensurePoolForFilters(filters, "system");
     } catch (err) {
       this.logger.warn("Piggyback generation failed (non-critical)", err);
     }

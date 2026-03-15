@@ -15,17 +15,18 @@ interface SupabaseJwtPayload {
 export class AuthService {
   private readonly jwksClient: jwksRsa.JwksClient | null;
   private readonly jwtSecret: string | undefined;
+  private readonly supabaseUrl: string | undefined;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService<EnvConfig>
   ) {
-    const supabaseUrl = this.config.get("SUPABASE_URL");
+    this.supabaseUrl = this.config.get("SUPABASE_URL");
     this.jwtSecret = this.config.get("SUPABASE_JWT_SECRET");
 
-    this.jwksClient = supabaseUrl
+    this.jwksClient = this.supabaseUrl
       ? jwksRsa({
-          jwksUri: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
+          jwksUri: `${this.supabaseUrl}/auth/v1/.well-known/jwks.json`,
           cache: true,
           rateLimit: true,
           jwksRequestsPerMinute: 5,
@@ -39,6 +40,18 @@ export class AuthService {
     }
     const key = await this.jwksClient.getSigningKey(header.kid);
     return key.getPublicKey();
+  }
+
+  /**
+   * Common JWT verification options.
+   * - issuer: ensures the token was minted by our Supabase project
+   * - audience: Supabase tokens use "authenticated" for logged-in users
+   */
+  private get jwtVerifyOptions(): jwt.VerifyOptions {
+    return {
+      ...(this.supabaseUrl ? { issuer: `${this.supabaseUrl}/auth/v1` } : {}),
+      audience: "authenticated",
+    };
   }
 
   /**
@@ -56,6 +69,7 @@ export class AuthService {
         const publicKey = await this.getSigningKey(decoded.header);
         return jwt.verify(token, publicKey, {
           algorithms: ["ES256"],
+          ...this.jwtVerifyOptions,
         }) as SupabaseJwtPayload;
       } else {
         if (!this.jwtSecret) {
@@ -63,6 +77,7 @@ export class AuthService {
         }
         return jwt.verify(token, this.jwtSecret, {
           algorithms: ["HS256"],
+          ...this.jwtVerifyOptions,
         }) as SupabaseJwtPayload;
       }
     } catch (err) {

@@ -1,4 +1,13 @@
-import { Controller, Get, Param, Query, Res, UseGuards, ForbiddenException, NotFoundException } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  Res,
+  UseGuards,
+  ForbiddenException,
+  NotFoundException,
+} from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { Response } from "express";
 import { PdfService } from "./pdf.service";
@@ -13,11 +22,14 @@ import { PrismaService } from "../common/prisma.service";
 export class PdfController {
   constructor(
     private readonly pdfService: PdfService,
-    private readonly prisma: PrismaService,
+    private readonly prisma: PrismaService
   ) {}
 
   /** Verify the authenticated user owns the CV version */
-  private async assertCvOwner(userId: string, cvVersionId: string): Promise<void> {
+  private async assertCvOwner(
+    userId: string,
+    cvVersionId: string
+  ): Promise<void> {
     const cv = await this.prisma.cvVersion.findUnique({
       where: { id: cvVersionId },
       select: { userId: true },

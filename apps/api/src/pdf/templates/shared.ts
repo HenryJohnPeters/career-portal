@@ -52,6 +52,23 @@ export function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Sanitise a URL to prevent javascript: / data: / vbscript: XSS vectors. */
+export function sanitizeUrl(url: string): string {
+  const decoded = url
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .trim();
+  const normalized = decoded.replace(/[\x00-\x1f\x7f]/g, "").toLowerCase();
+  if (
+    normalized.startsWith("javascript:") ||
+    normalized.startsWith("data:") ||
+    normalized.startsWith("vbscript:")
+  ) {
+    return "#";
+  }
+  return url;
+}
+
 export function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const h = hex.replace("#", "");
   return {
@@ -206,7 +223,8 @@ export function renderMarkdown(
   // Links
   html = html.replace(
     /\[([^\]]+)\]\(([^)]+)\)/g,
-    '<a href="$2" class="cv-link">$1</a>'
+    (_match: string, text: string, href: string) =>
+      `<a href="${sanitizeUrl(href)}" class="cv-link">${text}</a>`
   );
 
   // Skill badges: [skill: React]

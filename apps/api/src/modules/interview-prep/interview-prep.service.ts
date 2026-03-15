@@ -10,7 +10,7 @@ import {
 } from "./engine";
 import { CreateInterviewSessionDto } from "./interview-prep.dto";
 import { AiQuestionGeneratorService } from "../ai/ai-question-generator.service";
-import { TECH_CATEGORIES } from "../../common/constants";
+import { TECH_CATEGORIES, DIFFICULTY_RANGES } from "../../common/constants";
 
 // Feedback interface — exported so the controller return type is resolvable
 export interface AnswerFeedback {
@@ -96,9 +96,11 @@ export class InterviewPrepService {
 
     if (poolSize < questionCount) {
       try {
-        // Use the urgent path — bypasses normal cooldown / daily limits
-        // so the user never gets a session with 0 questions.
-        await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(poolFilters);
+        // Pass userId so the per-user daily generation cap is enforced (fix #3)
+        await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(
+          poolFilters,
+          userId
+        );
       } catch {
         // Non-critical — proceed with whatever we have
       }
@@ -110,18 +112,28 @@ export class InterviewPrepService {
       );
       if (poolSizeAfter === 0 && tags.length > 0) {
         try {
-          await this.aiQuestionGenerator.ensurePoolForFiltersUrgent({
-            ...poolFilters,
-            tags: [],
-          });
+          await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(
+            { ...poolFilters, tags: [] },
+            userId
+          );
         } catch {
           // Non-critical
         }
       }
     }
 
+    // Fix #9: Scope pool query to track/level/difficulty — avoids loading the entire table
+    const poolWhere: Record<string, unknown> = {
+      track: dto.track,
+      level: dto.level,
+    };
+    const difficultyRange = DIFFICULTY_RANGES[difficulty];
+    if (difficultyRange) poolWhere.difficulty = difficultyRange;
+
     // Load entire question pool from the bank
-    const pool = await this.prisma.interviewQuestion.findMany();
+    const pool = await this.prisma.interviewQuestion.findMany({
+      where: poolWhere as any,
+    });
     const poolRecords: QuestionRecord[] = pool.map((q) => ({
       ...q,
       options: (q.options as unknown as string[]) ?? undefined,
