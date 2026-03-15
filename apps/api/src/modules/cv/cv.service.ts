@@ -295,6 +295,14 @@ export class CvService {
   ) {
     const section = await this.assertSectionOwner(userId, sectionId);
 
+    // Enforce monthly AI limit
+    const canUse = await this.aiUsage.canUseAi(userId);
+    if (!canUse) {
+      throw new ForbiddenException(
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+      );
+    }
+
     // Fetch all sibling sections for context
     const allSections = await this.prisma.cvSection.findMany({
       where: { cvVersionId: section.cvVersionId },
@@ -306,9 +314,6 @@ export class CvService {
       where: { id: userId },
       select: { name: true },
     });
-
-    // Record usage BEFORE the OpenAI call so it always counts against the limit
-    await this.aiUsage.recordUsage(userId, "cv-section");
 
     const content = await this.aiService.generateCvSectionContent({
       action: dto.action,
@@ -327,6 +332,9 @@ export class CvService {
         })),
     });
 
+    // Record usage only after a successful OpenAI response
+    await this.aiUsage.recordUsage(userId, "cv-section");
+
     return { content };
   }
 
@@ -334,13 +342,18 @@ export class CvService {
     userId: string,
     dto: { rawText: string; jobTitle?: string; jobDescription?: string }
   ): Promise<AiFullCvResult> {
+    // Enforce monthly AI limit
+    const canUse = await this.aiUsage.canUseAi(userId);
+    if (!canUse) {
+      throw new ForbiddenException(
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+      );
+    }
+
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { name: true },
     });
-
-    // Record usage BEFORE the OpenAI call so it always counts against the limit
-    await this.aiUsage.recordUsage(userId, "cv-full");
 
     const result = await this.aiService.generateFullCvFromRawText({
       rawText: dto.rawText,
@@ -348,6 +361,9 @@ export class CvService {
       jobDescription: dto.jobDescription,
       userName: user?.name,
     });
+
+    // Record usage only after a successful OpenAI response
+    await this.aiUsage.recordUsage(userId, "cv-full");
 
     return result;
   }

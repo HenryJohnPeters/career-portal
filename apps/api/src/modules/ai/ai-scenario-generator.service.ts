@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from "@nestjs/common";
+import { Injectable, Inject, Logger, ForbiddenException } from "@nestjs/common";
 import OpenAI from "openai";
 import { AiUsageService } from "./ai-usage.service";
 import { OPENAI_CLIENT } from "./openai.provider";
@@ -27,41 +27,27 @@ export class AiScenarioGeneratorService {
     input: ScenarioGenerationInput,
     userId: string
   ): Promise<any | null> {
+    // Enforce monthly AI limit
+    const canUse = await this.aiUsage.canUseAi(userId);
+    if (!canUse) {
+      throw new ForbiddenException(
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+      );
+    }
+
     const tagsStr =
       input.tags.length > 0
         ? input.tags.join(", ")
         : `general ${input.roleFocus} technologies`;
 
-    const systemPrompt = `You are a senior engineering manager who creates take-home technical tests for developer candidates. You create realistic, in-depth scenarios that test real-world engineering skills.
+    const systemPrompt = `Senior engineering manager creating realistic take-home technical tests. Return ONLY a valid JSON object — no code fences, no extra text:
+{"title":"","companyContext":"","brief":"","background":"","requirements":[{"key":"","text":""}],"nonFunctional":[""],"acceptanceCriteria":[""],"bonusChallenges":[""],"evaluationCriteria":[{"name":"","weight":0,"description":""}],"hints":[""],"estimatedTime":"","deliverables":[""],"constraints":[""]}
 
-Return a valid JSON object with this EXACT shape:
-{
-  "title": "string — catchy project title",
-  "companyContext": "string — 2-3 sentences about the fictional company",
-  "brief": "string — 2-3 sentence project brief using **markdown bold** for tech stack",
-  "background": "string — 2-3 sentences of project background/context",
-  "requirements": [{ "key": "string — short label", "text": "string — detailed requirement" }],
-  "nonFunctional": ["string — non-functional requirement"],
-  "acceptanceCriteria": ["string — specific testable criterion"],
-  "bonusChallenges": ["string — stretch goal"],
-  "evaluationCriteria": [{ "name": "string", "weight": number (10-30), "description": "string" }],
-  "hints": ["string — helpful hint"],
-  "estimatedTime": "string — e.g. '3-5 hours'",
-  "deliverables": ["string — what to submit"],
-  "constraints": ["string — technical constraint"]
-}
-
-RULES:
-- Role focus: ${input.roleFocus} (frontend/backend/fullstack/platform)
-- Level: ${input.level} (junior = 3-5 requirements, mid = 5-7, senior = 6-9)
-- Difficulty: ${input.difficulty}
-- Tech stack: ${tagsStr}
-- Create a REALISTIC scenario — something a real company would actually ask
-- Requirements should be specific and testable, not vague
-- Evaluation criteria weights must sum to 100
-- Include 4-6 requirements, 3-5 non-functional requirements, 4-6 acceptance criteria
-- Include 3-4 bonus challenges, 3-4 hints, 3-4 deliverables, 2-4 constraints
-- Do NOT return code fences or any text outside the JSON object`;
+Role: ${input.roleFocus} | Level: ${input.level} (junior=3-5 reqs, mid=5-7, senior=6-9) | Difficulty: ${input.difficulty} | Stack: ${tagsStr}
+- Realistic scenario a real company would actually use. Requirements must be specific and testable.
+- evaluationCriteria weights must sum to 100.
+- Counts: 4-6 requirements, 3-5 nonFunctional, 4-6 acceptanceCriteria, 3-4 bonusChallenges, 3-4 hints, 3-4 deliverables, 2-4 constraints.
+- brief: use **bold** for tech stack names.`;
 
     const userPrompt = `Create a ${input.difficulty} ${input.level}-level take-home technical test for a ${input.roleFocus} developer using ${tagsStr}.`;
 

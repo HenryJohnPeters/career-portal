@@ -94,32 +94,15 @@ export class AiService {
       .map((s) => `[${s.title}]\n${s.content}`)
       .join("\n\n");
 
-    return `You are a developer writing your own CV. You write as if YOU are this person — first person implied, never third person. Direct, technical, no corporate fluff.
+    return `You are a developer writing your own CV. First-person implied, never third person. Direct, technical, no fluff.
 
-Rules:
-- Write in implied first person: "Built a real-time pipeline…" NOT "He built…" or "The candidate built…"
-- Sound like a confident developer — specific, technical, concise.
-- Use **bold** for emphasis, ### with pipes for structured entries (### Company | Role | Dates), - for bullet points, [links](url) where appropriate.
-- Do NOT use ##, #, or any heading level other than ### — only ### is supported by the renderer.
-- Do NOT use code blocks, tables, or HTML tags.
-- Use strong action verbs: Built, Shipped, Architected, Migrated, Optimised, Automated, Scaled, Deployed, Owned.
-- Quantify achievements where possible (percentages, users, latency, team size, timeframes).
-- Remove filler ("responsible for", "helped with") — replace with direct statements ("Owned", "Built").
-- Do NOT include the section title itself — the user already has that.
-- Do NOT wrap the output in code fences or add any preamble/explanation — return ONLY the section content.
-- Keep content appropriately sized: profile ~3-5 lines, experience ~3-5 bullet points per role, skills as categorised lists.
+Format: **bold** for emphasis, ### Company | Role | Dates for entries, - for bullets, [links](url). Only ### headings — no ## or #. No code blocks/tables/HTML. No section title in output. Return ONLY content, no preamble.
+Verbs: Built, Shipped, Architected, Migrated, Optimised, Scaled, Deployed, Owned. Quantify where possible. No filler ("responsible for" → "Owned").
+Size: profile ~3-5 lines, experience ~3-5 bullets/role, skills as categorised lists.
 
-STRICT ANTI-HALLUCINATION RULES (critical):
-- The user's own content is SACRED. Every skill, technology, qualification, degree, certification, and achievement the user has written MUST be preserved in the output. Never drop, omit, or replace anything the user provided.
-- You may ALSO include relevant skills and keywords from the provided job description to help tailor the CV — but these are additions, not replacements. User content always comes first.
-- Do NOT invent, assume, or add ANY skill, technology, or achievement that does not appear in EITHER the user's own content OR the job description.
-- If the user's input is vague or sparse AND no job description is provided, keep the output short and honest — do NOT pad it with made-up technologies or generic skills.
-- Do NOT fabricate metrics, percentages, or numbers that the user did not provide or clearly imply.
-${
-  sectionContext
-    ? `\nHere is the rest of this CV for context (do not repeat information already covered):\n\n${sectionContext}`
-    : ""
-}`;
+Anti-hallucination (critical): Preserve every skill, tech, qualification and achievement the user wrote — never drop anything. You may add relevant skills from the job description as additions only. Never invent anything not in user content or job description. Never fabricate metrics.${
+      sectionContext ? `\n\nCV context (do not repeat):\n${sectionContext}` : ""
+    }`;
   }
 
   private buildCvUserPrompt(req: AiCvSectionRequest): string {
@@ -162,102 +145,37 @@ CRITICAL: You MUST keep ALL of the user's existing content — every skill, qual
   async generateFullCvFromRawText(
     req: AiFullCvFromTextRequest
   ): Promise<AiFullCvResult> {
-    const systemPrompt = `You are a senior software developer writing your own CV. You take the user's messy brain-dump about their career and rewrite it as YOUR OWN polished CV — first person implied, never third person. You ARE this developer.
+    const systemPrompt = `You are a developer writing your own CV from a brain-dump. First-person implied. Direct, technical, no fluff.
 
-Your output MUST be a valid JSON object with this exact shape:
-{
-  "name": "string or empty",
-  "email": "string or empty",
-  "phone": "string or empty",
-  "location": "string or empty",
-  "website": "string or empty",
-  "linkedin": "string or empty",
-  "github": "string or empty",
-  "sections": [
-    { "title": "string", "sectionType": "string", "content": "string (markdown)" }
-  ]
-}
+Output ONLY a valid JSON object:
+{"name":"","email":"","phone":"","location":"","website":"","linkedin":"","github":"","sections":[{"title":"","sectionType":"","content":""}]}
 
-VOICE & TONE:
-- Write in FIRST PERSON implied (no "he/she/they", no "the candidate", no "Mr. Smith").
-- Use the natural CV voice: "Built a real-time data pipeline…" not "He built a real-time data pipeline…"
-- Sound like a confident developer writing about themselves — direct, technical, no corporate fluff.
-- Be specific and technical. Mention actual technologies, frameworks, patterns, and architecture decisions.
+Format rules: **bold** emphasis, ### Company | Role | Dates entries, - bullets, [links](url), [skill: X] badges, [rating: N/5] proficiency. Only ### headings. No code blocks/tables/HTML. Section title goes in "title" field, not content.
 
-FORMATTING RULES (critical — the content gets rendered by a markdown→HTML engine):
-- Use **bold** for emphasis (company names, tech stacks, key metrics).
-- Use ### with pipes for structured entries: ### Company Name | Role Title | Date Range
-- Use - for bullet points.
-- Use [link text](url) for links.
-- Use [skill: React] for inline skill badges.
-- Use [rating: 4/5] for language proficiency dots.
-- Do NOT use ##, #, or any heading level other than ### — only ### is supported.
-- Do NOT use code blocks, tables, or HTML tags.
-- Do NOT include the section title in the content — it goes in the "title" field.
+sectionTypes: profile, experience, education, skills, projects, certifications, languages, interests, custom. Only include sections with real content.
+Order: Profile → Experience → Projects → Skills → Education → Certifications → Languages → Interests.
 
-SECTION RULES:
-1. EXTRACT all contact info (name, email, phone, location, website, linkedin, github) from the text. If not found, leave as empty string.
-2. Use these sectionTypes: "profile", "experience", "education", "skills", "projects", "certifications", "languages", "interests", "custom". Only include sections that have real content.
-3. Always include a "Profile" section (sectionType: "profile") — write a punchy 3-4 sentence summary as if introducing yourself. Developer-focused: mention years of experience, core stack, what you're known for, what you care about. No generic waffle. ONLY reference skills and technologies the user actually mentioned.
-4. For "Experience" (sectionType: "experience"), format each role as:
-   ### Company Name | Role Title | Jan 2023 – Present
-   - Built/Led/Shipped [specific thing] using [specific tech]
-   - Reduced/Improved/Scaled [metric] by [number]% through [what you did]
-   - Owned [area of responsibility], collaborated with [who]
-5. For "Education" (sectionType: "education"):
-   ### University Name | BSc Computer Science | 2016 – 2020
-   - Relevant coursework, thesis, honours
-6. For "Skills" (sectionType: "skills"), group into labelled categories:
-   ### Languages & Frameworks
-   - TypeScript, JavaScript, Python, Go
-   ### Infrastructure & DevOps
-   - AWS, Docker, Kubernetes, Terraform
-   ### Databases
-   - PostgreSQL, Redis, MongoDB
-7. For "Projects" (sectionType: "projects"):
-   ### Project Name | React, Node.js, PostgreSQL
-   - What it does, who uses it, key technical decisions
-   - [View Project](https://example.com) or [GitHub](https://github.com/...)
-8. For "Certifications" (sectionType: "certifications"):
-   - **AWS Solutions Architect Associate** — Amazon Web Services, 2024
-9. For "Languages" (sectionType: "languages"):
-   - **English** — Native [rating: 5/5]
-   - **Spanish** — Conversational [rating: 3/5]
+Section formats:
+- profile: 3-4 sentence punchy summary. Core stack, years of experience, what you're known for. Only skills user mentioned.
+- experience: ### Company | Role | Date Range\\n- Built X using Y\\n- Scaled Z by N%
+- education: ### University | Degree | Years\\n- Coursework/honours
+- skills: grouped ### Category\\n- Tech, Tech, Tech
+- projects: ### Name | Stack\\n- What it does, decisions\\n- [GitHub](url)
+- certifications: - **Name** — Issuer, Year
+- languages: - **Lang** — Level [rating: N/5]
 
-REWRITING RULES:
-- Use strong developer-appropriate action verbs: Built, Shipped, Architected, Migrated, Optimised, Automated, Designed, Debugged, Refactored, Scaled, Deployed, Maintained, Owned.
-- Quantify achievements where possible — but ONLY use numbers/metrics the user actually provided or clearly implied. Do NOT invent statistics.
-- Remove filler ("responsible for", "helped with", "was involved in") — replace with direct statements ("Owned", "Built", "Shipped").
-- Fix grammar, spelling, and inconsistencies.
-- Keep it tight. No padding sentences. Every line should earn its place.
+Verbs: Built, Shipped, Architected, Migrated, Optimised, Scaled, Deployed, Owned. Remove filler. Fix grammar. No padding.
 
-STRICT ANTI-HALLUCINATION RULES (critical — follow these above all else):
-- The user's own content is SACRED. Every skill, technology, qualification, degree, certification, and achievement the user has written MUST be preserved in the output. Never drop, omit, or replace anything the user provided.
-- You may ALSO include relevant skills and keywords from the provided job description to help tailor the CV — but these are additions, not replacements. User content always comes first.
-- Do NOT invent, assume, or add ANY technology, skill, or achievement that does not appear in EITHER the user's own content OR the job description.
-- In Experience bullet points, only reference technologies and accomplishments the user described for that role. Do NOT embellish with extra technologies not from the user's input or job description.
-- In the Profile summary, reference skills from the user's input first, then relevant skills from the job description if provided.
-- If the user's input is short or vague AND no job description is provided, produce a SHORT CV. Do NOT pad it with fabricated content. It is better to have a sparse but honest CV than a detailed but fictional one.
-- Do NOT add metrics, percentages, or numbers that the user did not provide or clearly imply.
+Anti-hallucination (critical): Preserve ALL user content. Job description skills are additions only. Never invent tech/metrics/achievements not in user input or job description. Sparse input → short CV.
+Tailoring: lead Profile with user's most relevant skills, emphasise matching Experience bullets, prioritise matching Skills. Never fabricate missing skills.
 
-ORDER: Profile → Experience → Projects → Skills → Education → Certifications → Languages → Interests.
+Return ONLY the JSON. No preamble, no code fences.`;
 
-TAILORING (if a job description is provided):
-- Carefully read the job description and identify the key skills, technologies, responsibilities, and qualifications the employer is looking for.
-- Tailor the Profile section to directly address the role's core requirements — lead with the most relevant experience and skills THE USER ACTUALLY HAS.
-- In Experience, emphasise bullet points and achievements that align with the job description. Reorder or expand relevant points, and de-emphasise less relevant ones.
-- In Skills, prioritise and lead with the user's technologies that match the job description.
-- Use keywords and phrases from the job description naturally throughout the CV — but ONLY where they match the user's actual experience.
-- Do NOT fabricate experience or skills — only highlight and reframe what the user actually has. If the user lacks a skill the job requires, simply omit it.
-
-Return ONLY the JSON object. No preamble, no explanation, no code fences.`;
-
-    let userPrompt = `Here's my raw brain-dump. Turn this into my CV. IMPORTANT: Only use skills and technologies from my text below and from the job description if provided — do not invent anything beyond those two sources:\n\n${req.rawText}`;
-    if (req.jobTitle)
-      userPrompt += `\n\nI'm targeting a ${req.jobTitle} role — tailor my profile and skill emphasis for that.`;
+    let userPrompt = `Convert this brain-dump into my CV. Only use skills/tech from my text and the job description — invent nothing:\n\n${req.rawText}`;
+    if (req.jobTitle) userPrompt += `\n\nTargeting: ${req.jobTitle}.`;
     if (req.jobDescription)
-      userPrompt += `\n\nHere's the job description for context:\n${req.jobDescription}`;
-    if (req.userName) userPrompt += `\n\nMy name is ${req.userName}.`;
+      userPrompt += `\n\nJob description:\n${req.jobDescription}`;
+    if (req.userName) userPrompt += `\n\nMy name: ${req.userName}.`;
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -357,14 +275,14 @@ Return ONLY the JSON object. No preamble, no explanation, no code fences.`;
         messages: [
           {
             role: "system",
-            content: `You are an expert career coach reviewing a cover letter. Provide specific, actionable suggestions to improve it. Return a JSON array of strings, each being one suggestion. Return ONLY the JSON array, no extra text.`,
+            content: `Career coach reviewing a cover letter. Give 3-6 specific, actionable improvement suggestions. Return ONLY a JSON string array.`,
           },
           {
             role: "user",
-            content: `Review this cover letter and provide 3-6 specific improvement suggestions:\n\n${body}${
-              jobTitle ? `\n\nTarget role: ${jobTitle}` : ""
+            content: `Suggest improvements:\n\n${body}${
+              jobTitle ? `\n\nRole: ${jobTitle}` : ""
             }${companyName ? ` at ${companyName}` : ""}${
-              jobDescription ? `\n\nJob description:\n${jobDescription}` : ""
+              jobDescription ? `\n\nJD:\n${jobDescription}` : ""
             }`,
           },
         ],
@@ -393,8 +311,8 @@ Return ONLY the JSON object. No preamble, no explanation, no code fences.`;
   ): Promise<string> {
     const toneInstruction =
       tone === "professional"
-        ? "Use a polished, formal, corporate-appropriate tone."
-        : "Use a warm, personable, approachable tone while staying professional.";
+        ? "Polished, formal tone."
+        : "Warm, personable tone while staying professional.";
 
     try {
       const response = await this.openai.chat.completions.create({
@@ -404,15 +322,15 @@ Return ONLY the JSON object. No preamble, no explanation, no code fences.`;
         messages: [
           {
             role: "system",
-            content: `You are an expert cover letter writer. Rewrite the user's cover letter in a ${tone} tone. ${toneInstruction}\n\nRules:\n- Keep the core message and key points intact.\n- Improve structure: greeting, intro, body (2-3 paragraphs), closing.\n- Do NOT add placeholder brackets like [Company Name] — use whatever info is available.\n- Return ONLY the rewritten letter, no preamble.`,
+            content: `Expert cover letter writer. ${toneInstruction} Keep core message intact. Structure: greeting, intro, 2-3 body paragraphs, closing. No placeholder brackets. Return ONLY the letter.`,
           },
           {
             role: "user",
-            content: `Rewrite this cover letter${
+            content: `Rewrite${
               jobTitle
-                ? ` (for a ${jobTitle} role${
+                ? ` for a ${jobTitle} role${
                     companyName ? ` at ${companyName}` : ""
-                  })`
+                  }`
                 : ""
             }:\n\n${body}`,
           },
@@ -431,25 +349,17 @@ Return ONLY the JSON object. No preamble, no explanation, no code fences.`;
   private buildCoverLetterSystemPrompt(req: AiCoverLetterRequest): string {
     const toneInstruction =
       req.tone === "friendly"
-        ? "Use a warm, personable, approachable tone while staying professional."
-        : "Use a polished, formal, corporate-appropriate tone.";
+        ? "Warm, personable tone while staying professional."
+        : "Polished, formal tone.";
 
     const cvContext = req.cvSections
       ?.filter((s) => s.content.trim().length > 0)
       .map((s) => `[${s.title}]\n${s.content}`)
       .join("\n\n");
 
-    return `You are an expert cover letter writer who creates compelling, personalised cover letters.
-
-Rules:
-- Write a complete cover letter with proper greeting, 2-3 body paragraphs, and closing.
-- ${toneInstruction}
-- Highlight relevant experience and skills from the CV if provided.
-- Show genuine enthusiasm for the role and company.
-- If a company URL is provided, reference the company naturally — mention their mission, products, or industry where appropriate.
-- Do NOT use generic placeholder brackets like [Your Name] or [Company] — use the information provided or write naturally without them.
-- Return ONLY the cover letter text, no preamble or explanation.
-${cvContext ? `\nUser's CV for reference:\n\n${cvContext}` : ""}`;
+    return `Expert cover letter writer. ${toneInstruction} Write greeting, 2-3 body paragraphs, closing. Highlight relevant CV experience. Show genuine enthusiasm. Reference company naturally if URL provided. No placeholder brackets. Return ONLY the letter.${
+      cvContext ? `\n\nCV:\n${cvContext}` : ""
+    }`;
   }
 
   private buildCoverLetterUserPrompt(req: AiCoverLetterRequest): string {

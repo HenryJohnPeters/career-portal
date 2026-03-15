@@ -77,19 +77,26 @@ export class CoverLettersService {
       ];
     }
 
+    // Enforce monthly AI limit
+    const canUse = await this.aiUsage.canUseAi(userId);
+    if (!canUse) {
+      throw new ForbiddenException(
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+      );
+    }
+
     const { jobTitle, companyName, jobDescription } =
       await this.resolveJobContext(letter.jobId);
 
-    // Record usage BEFORE the OpenAI call
-    await this.aiUsage.recordUsage(userId, "cover-letter-suggest");
-
     const result = await this.aiService.suggestCoverLetterImprovements(
-      // Truncate to 3000 chars to cap token usage
       letter.body.slice(0, 3000),
       jobTitle,
       companyName,
       jobDescription
     );
+
+    // Record usage only after a successful OpenAI response
+    await this.aiUsage.recordUsage(userId, "cover-letter-suggest");
 
     return result;
   }
@@ -109,20 +116,27 @@ export class CoverLettersService {
         : "Hi there!\n\nI'm really excited about this opportunity and would love to be part of your team. I think my skills and enthusiasm would be a great fit.\n\nLooking forward to chatting more about how I can contribute!\n\nBest,\n[Your Name]";
     }
 
+    // Enforce monthly AI limit
+    const canUse = await this.aiUsage.canUseAi(userId);
+    if (!canUse) {
+      throw new ForbiddenException(
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+      );
+    }
+
     const { jobTitle, companyName } = await this.resolveJobContext(
       letter.jobId
     );
 
-    // Record usage BEFORE the OpenAI call
-    await this.aiUsage.recordUsage(userId, "cover-letter-rewrite");
-
     const result = await this.aiService.rewriteCoverLetter(
-      // Truncate to 3000 chars to cap token usage
       body.slice(0, 3000),
       selectedTone,
       jobTitle,
       companyName
     );
+
+    // Record usage only after a successful OpenAI response
+    await this.aiUsage.recordUsage(userId, "cover-letter-rewrite");
 
     return result;
   }
@@ -141,6 +155,14 @@ export class CoverLettersService {
   ) {
     const letter = await this.assertOwner(userId, id);
 
+    // Enforce monthly AI limit
+    const canUse = await this.aiUsage.canUseAi(userId);
+    if (!canUse) {
+      throw new ForbiddenException(
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+      );
+    }
+
     const cvVersion = await this.resolveActiveCv(userId);
 
     const user = await this.prisma.user.findUnique({
@@ -148,7 +170,6 @@ export class CoverLettersService {
       select: { name: true },
     });
 
-    // Merge DTO values with linked job context (DTO wins)
     let { jobTitle, companyName, companyUrl, jobDescription } = dto;
     if (letter.jobId && (!jobTitle || !companyName)) {
       const job = await this.prisma.job.findUnique({
@@ -161,12 +182,8 @@ export class CoverLettersService {
       }
     }
 
-    // Record usage BEFORE the OpenAI call
-    await this.aiUsage.recordUsage(userId, "cover-letter");
-
     const content = await this.aiService.generateCoverLetterContent({
       action: dto.action,
-      // Truncate existing body to 3000 chars to cap token usage
       currentBody: letter.body ? letter.body.slice(0, 3000) : undefined,
       jobTitle,
       companyName,
@@ -180,6 +197,9 @@ export class CoverLettersService {
         content: s.content,
       })),
     });
+
+    // Record usage only after a successful OpenAI response
+    await this.aiUsage.recordUsage(userId, "cover-letter");
 
     return { content };
   }
