@@ -207,9 +207,7 @@ export function CoverLettersPage() {
               <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
                 AI Assistant
               </span>
-              {!isPremium && (
-                <Crown className="h-3.5 w-3.5 text-amber-500" />
-              )}
+              {!isPremium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button
@@ -222,9 +220,7 @@ export function CoverLettersPage() {
                   <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
                     Suggest
                   </p>
-                  <p className="text-[10px] text-gray-500">
-                    Get improvements
-                  </p>
+                  <p className="text-[10px] text-gray-500">Get improvements</p>
                 </div>
                 {!isPremium && (
                   <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
@@ -240,9 +236,7 @@ export function CoverLettersPage() {
                   <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
                     Professional
                   </p>
-                  <p className="text-[10px] text-gray-500">
-                    Formal rewrite
-                  </p>
+                  <p className="text-[10px] text-gray-500">Formal rewrite</p>
                 </div>
                 {!isPremium && (
                   <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
@@ -258,9 +252,7 @@ export function CoverLettersPage() {
                   <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
                     Friendly
                   </p>
-                  <p className="text-[10px] text-gray-500">
-                    Casual rewrite
-                  </p>
+                  <p className="text-[10px] text-gray-500">Casual rewrite</p>
                 </div>
                 {!isPremium && (
                   <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />

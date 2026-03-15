@@ -26,6 +26,8 @@ export class JobsService {
       status?: string;
       url?: string;
       notes?: string;
+      cvVersionId?: string;
+      coverLetterId?: string;
     }
   ) {
     return this.prisma.job.create({
@@ -36,6 +38,8 @@ export class JobsService {
         status: data.status ?? "applied",
         url: data.url ?? null,
         notes: data.notes ?? null,
+        cvVersionId: data.cvVersionId ?? null,
+        coverLetterId: data.coverLetterId ?? null,
       },
       include: JOB_INCLUDE,
     });

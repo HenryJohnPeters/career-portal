@@ -24,6 +24,16 @@ export class CreateJobDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  cvVersionId?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  coverLetterId?: string;
 }
 
 export class UpdateJobDto {

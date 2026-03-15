@@ -118,7 +118,9 @@ export function CvBuilderPage() {
                         website={cv.selectedVersion.website || ""}
                         linkedin={cv.selectedVersion.linkedin || ""}
                         github={cv.selectedVersion.github || ""}
-                        headerLayout={cv.selectedVersion.headerLayout || "split"}
+                        headerLayout={
+                          cv.selectedVersion.headerLayout || "split"
+                        }
                         onUpdateContact={cv.handleUpdateContact}
                       />
                     </div>

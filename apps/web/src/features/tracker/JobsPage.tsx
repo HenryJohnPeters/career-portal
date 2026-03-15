@@ -146,6 +146,8 @@ export function JobsPage() {
     role: string;
     status?: string;
     url?: string;
+    cvVersionId?: string;
+    coverLetterId?: string;
   }) => {
     try {
       await createMut.mutateAsync(formData);
@@ -231,6 +233,8 @@ export function JobsPage() {
         onClose={() => setAddModalOpen(false)}
         onCreate={handleCreate}
         creating={createMut.isPending}
+        cvVersions={cvVersions}
+        coverLetters={coverLetters}
       />
     </div>
   );

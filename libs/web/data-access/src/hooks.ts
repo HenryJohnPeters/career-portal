@@ -467,6 +467,8 @@ export function useCreateJob() {
       status?: string;
       url?: string;
       notes?: string;
+      cvVersionId?: string;
+      coverLetterId?: string;
     }) => api.post<ApiResponse<Job>>("/jobs", data),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.jobs }),
   });
