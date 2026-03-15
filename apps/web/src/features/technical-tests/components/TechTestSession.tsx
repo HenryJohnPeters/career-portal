@@ -69,25 +69,25 @@ export function TechTestSession({ state }: TechTestSessionProps) {
             style={{ width: `${Math.min(progress, 100)}%` }}
           />
         </div>
-        <div className="flex items-center justify-between px-5 py-3">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 gap-2">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <div
-              className={`flex items-center gap-2 ${timerColor} ${
+              className={`flex items-center gap-1.5 sm:gap-2 ${timerColor} ${
                 isCritical ? "animate-pulse" : ""
               }`}
             >
-              <Clock className="h-4 w-4" />
-              <span className="text-lg font-mono font-bold">
+              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="text-base sm:text-lg font-mono font-bold">
                 {formatTime(state.timeRemaining)}
               </span>
             </div>
             <div className="hidden sm:block h-5 w-px bg-gray-200 dark:bg-gray-700" />
-            <p className="hidden sm:block text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
+            <p className="hidden md:block text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
               {scenario.title}
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-400 dark:text-gray-500">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <span className="text-[10px] sm:text-xs text-gray-400 dark:text-gray-500">
               {wordCount} words
             </span>
             <Button
@@ -100,14 +100,14 @@ export function TechTestSession({ state }: TechTestSessionProps) {
               ) : (
                 <ChevronDown className="h-3 w-3 mr-1" />
               )}
-              Brief
+              <span className="hidden sm:inline">Brief</span>
             </Button>
             <Button
               size="sm"
               onClick={() => setShowConfirm(true)}
               disabled={state.submission.trim().length === 0}
             >
-              <Send className="h-3 w-3 mr-1" /> Submit
+              <Send className="h-3 w-3 sm:mr-1" /> <span className="hidden sm:inline">Submit</span>
             </Button>
           </div>
         </div>
@@ -195,23 +195,23 @@ export function TechTestSession({ state }: TechTestSessionProps) {
 
       {/* Editor area */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-800 gap-1.5">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-gray-400" />
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
               Your Solution
             </h3>
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-[10px] sm:text-xs text-gray-400">
             Write your code, architecture decisions, explanations, and
-            trade-offs. Markdown and code blocks supported.
+            trade-offs.
           </p>
         </div>
         <textarea
           value={state.submission}
           onChange={(e) => state.setSubmission(e.target.value)}
           placeholder={`Write your solution here...\n\nSuggested structure:\n\n## Approach\nDescribe your high-level approach and architectural decisions.\n\n## Implementation\n\`\`\`typescript\n// Your code here\n\`\`\`\n\n## Trade-offs\nExplain the trade-offs you made and why.\n\n## Testing Strategy\nDescribe how you would test this solution.\n\n## What I'd Do Differently With More Time\n...`}
-          className="w-full min-h-[60vh] p-5 font-mono text-sm text-gray-800 dark:text-gray-200 bg-transparent border-0 outline-none resize-y placeholder:text-gray-300 dark:placeholder:text-gray-700"
+          className="w-full min-h-[50vh] sm:min-h-[60vh] p-4 sm:p-5 font-mono text-sm text-gray-800 dark:text-gray-200 bg-transparent border-0 outline-none resize-y placeholder:text-gray-300 dark:placeholder:text-gray-700"
           spellCheck={false}
         />
       </div>
@@ -228,8 +228,8 @@ export function TechTestSession({ state }: TechTestSessionProps) {
 
       {/* Submit confirmation modal */}
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl p-6 max-w-md mx-4 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-2xl p-5 sm:p-6 max-w-md w-full space-y-4">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
               Submit your solution?
             </h3>

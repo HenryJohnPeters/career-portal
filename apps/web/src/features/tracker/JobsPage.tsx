@@ -197,7 +197,7 @@ export function JobsPage() {
         </Button>
       </div>
 
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <TrackerFilters filters={filters} onChange={setFilters} />
         <ColumnManager
           visibleColumns={visibleColumns}

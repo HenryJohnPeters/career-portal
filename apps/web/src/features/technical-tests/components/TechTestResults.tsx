@@ -50,24 +50,26 @@ export function TechTestResults({ state }: TechTestResultsProps) {
       : "text-red-600 dark:text-red-400";
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={state.handleBackToSetup}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4 text-gray-500" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
-            Test Results
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            {scenario.title}
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <button
+            onClick={state.handleBackToSetup}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 text-gray-500" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-tight truncate">
+              Test Results
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 truncate">
+              {scenario.title}
+            </p>
+          </div>
         </div>
-        <Button variant="secondary" onClick={state.handleBackToSetup}>
+        <Button variant="secondary" onClick={state.handleBackToSetup} className="ml-12 sm:ml-0 w-fit">
           <RotateCcw className="h-4 w-4 mr-2" /> New Test
         </Button>
       </div>
@@ -75,9 +77,9 @@ export function TechTestResults({ state }: TechTestResultsProps) {
       {/* Score hero */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
         <div className={`h-2 ${gradeColor}`} />
-        <div className="p-6 flex flex-col sm:flex-row items-center gap-6">
+        <div className="p-4 sm:p-6 flex flex-col sm:flex-row items-center gap-4 sm:gap-6">
           {/* Score ring */}
-          <div className="relative flex h-28 w-28 shrink-0 items-center justify-center">
+          <div className="relative flex h-20 w-20 sm:h-28 sm:w-28 shrink-0 items-center justify-center">
             <svg
               className="absolute inset-0 h-full w-full -rotate-90"
               viewBox="0 0 100 100"
@@ -112,11 +114,11 @@ export function TechTestResults({ state }: TechTestResultsProps) {
             </div>
           </div>
 
-          <div className="flex-1 text-center sm:text-left space-y-2">
+          <div className="flex-1 text-center sm:text-left space-y-2 w-full">
             <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
               {evaluation.summary}
             </p>
-            <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
+            <div className="flex flex-wrap gap-2 sm:gap-3 justify-center sm:justify-start">
               <StatChip
                 icon="📝"
                 label="Words"

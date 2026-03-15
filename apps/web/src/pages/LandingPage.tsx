@@ -122,17 +122,17 @@ export function LandingPage() {
       </header>
 
       {/* ── Hero ── */}
-      <section className="relative max-w-6xl mx-auto text-center px-6 pt-20 sm:pt-28 pb-20 overflow-hidden">
+      <section className="relative max-w-6xl mx-auto text-center px-4 sm:px-6 pt-12 sm:pt-20 md:pt-28 pb-12 sm:pb-20 overflow-hidden">
         {/* Ambient glow */}
         <div className="absolute -top-32 left-1/2 -translate-x-1/2 h-96 w-96 rounded-full bg-primary-500/10 dark:bg-primary-400/10 blur-3xl pointer-events-none" />
 
         <div className="relative">
-          <div className="inline-flex items-center gap-2 rounded-full bg-primary-500/10 border border-primary-500/20 px-4 py-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 mb-8">
-            <Target className="h-3.5 w-3.5" />
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary-500/10 border border-primary-500/20 px-3 sm:px-4 py-1.5 text-[11px] sm:text-xs font-semibold text-primary-600 dark:text-primary-400 mb-6 sm:mb-8">
+            <Target className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
             The career toolkit built for developers
           </div>
 
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.08] mb-6 text-text-primary">
+          <h1 className="text-3xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] sm:leading-[1.08] mb-4 sm:mb-6 text-text-primary">
             Land your next dev role,
             <br />
             <span className="text-primary-600 dark:text-primary-400">
@@ -140,7 +140,7 @@ export function LandingPage() {
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed mb-10">
+          <p className="text-base sm:text-lg md:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed mb-8 sm:mb-10 px-2">
             CVs, cover letters, job tracking, and interview prep — purpose-built
             for software engineers. Upgrade to{" "}
             <span className="text-amber-600 dark:text-amber-400 font-bold">
@@ -152,14 +152,14 @@ export function LandingPage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               to="/register"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-7 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all duration-200 active:scale-95"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-primary-600 px-7 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-all duration-200 active:scale-95"
             >
               Get Started Free
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               to="/register?plan=premium"
-              className="inline-flex items-center gap-2 rounded-xl bg-accent-400 px-7 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-accent-500 transition-all duration-200 active:scale-95"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-accent-400 px-7 py-3.5 text-sm font-bold text-white shadow-sm hover:bg-accent-500 transition-all duration-200 active:scale-95"
             >
               <Crown className="h-4 w-4" />
               Try Premium
@@ -167,20 +167,20 @@ export function LandingPage() {
             </Link>
             <a
               href="#features"
-              className="inline-flex items-center gap-2 rounded-xl border-2 border-border bg-bg-secondary px-7 py-3.5 text-sm font-semibold text-text-secondary hover:bg-bg-tertiary transition-all duration-200 active:scale-95"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border-2 border-border bg-bg-secondary px-7 py-3.5 text-sm font-semibold text-text-secondary hover:bg-bg-tertiary transition-all duration-200 active:scale-95"
             >
               Explore Features
             </a>
           </div>
 
           {/* Highlights */}
-          <div className="mt-14 flex flex-wrap justify-center gap-x-8 gap-y-3">
+          <div className="mt-10 sm:mt-14 flex flex-wrap justify-center gap-x-6 sm:gap-x-8 gap-y-2.5 sm:gap-y-3">
             {highlights.map((item) => (
               <div
                 key={item}
-                className="flex items-center gap-2 text-sm text-text-tertiary"
+                className="flex items-center gap-2 text-xs sm:text-sm text-text-tertiary"
               >
-                <CheckCircle2 className="h-4 w-4 text-primary-500" />
+                <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary-500 shrink-0" />
                 {item}
               </div>
             ))}
@@ -191,12 +191,12 @@ export function LandingPage() {
       {/* ── Stats ── replaced fake numbers with real feature counts */}
 
       {/* ── Features ── */}
-      <section id="features" className="max-w-6xl mx-auto px-6 pb-2">
-        <div className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-text-primary mb-3">
+      <section id="features" className="max-w-6xl mx-auto px-4 sm:px-6 pb-2">
+        <div className="text-center mb-10 sm:mb-14">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight text-text-primary mb-3">
             Everything you need to land your next role
           </h2>
-          <p className="text-lg text-text-secondary max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-text-secondary max-w-2xl mx-auto px-2">
             Powerful tools out of the box — supercharged with AI when you go{" "}
             <span className="text-amber-600 dark:text-amber-400 font-bold">
               Premium
@@ -205,7 +205,7 @@ export function LandingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {features.map(({ icon: Icon, title, free, premium }) => (
             <div
               key={title}
@@ -242,22 +242,22 @@ export function LandingPage() {
       </section>
 
       {/* ── Bottom CTA ── sleek split layout */}
-      <section className="max-w-6xl mx-auto px-2 ">
-        <div className="relative overflow-hidden bg-bg-elevated border border-border rounded-3xl shadow-sm">
+      <section className="max-w-6xl mx-auto px-2">
+        <div className="relative overflow-hidden bg-bg-elevated border border-border rounded-2xl sm:rounded-3xl shadow-sm">
           {/* Accent left border */}
-          <div className="absolute inset-y-0 left-0 w-1 bg-primary-600 rounded-l-3xl" />
+          <div className="absolute inset-y-0 left-0 w-1 bg-primary-600 rounded-l-2xl sm:rounded-l-3xl" />
 
-          <div className="flex flex-col sm:flex-row items-center gap-8 px-10 py-10 sm:py-12">
+          <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-8 px-5 py-8 sm:px-10 sm:py-12">
             {/* Left — copy */}
             <div className="flex-1 text-center sm:text-left">
               <div className="inline-flex items-center gap-2 rounded-full bg-primary-500/10 border border-primary-500/20 px-3 py-1 text-xs font-semibold text-primary-600 dark:text-primary-400 mb-4">
                 <Target className="h-3 w-3" />
                 Free to start · No credit card needed
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary mb-3">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight text-text-primary mb-3">
                 Ready to land your next role?
               </h2>
-              <p className="text-text-secondary leading-relaxed max-w-md">
+              <p className="text-sm sm:text-base text-text-secondary leading-relaxed max-w-md mx-auto sm:mx-0">
                 All six tools are free. Upgrade to{" "}
                 <span className="text-accent-500 dark:text-accent-400 font-semibold">
                   Premium
@@ -292,7 +292,7 @@ export function LandingPage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-border py-8 text-center text-sm text-text-tertiary">
+      <footer className="border-t border-border py-6 sm:py-8 text-center text-xs sm:text-sm text-text-tertiary px-4">
         Career Portal &copy; {new Date().getFullYear()}. Built with ♥ for
         developers, by developers.
       </footer>

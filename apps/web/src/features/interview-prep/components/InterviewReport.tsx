@@ -51,8 +51,8 @@ export function InterviewReport({
   return (
     <div className="w-full">
       {/* Top bar */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 mb-6">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={onStartNew}
             className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700 transition-all shadow-sm"
@@ -78,7 +78,7 @@ export function InterviewReport({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6">
         <StatCard icon={Trophy} value={report.grade} label="Grade" />
         <StatCard
           icon={Star}
@@ -215,7 +215,31 @@ export function InterviewReport({
           </div>
         </div>
 
-        {/* Sidebar */}
+        {/* Mobile score summary */}
+        <div className="lg:hidden">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+            <div className="flex items-center gap-4">
+              <ProgressRing
+                percentage={pct}
+                size={60}
+                strokeWidth={5}
+                label={report.grade}
+              />
+              <div className="flex-1 space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Score</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">{report.overallScore}/{report.maxPossibleScore}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Questions</span>
+                  <span className="font-bold text-gray-800 dark:text-gray-200">{report.questionBreakdown.length}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop sidebar */}
         <div className="hidden lg:block">
           <div className="sticky top-6 space-y-4">
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">

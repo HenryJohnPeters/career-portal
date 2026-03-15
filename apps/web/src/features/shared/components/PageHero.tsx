@@ -33,38 +33,42 @@ export function PageHero({
       {/* Top accent line */}
       <div className="h-[2px] bg-primary-600 opacity-60" />
 
-      <div className="relative px-6 py-6 sm:px-8 sm:py-7">
-        <div className="flex items-center justify-between gap-4">
+      <div className="relative px-4 py-5 sm:px-8 sm:py-7">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="min-w-0">
             <div className="flex items-center gap-3 mb-1.5">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-muted dark:bg-accent-muted/60">
                 <Icon className="h-4.5 w-4.5 text-accent" />
               </div>
-              <h1 className="text-xl font-semibold tracking-tight text-gray-900 dark:text-white truncate">
+              <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-gray-900 dark:text-white truncate">
                 {title}
               </h1>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md leading-relaxed ml-12">
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 max-w-md leading-relaxed ml-12">
               {subtitle}
             </p>
           </div>
-          <div className="hidden sm:flex items-center gap-4 shrink-0">
-            {stats && stats.length > 0 && (
-              <div className="flex items-center gap-5">
-                {stats.map((stat, i) => (
-                  <div key={i} className="text-right">
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {stat.value}
-                    </p>
-                    <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                      {stat.label}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-            {action && <div>{action}</div>}
-          </div>
+
+          {/* Stats & action - visible on all screen sizes */}
+          {(stats?.length || action) && (
+            <div className="flex items-center gap-4 shrink-0 ml-12 sm:ml-0">
+              {stats && stats.length > 0 && (
+                <div className="flex items-center gap-5">
+                  {stats.map((stat, i) => (
+                    <div key={i} className="text-left sm:text-right">
+                      <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                        {stat.value}
+                      </p>
+                      <p className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500">
+                        {stat.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {action && <div className="hidden sm:block">{action}</div>}
+            </div>
+          )}
         </div>
       </div>
     </div>

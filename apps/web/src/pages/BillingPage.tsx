@@ -137,14 +137,14 @@ export function BillingPage() {
       {/* Current plan banner */}
       <Card className="overflow-hidden">
         <div
-          className={`px-6 py-5 ${
+          className={`px-4 sm:px-6 py-4 sm:py-5 ${
             isPremium ? "bg-accent-50 dark:bg-accent-900/10" : "bg-bg-tertiary"
           }`}
         >
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="flex items-center gap-3">
               <div
-                className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+                className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl ${
                   isPremium
                     ? "bg-accent-400 text-white shadow-sm"
                     : "bg-neutral-200 dark:bg-neutral-700 text-neutral-500 dark:text-neutral-400"
@@ -157,11 +157,11 @@ export function BillingPage() {
                 )}
               </div>
               <div>
-                <h2 className="text-lg font-bold text-text-primary">
+                <h2 className="text-base sm:text-lg font-bold text-text-primary">
                   {isPremium ? "Premium Plan" : "Free Plan"}
                 </h2>
                 {isPremium && periodEnd && (
-                  <p className="text-sm text-text-secondary">
+                  <p className="text-xs sm:text-sm text-text-secondary">
                     Renews on{" "}
                     {periodEnd.toLocaleDateString("en-GB", {
                       day: "numeric",
@@ -171,7 +171,7 @@ export function BillingPage() {
                   </p>
                 )}
                 {!isPremium && (
-                  <p className="text-sm text-text-secondary">
+                  <p className="text-xs sm:text-sm text-text-secondary">
                     Upgrade to unlock AI-powered features
                   </p>
                 )}
@@ -184,9 +184,10 @@ export function BillingPage() {
                 size="sm"
                 onClick={handleManage}
                 loading={portalMut.isPending}
+                className="w-full sm:w-auto"
               >
                 <CreditCard className="h-3.5 w-3.5 mr-1.5" />
-                Manage Subscription
+                Manage
                 <ExternalLink className="h-3 w-3 ml-1.5 opacity-50" />
               </Button>
             ) : (
@@ -194,6 +195,7 @@ export function BillingPage() {
                 size="sm"
                 onClick={handleUpgrade}
                 loading={checkoutMut.isPending}
+                className="w-full sm:w-auto"
               >
                 <Zap className="h-3.5 w-3.5 mr-1.5" />
                 Upgrade Now

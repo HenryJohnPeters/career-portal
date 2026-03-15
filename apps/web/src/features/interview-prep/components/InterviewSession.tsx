@@ -88,8 +88,8 @@ export function InterviewSession({
   return (
     <div className="w-full">
       {/* Top bar */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 mb-6">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={onBackToSetup}
             className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700 transition-all shadow-sm"
@@ -109,11 +109,11 @@ export function InterviewSession({
             {levelMeta.icon} {levelMeta.label}
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 ml-12 sm:ml-0">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
             {progress.answered}/{progress.total}
           </span>
-          <div className="w-32 bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
+          <div className="w-24 sm:w-32 bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
             <div
               className="bg-primary-600 h-1.5 rounded-full transition-all"
               style={{ width: `${progressPct}%` }}
@@ -123,7 +123,7 @@ export function InterviewSession({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6">
         <StatCard
           icon={CheckCircle2}
           value={progress.answered}
@@ -330,7 +330,23 @@ export function InterviewSession({
           )}
         </div>
 
-        {/* Sidebar */}
+        {/* Sidebar — visible on mobile as collapsed summary, expanded on lg */}
+        <div className="lg:hidden">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                Session
+              </p>
+              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <span>{trackMeta.icon} {trackMeta.label}</span>
+                <span>·</span>
+                <span>{levelMeta.icon} {levelMeta.label}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop sidebar */}
         <div className="hidden lg:block">
           <div className="sticky top-6 space-y-4">
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">

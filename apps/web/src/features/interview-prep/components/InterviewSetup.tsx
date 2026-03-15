@@ -55,16 +55,16 @@ export function InterviewSetup({
   const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === roleFocus);
 
   return (
-    <div className="w-full space-y-8">
+    <div className="w-full space-y-6 sm:space-y-8">
       <PageHero
         icon={Mic}
         title="Interview Prep"
         subtitle="Configure every dimension · The question engine adapts dynamically"
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left — Config */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-5 sm:space-y-6">
           <section>
             <SectionHeading icon={TrendingUp} label="Level" />
             <OptionGrid
@@ -131,7 +131,7 @@ export function InterviewSetup({
 
         {/* Right — Summary + Start */}
         <div className="lg:col-span-1">
-          <div className="sticky top-6 space-y-4">
+          <div className="lg:sticky lg:top-6 space-y-4">
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
               <div className="h-2 bg-primary-600" />
               <div className="p-5 space-y-4">

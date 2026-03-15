@@ -47,7 +47,7 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
   );
 
   return (
-    <div className="w-full space-y-8">
+    <div className="w-full space-y-6 sm:space-y-8">
       <PageHero
         icon={ClipboardCheck}
         title="Technical Tests"
@@ -62,9 +62,18 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Mobile past tests button */}
+      {state.tests.length > 0 && (
+        <div className="sm:hidden">
+          <Button variant="secondary" size="sm" onClick={state.handleShowHistory}>
+            <History className="h-4 w-4 mr-1.5" /> Past Tests ({state.tests.length})
+          </Button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Left — Config */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-5 sm:space-y-6">
           <section>
             <SectionHeading icon={Briefcase} label="Role Focus" />
             <OptionGrid
@@ -105,7 +114,7 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
 
         {/* Right — Summary + Generate */}
         <div className="lg:col-span-1">
-          <div className="sticky top-6 space-y-4">
+          <div className="lg:sticky lg:top-6 space-y-4">
             <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
               <div className="h-2 bg-violet-600" />
               <div className="p-5 space-y-4">

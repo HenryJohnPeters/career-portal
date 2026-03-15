@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
@@ -20,6 +20,7 @@ import {
   Sparkles,
   Brain,
   Code2,
+  X,
 } from "lucide-react";
 
 type NavItem = {
@@ -90,14 +91,17 @@ const PAGE_TITLES: Record<string, string> = {
 function NavItemLink({
   item,
   collapsed,
+  onNavigate,
 }: {
   item: NavItem;
   collapsed: boolean;
+  onNavigate?: () => void;
 }) {
   const Icon = item.icon;
   return (
     <NavLink
       to={item.to}
+      onClick={onNavigate}
       className={({ isActive }: { isActive: boolean }) =>
         `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
           isActive
@@ -130,12 +134,14 @@ function NavGroupSection({
   expanded,
   onToggle,
   pathname,
+  onNavigate,
 }: {
   group: NavGroup;
   collapsed: boolean;
   expanded: boolean;
   onToggle: () => void;
   pathname: string;
+  onNavigate?: () => void;
 }) {
   const Icon = group.icon;
   const isGroupActive = group.children.some((child) =>
@@ -146,7 +152,7 @@ function NavGroupSection({
     return (
       <div className="space-y-1">
         {group.children.map((child) => (
-          <NavItemLink key={child.to} item={child} collapsed={collapsed} />
+          <NavItemLink key={child.to} item={child} collapsed={collapsed} onNavigate={onNavigate} />
         ))}
       </div>
     );
@@ -186,6 +192,7 @@ function NavGroupSection({
               <NavLink
                 key={child.to}
                 to={child.to}
+                onClick={onNavigate}
                 className={({ isActive }: { isActive: boolean }) =>
                   `flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 ${
                     isActive
@@ -207,6 +214,7 @@ function NavGroupSection({
 
 export function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
     {
       Applications: true,
@@ -218,18 +226,110 @@ export function DashboardLayout() {
   const location = useLocation();
   const pageTitle = PAGE_TITLES[location.pathname] || "Career Portal";
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
   const toggleGroup = (label: string) => {
     setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
+  const closeMobileSidebar = () => setMobileOpen(false);
+
+  const sidebarContent = (
+    <>
+      <nav className="flex-1 py-5 px-3 space-y-1.5 overflow-y-auto">
+        {NAV_ENTRIES.map((entry, idx) => {
+          if (entry.type === "separator") {
+            return (
+              <div
+                key={`sep-${idx}`}
+                className="!my-4 mx-2 border-t border-border"
+              />
+            );
+          }
+          if (entry.type === "item") {
+            return (
+              <NavItemLink
+                key={entry.item.to}
+                item={entry.item}
+                collapsed={collapsed}
+                onNavigate={closeMobileSidebar}
+              />
+            );
+          }
+          if (entry.type === "group") {
+            return (
+              <NavGroupSection
+                key={entry.group.label}
+                group={entry.group}
+                collapsed={collapsed}
+                expanded={expandedGroups[entry.group.label] ?? true}
+                onToggle={() => toggleGroup(entry.group.label)}
+                pathname={location.pathname}
+                onNavigate={closeMobileSidebar}
+              />
+            );
+          }
+          return null;
+        })}
+      </nav>
+
+      {/* Upgrade CTA for free users */}
+      {!user?.isPremium && !collapsed && (
+        <div className="px-3 pb-5">
+          <NavLink
+            to="/app/billing"
+            onClick={closeMobileSidebar}
+            className="block rounded-xl bg-accent-50 dark:bg-accent-900/20 border border-accent-400/20 p-4 hover:bg-accent-100 dark:hover:bg-accent-900/30 hover:border-accent-400/30 transition-all duration-200 group"
+          >
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-400 shadow-sm">
+                <Sparkles className="h-4 w-4 text-white" />
+              </div>
+              <span className="text-sm font-bold text-accent-700 dark:text-accent-400">
+                Go Premium
+              </span>
+            </div>
+            <p className="text-xs leading-relaxed text-accent-600/80 dark:text-accent-400/70">
+              Unlock AI features for £9.99/mo
+            </p>
+          </NavLink>
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-bg-primary">
       {/* Header */}
-      <header className="h-16 glass glass-border flex items-center justify-between px-6 shrink-0 z-20 sticky top-0">
-        <div className="flex items-center gap-4">
+      <header className="h-14 sm:h-16 glass glass-border flex items-center justify-between px-3 sm:px-6 shrink-0 z-30 sticky top-0">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setMobileOpen(true)}
+            className="lg:hidden p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-secondary hover:text-text-primary transition-all active:scale-95"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          {/* Desktop sidebar toggle */}
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-secondary hover:text-text-primary transition-all active:scale-95"
+            className="hidden lg:flex p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-secondary hover:text-text-primary transition-all active:scale-95"
             aria-label="Toggle sidebar"
           >
             {collapsed ? (
@@ -238,10 +338,10 @@ export function DashboardLayout() {
               <ChevronLeft className="h-5 w-5" />
             )}
           </button>
-          <div className="h-6 w-px bg-border" />
-          <h1 className="text-base font-bold text-text-primary">{pageTitle}</h1>
+          <div className="h-6 w-px bg-border hidden sm:block" />
+          <h1 className="text-sm sm:text-base font-bold text-text-primary truncate">{pageTitle}</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3">
           {user?.isPremium && (
             <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-accent-100 dark:bg-accent-900/20 border border-accent-400/30 px-3 py-1.5 text-xs font-bold text-accent-600 dark:text-accent-400">
               <Crown className="h-3.5 w-3.5" />
@@ -250,19 +350,19 @@ export function DashboardLayout() {
           )}
           <button
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            className="p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-secondary hover:text-text-primary transition-all active:scale-95"
+            className="p-2 sm:p-2.5 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-secondary hover:text-text-primary transition-all active:scale-95"
             aria-label="Toggle theme"
           >
             {theme === "light" ? (
-              <Moon className="h-4.5 w-4.5" />
+              <Moon className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
             ) : (
-              <Sun className="h-4.5 w-4.5" />
+              <Sun className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
             )}
           </button>
-          <div className="h-6 w-px bg-border" />
+          <div className="h-6 w-px bg-border hidden sm:block" />
           <div className="flex items-center gap-2.5 pl-1">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm">
-              <User className="h-4 w-4" />
+            <div className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm">
+              <User className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
             <span className="text-sm font-semibold text-text-primary hidden sm:inline">
               {user?.name}
@@ -270,85 +370,58 @@ export function DashboardLayout() {
           </div>
           <button
             onClick={logout}
-            className="p-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-text-tertiary hover:text-red-600 dark:hover:text-red-400 transition-all active:scale-95"
+            className="p-2 sm:p-2.5 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 text-text-tertiary hover:text-red-600 dark:hover:text-red-400 transition-all active:scale-95"
             aria-label="Logout"
           >
-            <LogOut className="h-4.5 w-4.5" />
+            <LogOut className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
           </button>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
+        {/* Mobile sidebar overlay */}
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+            onClick={closeMobileSidebar}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Mobile sidebar drawer */}
+        <aside
+          className={`fixed inset-y-0 left-0 z-50 w-72 bg-bg-secondary border-r border-border transition-transform duration-300 ease-in-out flex flex-col lg:hidden ${
+            mobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
+            <span className="text-sm font-bold text-text-primary">Menu</span>
+            <button
+              onClick={closeMobileSidebar}
+              className="p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-text-secondary hover:text-text-primary transition-all"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          {sidebarContent}
+        </aside>
+
+        {/* Desktop sidebar */}
         <aside
           className={`${
             collapsed ? "w-20" : "w-64"
-          } bg-bg-secondary border-r border-border transition-all duration-300 ease-in-out shrink-0 flex flex-col`}
+          } bg-bg-secondary border-r border-border transition-all duration-300 ease-in-out shrink-0 flex-col hidden lg:flex`}
         >
-          <nav className="flex-1 py-5 px-3 space-y-1.5 overflow-y-auto">
-            {NAV_ENTRIES.map((entry, idx) => {
-              if (entry.type === "separator") {
-                return (
-                  <div
-                    key={`sep-${idx}`}
-                    className="!my-4 mx-2 border-t border-border"
-                  />
-                );
-              }
-              if (entry.type === "item") {
-                return (
-                  <NavItemLink
-                    key={entry.item.to}
-                    item={entry.item}
-                    collapsed={collapsed}
-                  />
-                );
-              }
-              if (entry.type === "group") {
-                return (
-                  <NavGroupSection
-                    key={entry.group.label}
-                    group={entry.group}
-                    collapsed={collapsed}
-                    expanded={expandedGroups[entry.group.label] ?? true}
-                    onToggle={() => toggleGroup(entry.group.label)}
-                    pathname={location.pathname}
-                  />
-                );
-              }
-              return null;
-            })}
-          </nav>
-
-          {/* Upgrade CTA for free users */}
-          {!user?.isPremium && !collapsed && (
-            <div className="px-3 pb-5">
-              <NavLink
-                to="/app/billing"
-                className="block rounded-xl bg-accent-50 dark:bg-accent-900/20 border border-accent-400/20 p-4 hover:bg-accent-100 dark:hover:bg-accent-900/30 hover:border-accent-400/30 transition-all duration-200 group"
-              >
-                <div className="flex items-center gap-2.5 mb-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-400 shadow-sm">
-                    <Sparkles className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="text-sm font-bold text-accent-700 dark:text-accent-400">
-                    Go Premium
-                  </span>
-                </div>
-                <p className="text-xs leading-relaxed text-accent-600/80 dark:text-accent-400/70">
-                  Unlock AI features for £9.99/mo
-                </p>
-              </NavLink>
-            </div>
-          )}
+          {sidebarContent}
         </aside>
 
         {/* Main content */}
         <main className="flex-1 overflow-auto flex flex-col">
-          <div className="flex-1 p-4 sm:p-6 flex flex-col min-h-0">
+          <div className="flex-1 p-3 sm:p-4 md:p-6 flex flex-col min-h-0">
             <Outlet />
           </div>
-          <footer className="border-t border-border py-4 px-8 text-center text-xs text-text-tertiary mt-auto">
+          <footer className="border-t border-border py-3 sm:py-4 px-4 sm:px-8 text-center text-xs text-text-tertiary mt-auto">
             Career Portal &copy; {new Date().getFullYear()}
           </footer>
         </main>

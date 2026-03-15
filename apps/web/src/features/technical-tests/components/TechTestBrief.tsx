@@ -36,20 +36,20 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
   const diffMeta = DIFFICULTY_ITEMS.find((d) => d.key === test.difficulty);
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <button
           onClick={state.handleBackToSetup}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mt-0.5"
         >
           <ArrowLeft className="h-4 w-4 text-gray-500" />
         </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-tight">
             {scenario.title}
           </h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 flex-wrap">
             <MetaChip
               icon={roleMeta?.icon ?? "🔗"}
               label={roleMeta?.label ?? test.roleFocus}
@@ -244,8 +244,8 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
 
       {/* Start button */}
       <div className="sticky bottom-4 z-10">
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-xl p-4 flex items-center justify-between gap-4">
-          <div>
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-xl p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+          <div className="text-center sm:text-left">
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
               Ready to begin?
             </p>
@@ -257,7 +257,7 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
             size="lg"
             onClick={state.handleStart}
             loading={state.isStarting}
-            className="shrink-0"
+            className="shrink-0 w-full sm:w-auto"
           >
             <Play className="h-4 w-4 mr-2" /> Start Test
           </Button>

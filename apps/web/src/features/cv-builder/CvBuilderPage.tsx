@@ -36,7 +36,7 @@ export function CvBuilderPage() {
   const editorSpan = cv.showPreview ? "lg:col-span-5" : "lg:col-span-12";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <PageHero
         icon={FileText}
         title="CV Builder"
@@ -56,7 +56,7 @@ export function CvBuilderPage() {
       {cv.selectedVersion ? (
         <>
           {/* Back button + toolbar */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             <button
               onClick={() => cv.setSelectedVersionId(null)}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
@@ -76,24 +76,24 @@ export function CvBuilderPage() {
           </div>
 
           {/* Full-width editor + preview grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
             <div className={editorSpan}>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {/* Tab bar */}
-                <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-1 gap-1">
+                <div className="flex rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-1 gap-1 overflow-x-auto">
                   {DESIGN_TABS.map((tab) => {
                     const TabIcon = tab.icon;
                     return (
                       <button
                         key={tab.key}
                         onClick={() => cv.setDesignTab(tab.key)}
-                        className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+                        className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 rounded-lg px-2 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                           cv.designTab === tab.key
                             ? "bg-primary-500/10 text-primary-700 dark:text-primary-300 shadow-sm"
                             : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                         }`}
                       >
-                        <TabIcon className="h-4 w-4" />
+                        <TabIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         {tab.label}
                       </button>
                     );
