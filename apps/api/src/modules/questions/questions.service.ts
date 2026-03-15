@@ -194,7 +194,9 @@ export class QuestionsService {
     if (!pickedQuestion && filters.track && filters.level) {
       // Fix #3: Re-check daily limit before firing an expensive AI call.
       // This prevents AI from being triggered on a user's final free request.
-      const canTriggerAi = isPremium || (await this.getDailyUsageCount(userId)) < FREE_DAILY_QUESTION_LIMIT;
+      const canTriggerAi =
+        isPremium ||
+        (await this.getDailyUsageCount(userId)) < FREE_DAILY_QUESTION_LIMIT;
 
       if (canTriggerAi) {
         const genDifficulty = difficulty ?? "medium";
@@ -202,12 +204,15 @@ export class QuestionsService {
           // Fix #1: Pass userId instead of hardcoded "system" so the per-user
           // daily AI generation cap (AI_MAX_USER_DAILY_GENERATIONS) is enforced.
           const generated =
-            await this.aiQuestionGenerator.ensurePoolForFiltersUrgent({
-              track: filters.track,
-              level: filters.level,
-              difficulty: genDifficulty,
-              tags: normalizedTags ?? [],
-            }, userId);
+            await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(
+              {
+                track: filters.track,
+                level: filters.level,
+                difficulty: genDifficulty,
+                tags: normalizedTags ?? [],
+              },
+              userId
+            );
 
           if (generated) {
             for (const where of attempts) {

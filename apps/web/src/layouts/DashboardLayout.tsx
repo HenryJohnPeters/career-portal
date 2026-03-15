@@ -27,6 +27,7 @@ type NavItem = {
   to: string;
   label: string;
   icon: typeof LayoutDashboard;
+  beta?: boolean;
 };
 
 type NavGroup = {
@@ -65,8 +66,8 @@ const NAV_ENTRIES: NavEntry[] = [
       label: "Interview Prep",
       icon: Brain,
       children: [
-        { to: "/app/interview-prep", label: "Practice Questions", icon: Brain },
-        { to: "/app/technical-tests", label: "Mock Tests", icon: Code2 },
+        { to: "/app/interview-prep", label: "Practice Questions", icon: Brain, beta: true },
+        { to: "/app/technical-tests", label: "Mock Tests", icon: Code2, beta: true },
       ],
     },
   },
@@ -121,7 +122,16 @@ function NavItemLink({
           >
             <Icon className="h-4 w-4" />
           </div>
-          {!collapsed && <span className="truncate">{item.label}</span>}
+          {!collapsed && (
+            <span className="truncate flex items-center gap-1">
+              {item.label}
+              {item.beta && (
+                <span className="text-[10px] font-semibold text-accent-600 dark:text-accent-400 bg-accent-100 dark:bg-accent-900/20 px-1.5 py-0.5 rounded-full">
+                  Beta
+                </span>
+              )}
+            </span>
+          )}
         </>
       )}
     </NavLink>
@@ -202,7 +212,14 @@ function NavGroupSection({
                 }
               >
                 <ChildIcon className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{child.label}</span>
+                <span className="truncate flex items-center gap-1">
+                  {child.label}
+                  {child.beta && (
+                    <span className="text-[10px] font-semibold text-accent-600 dark:text-accent-400 bg-accent-100 dark:bg-accent-900/20 px-1.5 py-0.5 rounded-full">
+                      Beta
+                    </span>
+                  )}
+                </span>
               </NavLink>
             );
           })}
