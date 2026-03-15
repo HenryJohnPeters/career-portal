@@ -163,7 +163,7 @@ export function JobsPage() {
     return <ErrorState message={(error as Error).message} onRetry={refetch} />;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col h-full min-h-0 space-y-6">
       <PageHero
         icon={Briefcase}
         title="Job Tracker"
@@ -209,12 +209,14 @@ export function JobsPage() {
         />
       </div>
 
-      <KanbanBoard
-        jobs={filteredJobs}
-        columns={visibleColumns}
-        onStatusChange={handleStatusChange}
-        onCardClick={handleCardClick}
-      />
+      <div className="flex-1 min-h-0">
+        <KanbanBoard
+          jobs={filteredJobs}
+          columns={visibleColumns}
+          onStatusChange={handleStatusChange}
+          onCardClick={handleCardClick}
+        />
+      </div>
 
       <TrackerDrawer
         job={drawerJob}

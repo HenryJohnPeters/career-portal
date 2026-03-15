@@ -14,7 +14,7 @@ export function BoardColumn({ column, jobs, onCardClick }: BoardColumnProps) {
   const Icon = column.icon;
 
   return (
-    <div className="flex flex-col min-w-[260px] w-[280px] shrink-0">
+    <div className="flex flex-col min-w-[260px] w-[280px] shrink-0 h-full">
       {/* Column header */}
       <div
         className={`flex items-center gap-2 rounded-t-xl border px-3.5 py-2.5 ${column.headerBg}`}

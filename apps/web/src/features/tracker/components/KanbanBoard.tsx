@@ -35,7 +35,7 @@ export function KanbanBoard({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="flex gap-3 overflow-x-auto pb-4 -mx-6 px-6">
+      <div className="flex gap-3 overflow-x-auto pb-4 -mx-6 px-6 h-full">
         {grouped.map(({ column, jobs: colJobs }) => (
           <BoardColumn
             key={column.id}
