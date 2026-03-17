@@ -66,8 +66,18 @@ const NAV_ENTRIES: NavEntry[] = [
       label: "Interview Prep",
       icon: Brain,
       children: [
-        { to: "/app/interview-prep", label: "Practice Questions", icon: Brain, beta: true },
-        { to: "/app/technical-tests", label: "Mock Tests", icon: Code2, beta: true },
+        {
+          to: "/app/interview-prep",
+          label: "Practice Questions",
+          icon: Brain,
+          beta: true,
+        },
+        {
+          to: "/app/technical-tests",
+          label: "Mock Tests",
+          icon: Code2,
+          beta: true,
+        },
       ],
     },
   },
@@ -162,7 +172,12 @@ function NavGroupSection({
     return (
       <div className="space-y-1">
         {group.children.map((child) => (
-          <NavItemLink key={child.to} item={child} collapsed={collapsed} onNavigate={onNavigate} />
+          <NavItemLink
+            key={child.to}
+            item={child}
+            collapsed={collapsed}
+            onNavigate={onNavigate}
+          />
         ))}
       </div>
     );
@@ -356,7 +371,9 @@ export function DashboardLayout() {
             )}
           </button>
           <div className="h-6 w-px bg-border hidden sm:block" />
-          <h1 className="text-sm sm:text-base font-bold text-text-primary truncate">{pageTitle}</h1>
+          <h1 className="text-sm sm:text-base font-bold text-text-primary truncate">
+            {pageTitle}
+          </h1>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-3">
           {user?.isPremium && (

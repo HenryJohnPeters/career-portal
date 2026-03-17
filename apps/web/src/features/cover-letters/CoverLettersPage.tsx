@@ -135,8 +135,8 @@ export function CoverLettersPage() {
       />
 
       {editingId ? (
-        /* ── Full-screen editor when a letter is selected ── */
-        <div className="space-y-5">
+        /* ── Expanded editor view ── */
+        <div className="space-y-4">
           {/* Back to list */}
           <button
             onClick={() => setEditingId(null)}
@@ -146,173 +146,188 @@ export function CoverLettersPage() {
             Back to letters
           </button>
 
-          {/* Editor card */}
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-muted text-accent">
-                <PenLine className="h-3.5 w-3.5" />
-              </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-accent">
-                Editor
-              </span>
-            </div>
-            <input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all"
-              placeholder="Cover letter title"
-            />
-            <textarea
-              value={editBody}
-              onChange={(e) => setEditBody(e.target.value)}
-              rows={16}
-              placeholder="Write your cover letter here..."
-              className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all resize-y"
-            />
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  onClick={handleSave}
-                  loading={updateMut.isPending}
-                >
-                  <Save className="h-3.5 w-3.5 mr-1.5" />
-                  Save
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setEditingId(null)}
-                >
-                  <X className="h-3.5 w-3.5 mr-1.5" />
-                  Close
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* AI Generate panel */}
-          <AiCoverLetterAssist
-            coverLetterId={editingId}
-            hasBody={editBody.trim().length > 0}
-            onApply={(content) => setEditBody(content)}
-          />
-
-          {/* AI tools card */}
-          <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-600 text-white">
-                <Sparkles className="h-3.5 w-3.5" />
-              </div>
-              <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
-                AI Assistant
-              </span>
-              {!isPremium && <Crown className="h-3.5 w-3.5 text-amber-500" />}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <button
-                onClick={handleSuggest}
-                disabled={suggestMut.isPending || !isPremium}
-                className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-              >
-                <Lightbulb className="h-5 w-5 text-accent shrink-0" />
-                <div>
-                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                    Suggest
-                  </p>
-                  <p className="text-[10px] text-gray-500">Get improvements</p>
-                </div>
-                {!isPremium && (
-                  <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
-                )}
-              </button>
-              <button
-                onClick={() => handleRewrite("professional")}
-                disabled={rewriteMut.isPending || !isPremium}
-                className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-              >
-                <Wand2 className="h-5 w-5 text-accent shrink-0" />
-                <div>
-                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                    Professional
-                  </p>
-                  <p className="text-[10px] text-gray-500">Formal rewrite</p>
-                </div>
-                {!isPremium && (
-                  <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
-                )}
-              </button>
-              <button
-                onClick={() => handleRewrite("friendly")}
-                disabled={rewriteMut.isPending || !isPremium}
-                className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-              >
-                <RefreshCw className="h-5 w-5 text-accent shrink-0" />
-                <div>
-                  <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                    Friendly
-                  </p>
-                  <p className="text-[10px] text-gray-500">Casual rewrite</p>
-                </div>
-                {!isPremium && (
-                  <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
-                )}
-              </button>
-            </div>
-            {!isPremium && (
-              <button
-                onClick={() => navigate("/app/billing")}
-                className="mt-3 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline underline-offset-2"
-              >
-                <Crown className="h-3 w-3" />
-                AI features require Premium — Upgrade now →
-              </button>
-            )}
-          </div>
-
-          {/* Suggestions */}
-          {suggestions.length > 0 && (
-            <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Lightbulb className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
-                  Suggestions
-                </h4>
-              </div>
-              <ul className="space-y-2">
-                {suggestions.map((s, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-2 text-xs text-text-secondary"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 text-primary-500 shrink-0 mt-0.5" />
-                    <span>{s}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Rewrite result */}
-          {rewriteResult && (
-            <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
-              <div className="flex items-center justify-between mb-3">
+          {/* Two-column grid: editor left, AI right */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+            {/* ── LEFT: Editor + suggestions + rewrite ── */}
+            <div className="space-y-4">
+              {/* Editor card */}
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
                 <div className="flex items-center gap-2">
-                  <Wand2 className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
-                    Rewritten Version
-                  </h4>
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-muted text-accent">
+                    <PenLine className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-accent">
+                    Editor
+                  </span>
                 </div>
-                <Button size="sm" onClick={applyRewrite}>
-                  <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
-                  Apply
-                </Button>
+                <input
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all"
+                  placeholder="Cover letter title"
+                />
+                <textarea
+                  value={editBody}
+                  onChange={(e) => setEditBody(e.target.value)}
+                  rows={18}
+                  placeholder="Write your cover letter here..."
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all resize-y"
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSave}
+                    loading={updateMut.isPending}
+                  >
+                    <Save className="h-3.5 w-3.5 mr-1.5" />
+                    Save
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingId(null)}
+                  >
+                    <X className="h-3.5 w-3.5 mr-1.5" />
+                    Close
+                  </Button>
+                </div>
               </div>
-              <pre className="text-xs text-text-secondary whitespace-pre-wrap leading-relaxed bg-bg-tertiary rounded-lg p-4 border border-border">
-                {rewriteResult}
-              </pre>
+
+              {/* Suggestions */}
+              {suggestions.length > 0 && (
+                <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Lightbulb className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
+                      Suggestions
+                    </h4>
+                  </div>
+                  <ul className="space-y-2">
+                    {suggestions.map((s, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-2 text-xs text-text-secondary"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 text-primary-500 shrink-0 mt-0.5" />
+                        <span>{s}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Rewrite result */}
+              {rewriteResult && (
+                <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Wand2 className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
+                        Rewritten Version
+                      </h4>
+                    </div>
+                    <Button size="sm" onClick={applyRewrite}>
+                      <ArrowRight className="h-3.5 w-3.5 mr-1.5" />
+                      Apply
+                    </Button>
+                  </div>
+                  <pre className="text-xs text-text-secondary whitespace-pre-wrap leading-relaxed bg-bg-tertiary rounded-lg p-4 border border-border">
+                    {rewriteResult}
+                  </pre>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* ── RIGHT: AI Generate + AI Assistant ── */}
+            <div className="space-y-4">
+              {/* AI Generate panel */}
+              <AiCoverLetterAssist
+                coverLetterId={editingId}
+                hasBody={editBody.trim().length > 0}
+                onApply={(content) => setEditBody(content)}
+              />
+
+              {/* AI tools card */}
+              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary-600 text-white">
+                    <Sparkles className="h-3.5 w-3.5" />
+                  </div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                    AI Assistant
+                  </span>
+                  {!isPremium && (
+                    <Crown className="h-3.5 w-3.5 text-amber-500" />
+                  )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    onClick={handleSuggest}
+                    disabled={suggestMut.isPending || !isPremium}
+                    className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+                  >
+                    <Lightbulb className="h-5 w-5 text-accent shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                        Suggest
+                      </p>
+                      <p className="text-[10px] text-gray-500">
+                        Get improvements
+                      </p>
+                    </div>
+                    {!isPremium && (
+                      <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleRewrite("professional")}
+                    disabled={rewriteMut.isPending || !isPremium}
+                    className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+                  >
+                    <Wand2 className="h-5 w-5 text-accent shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                        Professional
+                      </p>
+                      <p className="text-[10px] text-gray-500">
+                        Formal rewrite
+                      </p>
+                    </div>
+                    {!isPremium && (
+                      <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleRewrite("friendly")}
+                    disabled={rewriteMut.isPending || !isPremium}
+                    className="relative flex items-center gap-2.5 rounded-xl border border-accent/20 bg-accent-muted/50 p-3.5 text-left hover:shadow-md hover:shadow-accent/5 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
+                  >
+                    <RefreshCw className="h-5 w-5 text-accent shrink-0" />
+                    <div>
+                      <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                        Friendly
+                      </p>
+                      <p className="text-[10px] text-gray-500">
+                        Casual rewrite
+                      </p>
+                    </div>
+                    {!isPremium && (
+                      <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
+                    )}
+                  </button>
+                </div>
+                {!isPremium && (
+                  <button
+                    onClick={() => navigate("/app/billing")}
+                    className="mt-3 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline underline-offset-2"
+                  >
+                    <Crown className="h-3 w-3" />
+                    AI features require Premium — Upgrade now →
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       ) : (
         /* ── List view when no letter is selected ── */
