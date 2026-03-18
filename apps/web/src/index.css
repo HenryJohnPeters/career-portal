@@ -5,81 +5,80 @@
 @layer base {
   :root {
     /* ══════════════════════════════════════════════════════
-       🎨 PRIMARY BRAND COLOR (Easy to customize!)
-       Change these values to rebrand the entire app
+       🎨 PRIMARY BRAND COLOR — Blue/Cyan
        ══════════════════════════════════════════════════════ */
-    --color-primary-50: 240 249 255; /* Lightest */
-    --color-primary-100: 224 242 254;
-    --color-primary-200: 186 230 253;
-    --color-primary-300: 125 211 252;
-    --color-primary-400: 56 189 248;
-    --color-primary-500: 14 165 233; /* Main brand color */
-    --color-primary-600: 2 132 199; /* Darker */
-    --color-primary-700: 3 105 161;
-    --color-primary-800: 7 89 133;
-    --color-primary-900: 12 74 110;
-    --color-primary-950: 8 47 73; /* Darkest */
+    --color-primary-50:  236 254 255;
+    --color-primary-100: 207 250 254;
+    --color-primary-200: 165 243 252;
+    --color-primary-300: 103 232 249;
+    --color-primary-400: 34  211 238;  /* cyan-400 */
+    --color-primary-500: 6   182 212;  /* cyan-500 — main brand */
+    --color-primary-600: 8   145 178;  /* cyan-600 — CTA default */
+    --color-primary-700: 14  116 144;
+    --color-primary-800: 21  94  117;
+    --color-primary-900: 22  78  99;
+    --color-primary-950: 8   51  68;
 
     /* ══════════════════════════════════════════════════════
-       🌈 ACCENT COLOR (For highlights & CTAs)
+       🌈 ACCENT COLOR — Amber gold (premium / upgrade CTAs)
        ══════════════════════════════════════════════════════ */
-    --color-accent-50: 255 251 235;
+    --color-accent-50:  255 251 235;
     --color-accent-100: 254 243 199;
-    --color-accent-200: 253 224 71;
-    --color-accent-300: 250 204 21;
-    --color-accent-400: 234 179 8; /* Main accent */
-    --color-accent-500: 202 138 4;
-    --color-accent-600: 161 98 7;
-    --color-accent-700: 113 63 18;
-    --color-accent-800: 66 32 6;
-    --color-accent-900: 42 23 11;
+    --color-accent-200: 253 230 138;
+    --color-accent-300: 252 211 77;
+    --color-accent-400: 251 191 36;  /* Main accent */
+    --color-accent-500: 245 158 11;
+    --color-accent-600: 217 119 6;
+    --color-accent-700: 180 83  9;
+    --color-accent-800: 146 64  14;
+    --color-accent-900: 120 53  15;
 
     /* ══════════════════════════════════════════════════════
-       ⚪ NEUTRAL COLORS (Grays)
+       ⚪ NEUTRAL COLORS — Slate (cooler, more modern)
        ══════════════════════════════════════════════════════ */
-    --color-neutral-50: 250 250 250;
-    --color-neutral-100: 244 244 245;
-    --color-neutral-200: 228 228 231;
-    --color-neutral-300: 212 212 216;
-    --color-neutral-400: 161 161 170;
-    --color-neutral-500: 113 113 122;
-    --color-neutral-600: 82 82 91;
-    --color-neutral-700: 63 63 70;
-    --color-neutral-800: 39 39 42;
-    --color-neutral-900: 24 24 27;
-    --color-neutral-950: 9 9 11;
+    --color-neutral-50:  248 250 252;
+    --color-neutral-100: 241 245 249;
+    --color-neutral-200: 226 232 240;
+    --color-neutral-300: 203 213 225;
+    --color-neutral-400: 148 163 184;
+    --color-neutral-500: 100 116 139;
+    --color-neutral-600: 71  85  105;
+    --color-neutral-700: 51  65  85;
+    --color-neutral-800: 30  41  59;
+    --color-neutral-900: 15  23  42;
+    --color-neutral-950: 2   6   23;
 
     /* ══════════════════════════════════════════════════════
        ✅ SEMANTIC COLORS
        ══════════════════════════════════════════════════════ */
-    --color-success: 34 197 94;
+    --color-success: 34  197 94;
     --color-warning: 245 158 11;
-    --color-error: 239 68 68;
-    --color-info: 59 130 246;
+    --color-error:   239 68  68;
+    --color-info:    6   182 212;
 
     /* ══════════════════════════════════════════════════════
        🎭 LIGHT MODE SEMANTIC TOKENS
        ══════════════════════════════════════════════════════ */
-    --bg-primary: var(--color-neutral-50);
+    --bg-primary:  247 250 252;
     --bg-secondary: 255 255 255;
-    --bg-tertiary: var(--color-neutral-100);
+    --bg-tertiary: 241 245 249;
     --bg-elevated: 255 255 255;
 
-    --text-primary: var(--color-neutral-900);
-    --text-secondary: var(--color-neutral-600);
-    --text-tertiary: var(--color-neutral-400);
-    --text-inverse: 255 255 255;
+    --text-primary:   15  23  42;
+    --text-secondary: 71  85  105;
+    --text-tertiary:  148 163 184;
+    --text-inverse:   255 255 255;
 
-    --border-primary: var(--color-neutral-200);
-    --border-secondary: var(--color-neutral-100);
-    --border-focus: var(--color-primary-500);
+    --border-primary:   226 232 240;
+    --border-secondary: 241 245 249;
+    --border-focus:     6   182 212;
 
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+    --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04);
+    --shadow-md: 0 4px 6px -1px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.05);
+    --shadow-lg: 0 10px 15px -3px rgb(15 23 42 / 0.08), 0 4px 6px -4px rgb(15 23 42 / 0.05);
+    --shadow-xl: 0 20px 25px -5px rgb(15 23 42 / 0.1),  0 8px 10px -6px rgb(15 23 42 / 0.05);
 
-    /* Legacy accent tokens for backward compatibility */
+    /* Legacy */
     --color-accent: var(--color-primary-500);
     --color-accent-dark: var(--color-primary-600);
     --color-accent-light: var(--color-primary-400);
@@ -90,26 +89,25 @@
     /* ══════════════════════════════════════════════════════
        🌙 DARK MODE SEMANTIC TOKENS
        ══════════════════════════════════════════════════════ */
-    --bg-primary: var(--color-neutral-950);
-    --bg-secondary: var(--color-neutral-900);
-    --bg-tertiary: var(--color-neutral-800);
-    --bg-elevated: var(--color-neutral-900);
+    --bg-primary:   5   12  20;
+    --bg-secondary: 8   18  30;
+    --bg-tertiary:  13  26  42;
+    --bg-elevated:  10  22  36;
 
-    --text-primary: var(--color-neutral-50);
-    --text-secondary: var(--color-neutral-400);
-    --text-tertiary: var(--color-neutral-600);
-    --text-inverse: var(--color-neutral-900);
+    --text-primary:   241 245 249;
+    --text-secondary: 148 163 184;
+    --text-tertiary:  71  85  105;
+    --text-inverse:   15  23  42;
 
-    --border-primary: var(--color-neutral-800);
-    --border-secondary: var(--color-neutral-900);
-    --border-focus: var(--color-primary-400);
+    --border-primary:   20  38  60;
+    --border-secondary: 13  26  42;
+    --border-focus:     34  211 238;
 
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.5);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.4);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.5);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.6);
 
-    /* Legacy accent tokens for backward compatibility */
     --color-accent: var(--color-primary-400);
     --color-accent-dark: var(--color-primary-500);
     --color-accent-light: var(--color-primary-300);
@@ -119,82 +117,100 @@
   /* ══════════════════════════════════════════════════════
      🎯 BASE STYLES
      ══════════════════════════════════════════════════════ */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     background-color: rgb(var(--bg-primary));
     color: rgb(var(--text-primary));
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-variation-settings: "opsz" 32;
+    line-height: 1.6;
   }
 
-  /* ══════════════════════════════════════════════════════
-     📝 TYPOGRAPHY IMPROVEMENTS
-     ══════════════════════════════════════════════════════ */
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    font-weight: 600;
-    letter-spacing: -0.025em;
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
   }
 
-  /* ══════════════════════════════════════════════════════
-     🎬 SMOOTH SCROLLING
-     ══════════════════════════════════════════════════════ */
   @media (prefers-reduced-motion: no-preference) {
-    html {
-      scroll-behavior: smooth;
-    }
+    html { scroll-behavior: smooth; }
+  }
+}
+
+@layer components {
+  /* ── Input field base ── */
+  .input-base {
+    @apply w-full rounded-xl border border-border bg-bg-secondary px-4 py-2.5 text-sm text-text-primary
+           placeholder:text-text-tertiary
+           focus:outline-none focus:ring-2 focus:ring-primary-500/25 focus:border-primary-500
+           transition-all duration-150 shadow-sm;
+  }
+
+  .input-icon {
+    @apply pl-10;
+  }
+
+  /* ── Section label ── */
+  .label {
+    @apply block text-[11px] font-semibold uppercase tracking-widest text-text-tertiary mb-1.5;
   }
 }
 
 @layer utilities {
-  /* ══════════════════════════════════════════════════════
-     🎨 CUSTOM UTILITIES
-     ══════════════════════════════════════════════════════ */
-  .text-balance {
-    text-wrap: balance;
-  }
+  .text-balance { text-wrap: balance; }
 
-  /* Glass morphism effect */
+  /* Glass morphism */
   .glass {
-    background-color: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
   }
-
   .dark .glass {
-    background-color: rgba(24, 24, 27, 0.8);
+    background: rgba(13, 17, 31, 0.8);
   }
-
   .glass-border {
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(226, 232, 240, 0.8);
   }
-
   .dark .glass-border {
-    border: 1px solid rgba(63, 63, 70, 0.5);
+    border: 1px solid rgba(30, 41, 59, 0.9);
   }
 
-  /* Shimmer loading effect */
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, rgb(var(--color-primary-600)), rgb(var(--color-primary-400)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Noise texture overlay for premium sections */
+  .noise::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  /* Shimmer loading */
   @keyframes shimmer {
-    0% {
-      background-position: -1000px 0;
-    }
-    100% {
-      background-position: 1000px 0;
-    }
+    0%   { background-position: -1000px 0; }
+    100% { background-position:  1000px 0; }
   }
-
   .animate-shimmer {
     animation: shimmer 2s infinite linear;
-    background: linear-gradient(
-      to right,
-      transparent 0%,
-      rgba(255, 255, 255, 0.1) 50%,
-      transparent 100%
-    );
+    background: linear-gradient(to right, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
     background-size: 1000px 100%;
   }
 }
