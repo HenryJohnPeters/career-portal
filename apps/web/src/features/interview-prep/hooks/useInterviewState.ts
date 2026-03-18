@@ -19,6 +19,7 @@ import type {
 import type { View } from "../types";
 import { getTagsForRole } from "../constants";
 import { LEVEL_TO_DIFFICULTY } from "../../shared";
+import { DEFAULT_INTERVIEWER_ID } from "../interviewer-configs";
 
 export function useInterviewState() {
   const [view, setView] = useState<View>("setup");
@@ -42,6 +43,9 @@ export function useInterviewState() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set()
   );
+
+  // ── NEW: selected mock interviewer ──────────────────────────────────────
+  const [selectedInterviewerId, setSelectedInterviewerId] = useState<string>(DEFAULT_INTERVIEWER_ID);
 
   // Derive difficulty from level
   const difficulty: InterviewDifficulty =
@@ -190,5 +194,7 @@ export function useInterviewState() {
     handleBackToSetup,
     toggleTag,
     toggleCategory,
+    selectedInterviewerId,
+    setSelectedInterviewerId,
   };
 }

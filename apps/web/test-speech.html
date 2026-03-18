@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<body>
+<button onclick="testVoices()">Test Voices</button>
+<button onclick="testLipsync()">Test Lip-sync Text</button>
+<div id="output"></div>
+<script>
+function testVoices() {
+  const voices = window.speechSynthesis.getVoices();
+  document.getElementById('output').innerHTML = 
+    '<pre>' + voices.map((v,i) => `${i}: ${v.name} (${v.lang})`).join('\n') + '</pre>';
+}
+function testLipsync() {
+  const text = "Hello, this is a test question for the interview.";
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1.0;
+  window.speechSynthesis.speak(utter);
+}
+window.speechSynthesis.onvoiceschanged = () => console.log('Voices loaded:', window.speechSynthesis.getVoices().length);
+</script>
+</body>
+</html>

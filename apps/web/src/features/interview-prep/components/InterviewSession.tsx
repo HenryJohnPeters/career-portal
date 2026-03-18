@@ -26,6 +26,9 @@ import {
   LEVEL_BADGE_STYLES,
 } from "../../shared";
 import type { InterviewSessionProps } from "../types";
+import { InterviewerAvatar } from "./InterviewerAvatar";
+import { useTalkingHead } from "../hooks/useTalkingHead";
+import { useEffect, useRef } from "react";
 
 export function InterviewSession({
   nextQuestion,
@@ -39,7 +42,43 @@ export function InterviewSession({
   onNextQuestion,
   onViewReport,
   onBackToSetup,
+  selectedInterviewer,
 }: InterviewSessionProps) {
+  // ── Avatar + TTS ────────────────────────────────────────────────────────
+  const { containerRef, status, errorMsg, speakText, stopSpeaking, isSpeaking } =
+    useTalkingHead(selectedInterviewer, true);
+
+  // Track which question has been spoken so we never double-fire
+  const lastSpokenQuestionIdRef = useRef<string | null>(null);
+  // Queue a prompt here if the avatar isn't ready yet when the question arrives
+  const pendingSpeakRef = useRef<string | null>(null);
+
+  // When a new question arrives — speak immediately if ready, else queue it
+  useEffect(() => {
+    const sq = nextQuestion?.sessionQuestion;
+    if (!sq || lastFeedback) return;
+    if (lastSpokenQuestionIdRef.current === sq.id) return;
+    lastSpokenQuestionIdRef.current = sq.id;
+
+    if (status === "ready") {
+      pendingSpeakRef.current = null;
+      speakText(sq.question.prompt);
+    } else {
+      // Avatar still loading — queue it; the effect below will fire it
+      pendingSpeakRef.current = sq.question.prompt;
+    }
+  }, [nextQuestion?.sessionQuestion?.id, lastFeedback]);
+
+  // Once the avatar becomes ready, flush any queued question
+  useEffect(() => {
+    if (status === "ready" && pendingSpeakRef.current) {
+      const text = pendingSpeakRef.current;
+      pendingSpeakRef.current = null;
+      speakText(text);
+    }
+  }, [status, speakText]);
+
+  // ── Existing computed values ────────────────────────────────────────────
   if (nextLoading) return <Spinner />;
 
   const isCompleted =
@@ -330,86 +369,78 @@ export function InterviewSession({
           )}
         </div>
 
-        {/* Sidebar — visible on mobile as collapsed summary, expanded on lg */}
-        <div className="lg:hidden">
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                Session
-              </p>
-              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                <span>{trackMeta.icon} {trackMeta.label}</span>
-                <span>·</span>
-                <span>{levelMeta.icon} {levelMeta.label}</span>
-              </div>
+        {/* Sidebar */}
+        <div className="space-y-4">
+          {/* Avatar — always in DOM at full size so TalkingHead gets real dimensions */}
+          {selectedInterviewer && (
+            <InterviewerAvatar
+              interviewer={selectedInterviewer}
+              containerRef={containerRef}
+              status={status}
+              errorMsg={errorMsg}
+              isSpeaking={isSpeaking}
+              onStopSpeaking={stopSpeaking}
+            />
+          )}
+
+          {/* Progress card — hidden on mobile */}
+          <div className="hidden lg:block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
+            <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+              Session Progress
+            </p>
+            <ProgressRing percentage={progressPct} />
+            <div className="space-y-2.5">
+              <SidebarStat
+                label="Answered"
+                value={progress.answered}
+                className="text-blue-600 dark:text-blue-400"
+              />
+              <SidebarStat
+                label="Remaining"
+                value={progress.total - progress.answered}
+                className="text-gray-500 dark:text-gray-400"
+              />
+              <SidebarStat
+                label="Total"
+                value={progress.total}
+                className="text-gray-800 dark:text-gray-200"
+              />
             </div>
           </div>
-        </div>
 
-        {/* Desktop sidebar */}
-        <div className="hidden lg:block">
-          <div className="sticky top-6 space-y-4">
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                Session Progress
-              </p>
-              <ProgressRing percentage={progressPct} />
-              <div className="space-y-2.5">
-                <SidebarStat
-                  label="Answered"
-                  value={progress.answered}
-                  className="text-blue-600 dark:text-blue-400"
-                />
-                <SidebarStat
-                  label="Remaining"
-                  value={progress.total - progress.answered}
-                  className="text-gray-500 dark:text-gray-400"
-                />
-                <SidebarStat
-                  label="Total"
-                  value={progress.total}
-                  className="text-gray-800 dark:text-gray-200"
-                />
+          {/* Config card — hidden on mobile */}
+          <div className="hidden lg:block rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
+            <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+              Configuration
+            </p>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <span>{trackMeta.icon}</span>
+                <span>{trackMeta.label}</span>
               </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-              <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-                Configuration
-              </p>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <span>{trackMeta.icon}</span>
-                  <span>{trackMeta.label}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <span>{levelMeta.icon}</span>
-                  <span>{levelMeta.label}</span>
-                </div>
-                {activeSession?.persona && (
-                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span>🎭</span>
-                    <span className="capitalize">
-                      {activeSession.persona} interviewer
-                    </span>
-                  </div>
-                )}
-                {activeSession?.interviewType && (
-                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span>💻</span>
-                    <span className="capitalize">
-                      {activeSession.interviewType}
-                    </span>
-                  </div>
-                )}
+              <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <span>{levelMeta.icon}</span>
+                <span>{levelMeta.label}</span>
               </div>
-              <button
-                onClick={onBackToSetup}
-                className="mt-3 w-full text-xs font-medium text-accent hover:underline flex items-center justify-center gap-1"
-              >
-                <Filter className="h-3 w-3" /> Back to Setup
-              </button>
+              {activeSession?.persona && (
+                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                  <span>🎭</span>
+                  <span className="capitalize">{activeSession.persona} interviewer</span>
+                </div>
+              )}
+              {activeSession?.interviewType && (
+                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                  <span>💻</span>
+                  <span className="capitalize">{activeSession.interviewType}</span>
+                </div>
+              )}
             </div>
+            <button
+              onClick={onBackToSetup}
+              className="mt-3 w-full text-xs font-medium text-accent hover:underline flex items-center justify-center gap-1"
+            >
+              <Filter className="h-3 w-3" /> Back to Setup
+            </button>
           </div>
         </div>
       </div>

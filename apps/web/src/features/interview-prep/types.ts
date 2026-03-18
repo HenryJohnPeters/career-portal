@@ -8,6 +8,7 @@ import type {
   InterviewRoleFocus,
   InterviewType,
 } from "@careerportal/shared/types";
+import type { InterviewerConfig } from "./interviewer-configs";
 
 export type View = "setup" | "session" | "report";
 
@@ -32,6 +33,9 @@ export interface InterviewSetupProps {
   // Practice
   isPracticeStarting: boolean;
   onStartPractice: () => void;
+  /** ID of the currently selected mock interviewer */
+  selectedInterviewerId: string;
+  onInterviewerChange: (id: string) => void;
 }
 
 export interface InterviewSessionProps {
@@ -46,6 +50,8 @@ export interface InterviewSessionProps {
   onNextQuestion: () => void;
   onViewReport: () => void;
   onBackToSetup: () => void;
+  /** The resolved interviewer config for avatar + TTS */
+  selectedInterviewer: InterviewerConfig | null;
 }
 
 export interface InterviewReportProps {

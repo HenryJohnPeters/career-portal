@@ -25,8 +25,7 @@ export default defineConfig({
         "../../libs/web/ui/src/index.tsx"
       ),
     },
-    // Deduplicate React Query - force single instance
-    dedupe: ['@tanstack/react-query', 'react', 'react-dom'],
+    dedupe: ['@tanstack/react-query', 'react', 'react-dom', 'three'],
   },
   build: {
     commonjsOptions: {
@@ -35,21 +34,20 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Force ALL React Query code into the main vendor chunk
-          if (id.includes('@tanstack/react-query')) {
-            return 'vendor';
-          }
-          // Keep React in vendor chunk too
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'vendor';
-          }
+          if (id.includes('@tanstack/react-query')) return 'vendor';
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'vendor';
+          // Avatar / TTS libs are lazy-imported — keep them in their own chunks
+          if (id.includes('@met4citizen/talkinghead') || id.includes('talkinghead.mjs')) return 'avatar-talkinghead';
+          if (id.includes('@met4citizen/headtts') || id.includes('headtts.mjs')) return 'avatar-headtts';
+          if (id.includes('node_modules/three')) return 'avatar-three';
         },
       },
     },
   },
   optimizeDeps: {
     include: ['@tanstack/react-query', 'react', 'react-dom'],
-    // Force these to be pre-bundled and deduplicated
+    // @met4citizen packages are native ESM — do NOT pre-bundle them
+    exclude: ['@met4citizen/talkinghead', '@met4citizen/headtts'],
     force: true,
   },
 });

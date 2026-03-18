@@ -6,7 +6,6 @@ import type {
 } from "@careerportal/shared/types";
 import {
   Mic,
-  Zap,
   Hash,
   TrendingUp,
   Briefcase,
@@ -21,6 +20,7 @@ import type { OptionItem } from "../../shared";
 import { ROLE_FOCUS_ITEMS, INTERVIEW_TYPE_ITEMS } from "../constants";
 import type { InterviewSetupProps } from "../types";
 import { TechStackPicker } from "./TechStackPicker";
+import { InterviewerSelector } from "./InterviewerSelector";
 
 const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
   ([key, m]) => ({
@@ -49,6 +49,8 @@ export function InterviewSetup({
   onCreateSession,
   isPracticeStarting,
   onStartPractice,
+  selectedInterviewerId,
+  onInterviewerChange,
 }: InterviewSetupProps) {
   const levelMeta = LEVEL_META[level] ?? LEVEL_META.mid;
   const typeMeta = INTERVIEW_TYPE_ITEMS.find((t) => t.key === interviewType);
@@ -93,6 +95,12 @@ export function InterviewSetup({
               columns="grid-cols-1 sm:grid-cols-3"
             />
           </section>
+
+          {/* ── NEW: Mock Interviewer selector ─────────────────────── */}
+          <InterviewerSelector
+            selectedId={selectedInterviewerId}
+            onSelect={onInterviewerChange}
+          />
 
           <section>
             <TechStackPicker
@@ -246,30 +254,14 @@ export function InterviewSetup({
               </div>
               <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                 {[
-                  {
-                    emoji: "🎯",
-                    tip: "Questions adapt to your selected difficulty",
-                  },
-                  {
-                    emoji: "🔍",
-                    tip: "Follow-up questions test deeper understanding",
-                  },
-                  {
-                    emoji: "🎭",
-                    tip: "Persona affects interviewer tone & feedback",
-                  },
-                  {
-                    emoji: "📈",
-                    tip: "Review reports to track improvement over time",
-                  },
+                  { emoji: "🎯", tip: "Questions adapt to your selected difficulty" },
+                  { emoji: "🔍", tip: "Follow-up questions test deeper understanding" },
+                  { emoji: "🎭", tip: "Persona affects interviewer tone & feedback" },
+                  { emoji: "📈", tip: "Review reports to track improvement over time" },
                 ].map(({ emoji, tip }) => (
                   <li key={tip} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="text-base leading-none shrink-0">
-                      {emoji}
-                    </span>
-                    <span className="text-xs text-gray-600 dark:text-gray-400 leading-snug">
-                      {tip}
-                    </span>
+                    <span className="text-base leading-none shrink-0">{emoji}</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400 leading-snug">{tip}</span>
                   </li>
                 ))}
               </ul>

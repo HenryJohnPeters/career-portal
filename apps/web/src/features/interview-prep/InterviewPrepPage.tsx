@@ -5,10 +5,14 @@ import { InterviewSetup } from "./components/InterviewSetup";
 import { InterviewSession } from "./components/InterviewSession";
 import { InterviewReport } from "./components/InterviewReport";
 import { PracticeQuiz } from "../practice/components/PracticeQuiz";
+import { getInterviewerById } from "./interviewer-configs";
 
 export function InterviewPrepPage() {
   const state = useInterviewState();
   const practice = usePracticeState();
+
+  // Resolve the full interviewer config object from the selected ID
+  const selectedInterviewer = getInterviewerById(state.selectedInterviewerId) ?? null;
 
   if (state.optionsLoading || practice.isLoadingOptions) return <Spinner />;
   if (state.isError)
@@ -75,6 +79,8 @@ export function InterviewPrepPage() {
         onCreateSession={state.handleCreateSession}
         isPracticeStarting={practice.isLoadingNext}
         onStartPractice={handleStartPractice}
+        selectedInterviewerId={state.selectedInterviewerId}
+        onInterviewerChange={state.setSelectedInterviewerId}
       />
     );
   }
@@ -93,6 +99,7 @@ export function InterviewPrepPage() {
         onNextQuestion={state.handleNextQuestion}
         onViewReport={state.handleViewReport}
         onBackToSetup={state.handleBackToSetup}
+        selectedInterviewer={selectedInterviewer}
       />
     );
   }
