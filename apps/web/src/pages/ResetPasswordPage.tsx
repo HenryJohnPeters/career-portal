@@ -78,7 +78,7 @@ export function ResetPasswordPage() {
               <Code2 className="h-4 w-4 text-white" />
             </div>
             <span className="text-sm font-bold text-text-primary">
-              Career Portal
+              careerRepo
             </span>
           </Link>
         </header>
@@ -118,7 +118,7 @@ export function ResetPasswordPage() {
             <Code2 className="h-4 w-4 text-white" />
           </div>
           <span className="text-sm font-bold text-text-primary">
-            Career Portal
+            careerRepo
           </span>
         </Link>
       </header>

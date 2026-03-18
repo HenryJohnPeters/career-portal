@@ -65,8 +65,13 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
       {/* Mobile past tests button */}
       {state.tests.length > 0 && (
         <div className="sm:hidden">
-          <Button variant="secondary" size="sm" onClick={state.handleShowHistory}>
-            <History className="h-4 w-4 mr-1.5" /> Past Tests ({state.tests.length})
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={state.handleShowHistory}
+          >
+            <History className="h-4 w-4 mr-1.5" /> Past Tests (
+            {state.tests.length})
           </Button>
         </div>
       )}
@@ -180,24 +185,26 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
               </div>
             </div>
 
-            <div className="rounded-xl border border-accent-muted bg-accent-muted/50 p-4">
-              <p className="text-xs font-semibold text-accent mb-2 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5" /> How it works
-              </p>
-              <ul className="space-y-1.5">
+            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
+              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary-600 text-white">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </div>
+                <p className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                  How it works
+                </p>
+              </div>
+              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                 {[
-                  "A realistic scenario is generated based on your filters",
-                  "Review the problem brief, requirements, and acceptance criteria",
-                  "Start the timer when you're ready to begin",
-                  "Write your solution — code, architecture, explanations",
-                  "Submit for automated evaluation and feedback",
-                ].map((tip) => (
-                  <li
-                    key={tip}
-                    className="text-[11px] text-accent/80 leading-relaxed flex items-start gap-1.5"
-                  >
-                    <span className="mt-1 h-1 w-1 rounded-full bg-accent shrink-0" />
-                    {tip}
+                  { emoji: "🎯", tip: "A realistic scenario is generated based on your filters" },
+                  { emoji: "📋", tip: "Review the brief, requirements, and acceptance criteria" },
+                  { emoji: "⏱️", tip: "Start the timer when you're ready to begin" },
+                  { emoji: "✍️", tip: "Write your solution — code, architecture, explanations" },
+                  { emoji: "📊", tip: "Submit for automated evaluation and feedback" },
+                ].map(({ emoji, tip }) => (
+                  <li key={tip} className="flex items-center gap-3 px-4 py-2.5">
+                    <span className="text-base leading-none shrink-0">{emoji}</span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400 leading-snug">{tip}</span>
                   </li>
                 ))}
               </ul>

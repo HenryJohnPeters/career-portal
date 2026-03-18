@@ -102,7 +102,7 @@ export function AuthCallbackPage() {
               <Code2 className="h-4 w-4 text-white" />
             </div>
             <span className="text-sm font-bold text-text-primary">
-              Career Portal
+              careerRepo
             </span>
           </Link>
         </header>

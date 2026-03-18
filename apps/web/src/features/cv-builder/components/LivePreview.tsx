@@ -22,7 +22,7 @@ export function LivePreview({
   onFullPreview,
 }: LivePreviewProps) {
   return (
-    <div className="sticky top-6 space-y-3">
+    <div className="flex flex-col h-full gap-3">
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -67,6 +67,7 @@ export function LivePreview({
         hasContent={!!previewHtml}
         isLoading={isPreviewLoading}
         title="CV Preview"
+        className="flex-1 min-h-0"
       />
     </div>
   );

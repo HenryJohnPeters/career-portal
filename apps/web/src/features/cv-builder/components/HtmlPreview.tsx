@@ -20,7 +20,7 @@ export function HtmlPreview({
   onFullPreview,
 }: HtmlPreviewProps) {
   return (
-    <div className="sticky top-6 space-y-3">
+    <div className="sticky top-4 space-y-3">
       <div className="rounded-xl border border-border bg-bg-elevated p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

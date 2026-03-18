@@ -147,11 +147,11 @@ export function CoverLettersPage() {
           </button>
 
           {/* Two-column grid: editor left, AI right */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
             {/* ── LEFT: Editor + suggestions + rewrite ── */}
-            <div className="space-y-4">
-              {/* Editor card */}
-              <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
+            <div className="flex flex-col gap-4">
+              {/* Editor card — grows to fill whatever height the right col takes */}
+              <div className="flex flex-col flex-1 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 gap-4">
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-muted text-accent">
                     <PenLine className="h-3.5 w-3.5" />
@@ -163,15 +163,14 @@ export function CoverLettersPage() {
                 <input
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all"
                   placeholder="Cover letter title"
                 />
                 <textarea
                   value={editBody}
                   onChange={(e) => setEditBody(e.target.value)}
-                  rows={18}
                   placeholder="Write your cover letter here..."
-                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all resize-y"
+                  className="flex-1 min-h-[280px] w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 px-4 py-3 text-sm text-gray-700 dark:text-gray-300 leading-relaxed placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent focus:bg-white dark:focus:bg-gray-800 transition-all resize-none"
                 />
                 <div className="flex items-center gap-2">
                   <Button
@@ -238,13 +237,16 @@ export function CoverLettersPage() {
               )}
             </div>
 
-            {/* ── RIGHT: AI Generate + AI Assistant ── */}
-            <div className="space-y-4">
-              {/* AI Generate panel */}
+            {/* ── RIGHT: sticky, scrolls independently inside viewport ── */}
+            <div className="sticky top-20 self-start space-y-4 max-h-[calc(100vh-6rem)] overflow-y-auto pb-4 pr-0.5">
               <AiCoverLetterAssist
                 coverLetterId={editingId}
                 hasBody={editBody.trim().length > 0}
                 onApply={(content) => setEditBody(content)}
+                onApplyTemplate={(title, body) => {
+                  setEditTitle(title);
+                  setEditBody(body);
+                }}
               />
 
               {/* AI tools card */}
@@ -393,7 +395,7 @@ export function CoverLettersPage() {
               className={`w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed py-4 text-sm font-medium transition-all duration-200 group ${
                 atFreeLimit
                   ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
-                  : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-violet-400 hover:text-violet-600 dark:hover:border-violet-500 dark:hover:text-violet-400 hover:bg-violet-50/50 dark:hover:bg-violet-900/10"
+                  : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-accent hover:text-accent-dark dark:hover:text-accent hover:bg-accent-muted/10"
               }`}
             >
               <PlusCircle className="h-4.5 w-4.5 group-hover:scale-110 transition-transform" />
@@ -401,16 +403,16 @@ export function CoverLettersPage() {
             </button>
           )}
 
-          {/* Letter grid */}
+          {/* Letter grid — styled to match VersionCard exactly */}
           {letters.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800 mb-4">
-                <FolderOpen className="h-8 w-8 text-gray-400" />
+            <div className="text-center py-12">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800 mb-3">
+                <FolderOpen className="h-6 w-6 text-gray-400" />
               </div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                 No cover letters yet
               </p>
-              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
                 Create your first one above
               </p>
             </div>
@@ -420,33 +422,46 @@ export function CoverLettersPage() {
                 <div
                   key={cl.id}
                   onClick={() => startEdit(cl)}
-                  className="group relative rounded-xl border p-4 cursor-pointer transition-all duration-200 border-border hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-sm bg-bg-elevated"
+                  className="group relative rounded-xl border p-3 cursor-pointer transition-all duration-200 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm bg-white dark:bg-gray-800/50"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-600 transition-colors">
+                  {/* Top row: icon + text */}
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
                       <Mail className="h-4 w-4" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                      <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
                         {cl.title}
                       </h3>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 line-clamp-2">
+                      <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
                         {cl.body
-                          ? cl.body.slice(0, 100)
+                          ? `${cl.body.slice(0, 60).trim()}…`
                           : "Empty — click to start writing"}
                       </p>
-                      <p className="text-[10px] text-gray-400 mt-1.5">
-                        Updated {new Date(cl.updatedAt).toLocaleDateString()}
-                      </p>
                     </div>
+                  </div>
+
+                  {/* Action bar — mirrors VersionCard's action bar */}
+                  <div
+                    className="flex items-center gap-0.5 mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-700 opacity-0 group-hover:opacity-100 transition-all"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="text-[9px] text-gray-400 dark:text-gray-500 px-1 flex-1 tabular-nums">
+                      {new Date(cl.updatedAt).toLocaleDateString("en-GB", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDelete(cl.id);
                       }}
-                      className="rounded-lg p-2 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all shrink-0"
+                      className="rounded-md p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors ml-auto"
+                      title="Delete"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
                 </div>

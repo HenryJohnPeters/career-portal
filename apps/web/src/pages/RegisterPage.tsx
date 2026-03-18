@@ -106,7 +106,7 @@ export function RegisterPage() {
         <header className="relative z-10 h-14 flex items-center px-6 border-b border-border/50">
           <Link to="/" className="flex items-center gap-2.5 hover:opacity-75 transition-opacity">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 shadow-sm"><Code2 className="h-3.5 w-3.5 text-white" /></div>
-            <span className="text-sm font-bold tracking-tight text-text-primary">Career Portal</span>
+            <span className="text-sm font-bold tracking-tight text-text-primary">careerRepo</span>
           </Link>
         </header>
         <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-12">
@@ -144,7 +144,7 @@ export function RegisterPage() {
       <header className="relative z-10 h-14 flex items-center px-6 border-b border-border/50">
         <Link to="/" className="flex items-center gap-2.5 hover:opacity-75 transition-opacity">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 shadow-sm"><Code2 className="h-3.5 w-3.5 text-white" /></div>
-          <span className="text-sm font-bold tracking-tight text-text-primary">Career Portal</span>
+          <span className="text-sm font-bold tracking-tight text-text-primary">careerRepo</span>
         </Link>
       </header>
 

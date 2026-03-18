@@ -156,10 +156,10 @@ export function RawTextCvPanel({
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="group w-full rounded-xl border-2 border-dashed border-primary-500/20 bg-primary-500/5 p-5 text-left hover:border-primary-500/40 hover:bg-primary-500/10 hover:shadow-sm hover:-translate-y-0.5 transition-all duration-200"
+        className="group w-full rounded-xl border-2 border-primary-500/40 bg-gradient-to-r from-primary-500/10 to-primary-400/5 p-4 text-left hover:border-primary-500/70 hover:from-primary-500/15 hover:to-primary-400/10 hover:shadow-md hover:shadow-primary-500/10 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
       >
-        <div className="flex items-start gap-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm group-hover:bg-primary-500 group-hover:shadow-md transition-all">
             <Wand2 className="h-5 w-5" />
           </div>
           <div className="flex-1 min-w-0">
@@ -167,23 +167,27 @@ export function RawTextCvPanel({
               <h3 className="text-sm font-bold text-text-primary">
                 AI Brain Dump → Full CV
               </h3>
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                <Sparkles className="h-2.5 w-2.5" />
+                AI
+              </span>
               {!isPremium && usage && (
                 <span className="text-[9px] font-medium text-text-tertiary">
                   {usage.remaining}/{usage.limit} uses
                 </span>
               )}
             </div>
-            <p className="text-xs text-text-secondary mt-1 leading-relaxed">
-              Paste{" "}
-              <span className="font-medium text-primary-600 dark:text-primary-400">
-                everything
-              </span>{" "}
-              you know about yourself in one big text dump — your jobs, skills,
-              education, projects, anything. AI will sort it all out into a
-              polished, ready-to-use CV. No formatting needed.
+            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">
+              Paste everything about yourself — AI builds your full CV
+              instantly.{" "}
+              <span className="font-semibold text-primary-600 dark:text-primary-400 underline underline-offset-2 decoration-dashed">
+                Click to open ↓
+              </span>
             </p>
           </div>
-          <Sparkles className="h-5 w-5 shrink-0 text-text-tertiary group-hover:text-primary-500 transition-colors mt-1" />
+          <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 group-hover:bg-primary-200 dark:group-hover:bg-primary-800/50 transition-colors shrink-0">
+            <ChevronDown className="h-4 w-4" />
+          </div>
         </div>
       </button>
     );
@@ -273,10 +277,10 @@ export function RawTextCvPanel({
         {!result && !generateFullCv.isPending && (
           <>
             {/* Helper callout */}
-            <div className="flex gap-3 rounded-lg border border-accent-muted dark:border-accent-muted/40 bg-white/60 dark:bg-gray-800/40 p-3">
-              <AlertCircle className="h-4 w-4 shrink-0 text-accent-light mt-0.5" />
-              <div className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                <span className="font-semibold text-accent-dark dark:text-accent">
+            <div className="flex gap-3 rounded-lg border border-accent-200 dark:border-accent-700 bg-accent-50 dark:bg-accent-900/20 p-3">
+              <AlertCircle className="h-4 w-4 shrink-0 text-accent-600 dark:text-accent-400 mt-0.5" />
+              <div className="text-xs text-accent-700 dark:text-accent-200 leading-relaxed">
+                <span className="font-semibold text-accent-800 dark:text-accent-100">
                   Don't overthink it.
                 </span>{" "}
                 Just brain-dump everything — your work history, skills,
@@ -302,27 +306,35 @@ export function RawTextCvPanel({
             />
 
             {/* Optional job title */}
-            <input
-              value={jobTitle}
-              onChange={(e) => setJobTitle(e.target.value)}
-              placeholder="Target role (e.g. Senior Frontend Engineer) — optional, helps tailor the profile"
-              className="w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow"
-            />
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                Target Role{" "}
+                <span className="normal-case font-normal">— optional</span>
+              </label>
+              <input
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                placeholder="e.g. Senior Frontend Engineer"
+                className="w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow"
+              />
+            </div>
 
-            {/* Optional job description */}
-            <details className="group">
-              <summary className="flex items-center gap-1 cursor-pointer text-[10px] font-medium text-accent-dark dark:text-accent hover:text-accent dark:hover:text-accent-light transition-colors select-none">
-                <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
-                Add job description for better tailoring
-              </summary>
+            {/* Job description — always visible */}
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
+                Job Description{" "}
+                <span className="normal-case font-normal text-text-tertiary">
+                  — paste for best results, AI will tailor your CV to the role
+                </span>
+              </label>
               <textarea
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
                 placeholder="Paste the full job description here — the AI will tailor your CV's profile, skills emphasis, and wording to match this role…"
                 rows={4}
-                className="mt-2 w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow resize-y leading-relaxed"
+                className="w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow resize-y leading-relaxed"
               />
-            </details>
+            </div>
 
             {/* Character count + generate */}
             <div className="flex items-center justify-between">

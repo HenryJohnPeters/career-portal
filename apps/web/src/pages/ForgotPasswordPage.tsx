@@ -44,7 +44,7 @@ export function ForgotPasswordPage() {
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 shadow-sm">
           <Code2 className="h-3.5 w-3.5 text-white" />
         </div>
-        <span className="text-sm font-bold tracking-tight text-text-primary">Career Portal</span>
+        <span className="text-sm font-bold tracking-tight text-text-primary">careerRepo</span>
       </Link>
     </header>
   );

@@ -13,6 +13,7 @@ import {
   useReorderCvSections,
   useCvHtmlPreview,
 } from "@careerportal/web/data-access";
+import { supabase } from "@careerportal/web/data-access";
 import type {
   CvVersion,
   CvSection,
@@ -331,20 +332,49 @@ export function useCvBuilder() {
   };
 
   // ── PDF handlers ──
-  const handlePreviewPdf = () => {
+  const handlePreviewPdf = async () => {
     if (!selectedVersionId) return;
-    window.open(`${API_BASE_URL}/pdf/cv/${selectedVersionId}`, "_blank");
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch(`${API_BASE_URL}/pdf/cv/${selectedVersionId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to load PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      if (!win) alert("Please allow pop-ups to preview the PDF.");
+    } catch (e) {
+      console.error("PDF preview error", e);
+    }
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     if (!selectedVersionId) return;
-    const a = document.createElement("a");
-    a.href = `${API_BASE_URL}/pdf/cv/${selectedVersionId}?download=1`;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      const res = await fetch(
+        `${API_BASE_URL}/pdf/cv/${selectedVersionId}?download=1`,
+        {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }
+      );
+      if (!res.ok) throw new Error("Failed to download PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cv-${selectedVersionId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (e) {
+      console.error("PDF download error", e);
+    }
   };
 
   return {
