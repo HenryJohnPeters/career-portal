@@ -11,6 +11,7 @@ import {
   Linkedin,
   Github,
   Link,
+  Check,
 } from "lucide-react";
 
 interface ContactPanelProps {
@@ -85,10 +86,19 @@ export function ContactPanel({
     linkedin,
     github,
   });
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isDirty = useRef(false);
 
+  // Track whether fields have been locally edited (dirty)
+  const isDirty = useRef(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep a stable ref to the callback so the debounce always calls the latest version
+  const onUpdateContactRef = useRef(onUpdateContact);
   useEffect(() => {
+    onUpdateContactRef.current = onUpdateContact;
+  }, [onUpdateContact]);
+
+  // Sync fields from props only when NOT locally dirty (i.e. server pushed a change)
+  useEffect(() => {
+    if (isDirty.current) return;
     setFields({
       name,
       email,
@@ -101,22 +111,33 @@ export function ContactPanel({
     });
   }, [name, email, photoUrl, phone, location, website, linkedin, github]);
 
-  useEffect(() => {
-    if (!isDirty.current) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      isDirty.current = false;
-      onUpdateContact(fields);
-    }, 500);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [fields, onUpdateContact]);
-
   const updateField = useCallback((key: string, val: string) => {
     isDirty.current = true;
-    setFields((prev) => ({ ...prev, [key]: val }));
+    setFields((prev) => {
+      const next = { ...prev, [key]: val };
+      // Schedule debounced save using the ref so it's always fresh
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        isDirty.current = false;
+        onUpdateContactRef.current(next);
+      }, 600);
+      return next;
+    });
   }, []);
+
+  // Cleanup on unmount
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    []
+  );
+
+  const [saveFlash, setSaveFlash] = useState(false);
+  const triggerFlash = () => {
+    setSaveFlash(true);
+    setTimeout(() => setSaveFlash(false), 1500);
+  };
 
   const ChevronIcon = isExpanded ? ChevronUp : ChevronDown;
   const ContactChevron = isContactExpanded ? ChevronUp : ChevronDown;
@@ -127,9 +148,16 @@ export function ContactPanel({
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between group"
       >
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">
-          Contact Info
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">
+            Contact Info
+          </h3>
+          {saveFlash && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 animate-in fade-in duration-200">
+              <Check className="h-3 w-3" /> Saved
+            </span>
+          )}
+        </div>
         <ChevronIcon className="h-4 w-4 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
       </button>
 
@@ -162,7 +190,10 @@ export function ContactPanel({
                 return (
                   <button
                     key={hl.value}
-                    onClick={() => onUpdateContact({ headerLayout: hl.value })}
+                    onClick={() => {
+                      onUpdateContactRef.current({ headerLayout: hl.value });
+                      triggerFlash();
+                    }}
                     className={`px-3 py-2 text-left rounded-lg border transition-colors ${
                       isActive
                         ? "border-accent bg-accent-muted/20 dark:bg-accent-muted/10"
@@ -193,7 +224,7 @@ export function ContactPanel({
               className="w-full flex items-center justify-between group mb-3"
             >
               <span className="text-xs font-medium text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors">
-                Contact Details (Optional)
+                Additional Details (Phone, Location, Links)
               </span>
               <ContactChevron className="h-3.5 w-3.5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors" />
             </button>
@@ -235,6 +266,10 @@ export function ContactPanel({
                   placeholder="github.com/username"
                   onChange={(v) => updateField("github", v)}
                 />
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 pt-1">
+                  Changes auto-save and appear in your CV preview within a few
+                  seconds.
+                </p>
               </div>
             )}
           </div>

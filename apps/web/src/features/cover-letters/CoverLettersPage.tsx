@@ -395,7 +395,7 @@ export function CoverLettersPage() {
               className={`w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed py-4 text-sm font-medium transition-all duration-200 group ${
                 atFreeLimit
                   ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
-                  : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-accent hover:text-accent-dark dark:hover:text-accent hover:bg-accent-muted/10"
+                  : "border-primary-300 dark:border-primary-700 text-primary-600 dark:text-primary-400 hover:border-primary-500 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20"
               }`}
             >
               <PlusCircle className="h-4.5 w-4.5 group-hover:scale-110 transition-transform" />

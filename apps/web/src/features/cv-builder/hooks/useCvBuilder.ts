@@ -224,29 +224,38 @@ export function useCvBuilder() {
   };
 
   // ── Template / Theme / Contact handlers ──
+  // Use a ref for selectedVersionId so callbacks are stable across renders
+  const selectedVersionIdRef = useRef(selectedVersionId);
+  useEffect(() => {
+    selectedVersionIdRef.current = selectedVersionId;
+  }, [selectedVersionId]);
+
   const handleUpdateTemplate = useCallback(
     (templateId: TemplateId) => {
-      if (!selectedVersionId) return;
-      updateVersion.mutate({ id: selectedVersionId, templateId });
+      if (!selectedVersionIdRef.current) return;
+      updateVersion.mutate({ id: selectedVersionIdRef.current, templateId });
     },
-    [selectedVersionId, updateVersion]
+    [updateVersion]
   );
 
   const handleUpdateTheme = useCallback(
     (partial: Partial<ThemeConfig>) => {
-      if (!selectedVersionId) return;
+      if (!selectedVersionIdRef.current) return;
       const merged = { ...resolvedThemeConfig, ...partial };
-      updateVersion.mutate({ id: selectedVersionId, themeConfig: merged });
+      updateVersion.mutate({
+        id: selectedVersionIdRef.current,
+        themeConfig: merged,
+      });
     },
-    [selectedVersionId, resolvedThemeConfig, updateVersion]
+    [resolvedThemeConfig, updateVersion]
   );
 
   const handleUpdateContact = useCallback(
     (fields: Record<string, string>) => {
-      if (!selectedVersionId) return;
-      updateVersion.mutate({ id: selectedVersionId, ...fields });
+      if (!selectedVersionIdRef.current) return;
+      updateVersion.mutate({ id: selectedVersionIdRef.current, ...fields });
     },
-    [selectedVersionId, updateVersion]
+    [updateVersion]
   );
 
   // ── Section handlers ──

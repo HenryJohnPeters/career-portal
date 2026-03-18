@@ -62,7 +62,6 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
         }
       />
 
-      {/* Mobile past tests button */}
       {state.tests.length > 0 && (
         <div className="sm:hidden">
           <Button
@@ -87,7 +86,6 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
               onChange={(v) => state.setRoleFocus(v as InterviewRoleFocus)}
             />
           </section>
-
           <section>
             <SectionHeading icon={TrendingUp} label="Experience Level" />
             <OptionGrid
@@ -97,7 +95,6 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
               columns="grid-cols-1 sm:grid-cols-3"
             />
           </section>
-
           <section>
             <TechStackPicker
               roleFocus={state.roleFocus}
@@ -105,7 +102,6 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
               onToggleTag={state.toggleTag}
             />
           </section>
-
           <section>
             <SectionHeading icon={Timer} label="Time Limit" />
             <OptionGrid
@@ -119,20 +115,20 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
 
         {/* Right — Summary + Generate */}
         <div className="lg:col-span-1">
-          <div className="lg:sticky lg:top-6 space-y-4">
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="h-2 bg-violet-600" />
+          <div className="lg:sticky lg:top-6 space-y-3">
+            {/* Test preview card */}
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
+              <div className="h-1 bg-gradient-to-r from-violet-500 to-violet-600" />
               <div className="p-5 space-y-4">
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">
                     Your Test
                   </p>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                  <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
                     {roleMeta?.label ?? "Fullstack"} · {levelMeta.label}
                   </h3>
                 </div>
-
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   <PreviewRow
                     icon={roleMeta?.icon ?? "🔗"}
                     label="Role"
@@ -149,21 +145,21 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
                     value={timeMeta?.label ?? "1 hour"}
                   />
                   {state.selectedTags.length > 0 && (
-                    <div className="pt-1">
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">
+                    <div className="pt-0.5">
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1.5">
                         Tech Stack
                       </p>
                       <div className="flex flex-wrap gap-1">
                         {state.selectedTags.slice(0, 6).map((t) => (
                           <span
                             key={t}
-                            className="text-[10px] font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400 px-1.5 py-0.5 rounded"
+                            className="text-[10px] font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded-md"
                           >
                             {t}
                           </span>
                         ))}
                         {state.selectedTags.length > 6 && (
-                          <span className="text-[10px] text-gray-400">
+                          <span className="text-[10px] text-gray-400 dark:text-gray-500">
                             +{state.selectedTags.length - 6}
                           </span>
                         )}
@@ -172,7 +168,6 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
                   )}
                 </div>
               </div>
-
               <div className="px-5 pb-5">
                 <Button
                   size="lg"
@@ -180,31 +175,44 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
                   loading={state.isGenerating}
                   className="w-full"
                 >
-                  <Play className="h-4 w-4 mr-2" /> Generate Test Scenario
+                  <Play className="h-4 w-4 mr-1.5" /> Generate Test Scenario
                 </Button>
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary-600 text-white">
-                  <Sparkles className="h-3.5 w-3.5" />
-                </div>
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+            {/* How it works */}
+            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                   How it works
                 </p>
               </div>
-              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+              <ul className="divide-y divide-gray-50 dark:divide-gray-800/60">
                 {[
-                  { emoji: "🎯", tip: "A realistic scenario is generated based on your filters" },
-                  { emoji: "📋", tip: "Review the brief, requirements, and acceptance criteria" },
-                  { emoji: "⏱️", tip: "Start the timer when you're ready to begin" },
-                  { emoji: "✍️", tip: "Write your solution — code, architecture, explanations" },
-                  { emoji: "📊", tip: "Submit for automated evaluation and feedback" },
+                  {
+                    emoji: "🎯",
+                    tip: "A realistic scenario is generated for your filters",
+                  },
+                  {
+                    emoji: "📋",
+                    tip: "Review the brief, requirements & acceptance criteria",
+                  },
+                  { emoji: "⏱️", tip: "Start the timer when ready to begin" },
+                  {
+                    emoji: "✍️",
+                    tip: "Write your solution — code, architecture, trade-offs",
+                  },
+                  {
+                    emoji: "📊",
+                    tip: "Submit for automated evaluation & feedback",
+                  },
                 ].map(({ emoji, tip }) => (
                   <li key={tip} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="text-base leading-none shrink-0">{emoji}</span>
-                    <span className="text-xs text-gray-600 dark:text-gray-400 leading-snug">{tip}</span>
+                    <span className="text-sm shrink-0">{emoji}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 leading-snug">
+                      {tip}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -227,12 +235,12 @@ function PreviewRow({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 shrink-0">
         <span className="text-sm">{icon}</span>
       </div>
-      <div>
+      <div className="flex-1 flex items-center justify-between min-w-0">
         <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
-        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+        <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
           {value}
         </p>
       </div>

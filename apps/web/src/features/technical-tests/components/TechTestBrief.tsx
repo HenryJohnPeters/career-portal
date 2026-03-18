@@ -36,12 +36,12 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
   const diffMeta = DIFFICULTY_ITEMS.find((d) => d.key === test.difficulty);
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-6">
+    <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-5">
       {/* Header */}
       <div className="flex items-start gap-3">
         <button
           onClick={state.handleBackToSetup}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mt-0.5"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors mt-0.5"
         >
           <ArrowLeft className="h-4 w-4 text-gray-500" />
         </button>
@@ -49,28 +49,35 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
           <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white leading-tight">
             {scenario.title}
           </h1>
-          <div className="flex items-center gap-1.5 sm:gap-2 mt-1.5 flex-wrap">
-            <MetaChip
-              icon={roleMeta?.icon ?? "🔗"}
-              label={roleMeta?.label ?? test.roleFocus}
-            />
-            <MetaChip icon={levelMeta.icon} label={levelMeta.label} />
-            <MetaChip
-              icon={diffMeta?.icon ?? "🟡"}
-              label={diffMeta?.label ?? test.difficulty}
-            />
-            <MetaChip icon="⏱️" label={`${test.timeLimit} min`} />
-            <MetaChip icon="📐" label={scenario.estimatedTime} />
+          <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+            {[
+              roleMeta?.icon + " " + (roleMeta?.label ?? test.roleFocus),
+              levelMeta.icon + " " + levelMeta.label,
+              (diffMeta?.icon ?? "🟡") +
+                " " +
+                (diffMeta?.label ?? test.difficulty),
+              "⏱️ " + test.timeLimit + " min",
+              "📐 " + scenario.estimatedTime,
+            ].map((chip) => (
+              <span
+                key={chip}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2.5 py-0.5 rounded-lg"
+              >
+                {chip}
+              </span>
+            ))}
           </div>
         </div>
       </div>
 
       {/* Company context */}
-      <div className="rounded-2xl border border-violet-200/50 dark:border-violet-800/50 bg-violet-50/50 dark:bg-violet-950/20 p-5">
+      <div className="rounded-2xl border border-violet-200/50 dark:border-violet-800/40 bg-violet-50/60 dark:bg-violet-950/20 p-5">
         <div className="flex items-start gap-3">
-          <Building2 className="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/30">
+            <Building2 className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+          </div>
           <div>
-            <p className="text-sm font-semibold text-violet-800 dark:text-violet-300 mb-1">
+            <p className="text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400 mb-1.5">
               Company Context
             </p>
             <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -81,7 +88,7 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
       </div>
 
       {/* Brief */}
-      <Section icon={FileText} title="Problem Brief">
+      <BriefSection icon={FileText} title="Problem Brief">
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
           {scenario.brief}
         </p>
@@ -90,14 +97,14 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
             {scenario.background}
           </p>
         )}
-      </Section>
+      </BriefSection>
 
       {/* Requirements */}
-      <Section
+      <BriefSection
         icon={CheckCircle2}
         title={`Requirements (${scenario.requirements.length})`}
       >
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {scenario.requirements.map((req, idx) => (
             <div
               key={req.key}
@@ -107,7 +114,7 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
                 {idx + 1}
               </span>
               <div>
-                <p className="text-xs font-bold text-violet-600 dark:text-violet-400 uppercase tracking-wide mb-0.5">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400 mb-0.5">
                   {req.key}
                 </p>
                 <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -117,29 +124,28 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
             </div>
           ))}
         </div>
-      </Section>
+      </BriefSection>
 
       {/* Non-functional */}
       {scenario.nonFunctional.length > 0 && (
-        <Section icon={AlertTriangle} title="Non-Functional Requirements">
+        <BriefSection icon={AlertTriangle} title="Non-Functional Requirements">
           <ul className="space-y-2">
             {scenario.nonFunctional.map((nf, idx) => (
               <li
                 key={idx}
-                className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400"
+                className="flex items-start gap-2.5 text-sm text-gray-600 dark:text-gray-400"
               >
-                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
+                <span className="mt-2 h-1.5 w-1.5 rounded-full bg-amber-400 shrink-0" />
                 {nf}
               </li>
             ))}
           </ul>
-        </Section>
+        </BriefSection>
       )}
 
-      {/* Two-column layout for smaller sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Acceptance criteria */}
-        <Section icon={Target} title="Acceptance Criteria">
+      {/* Two-col sections */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <BriefSection icon={Target} title="Acceptance Criteria">
           <ul className="space-y-2">
             {scenario.acceptanceCriteria.map((ac, idx) => (
               <li
@@ -151,10 +157,8 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
               </li>
             ))}
           </ul>
-        </Section>
-
-        {/* Deliverables */}
-        <Section icon={Package} title="Deliverables">
+        </BriefSection>
+        <BriefSection icon={Package} title="Deliverables">
           <ul className="space-y-2">
             {scenario.deliverables.map((d, idx) => (
               <li
@@ -166,12 +170,11 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
               </li>
             ))}
           </ul>
-        </Section>
+        </BriefSection>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Constraints */}
-        <Section icon={Lock} title="Constraints">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <BriefSection icon={Lock} title="Constraints">
           <ul className="space-y-2">
             {scenario.constraints.map((c, idx) => (
               <li
@@ -183,10 +186,8 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
               </li>
             ))}
           </ul>
-        </Section>
-
-        {/* Hints */}
-        <Section icon={Lightbulb} title="Hints">
+        </BriefSection>
+        <BriefSection icon={Lightbulb} title="Hints">
           <ul className="space-y-2">
             {scenario.hints.map((h, idx) => (
               <li
@@ -198,12 +199,11 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
               </li>
             ))}
           </ul>
-        </Section>
+        </BriefSection>
       </div>
 
-      {/* Bonus challenges */}
       {scenario.bonusChallenges.length > 0 && (
-        <Section icon={Star} title="Bonus Challenges">
+        <BriefSection icon={Star} title="Bonus Challenges">
           <ul className="space-y-2">
             {scenario.bonusChallenges.map((b, idx) => (
               <li
@@ -215,11 +215,11 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
               </li>
             ))}
           </ul>
-        </Section>
+        </BriefSection>
       )}
 
-      {/* Evaluation rubric */}
-      <Section icon={BarChart3} title="Evaluation Criteria">
+      {/* Evaluation criteria */}
+      <BriefSection icon={BarChart3} title="Evaluation Criteria">
         <div className="space-y-2">
           {scenario.evaluationCriteria.map((ec) => (
             <div
@@ -233,23 +233,23 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
                 <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
                   {ec.name}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   {ec.description}
                 </p>
               </div>
             </div>
           ))}
         </div>
-      </Section>
+      </BriefSection>
 
-      {/* Start button */}
+      {/* Sticky start bar */}
       <div className="sticky bottom-4 z-10">
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-xl p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-xl p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="text-center sm:text-left">
             <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
               Ready to begin?
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               The {test.timeLimit}-minute timer starts once you click Start.
             </p>
           </div>
@@ -259,7 +259,7 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
             loading={state.isStarting}
             className="shrink-0 w-full sm:w-auto"
           >
-            <Play className="h-4 w-4 mr-2" /> Start Test
+            <Play className="h-4 w-4 mr-1.5" /> Start Test
           </Button>
         </div>
       </div>
@@ -267,17 +267,7 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
   );
 }
 
-/* ── helpers ── */
-
-function MetaChip({ icon, label }: { icon: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-md">
-      <span>{icon}</span> {label}
-    </span>
-  );
-}
-
-function Section({
+function BriefSection({
   icon: Icon,
   title,
   children,
@@ -287,14 +277,14 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
-      <div className="flex items-center gap-2 px-5 pt-4 pb-2">
-        <Icon className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
+      <div className="flex items-center gap-2 px-5 pt-4 pb-2.5 border-b border-gray-100 dark:border-gray-800">
+        <Icon className="h-4 w-4 text-violet-500 dark:text-violet-400" />
+        <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
           {title}
         </h3>
       </div>
-      <div className="px-5 pb-5">{children}</div>
+      <div className="px-5 py-4">{children}</div>
     </div>
   );
 }

@@ -275,8 +275,8 @@ export function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-border py-8 text-center text-xs text-text-tertiary">
-        careerRepo &copy; {new Date().getFullYear()} · Built for developers,
-        by developers.
+        careerRepo &copy; {new Date().getFullYear()} · Built for developers, by
+        developers.
       </footer>
     </div>
   );
