@@ -202,21 +202,21 @@ function PathwayCard({
           </div>
 
           {/* Tech chips */}
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {pathway.items.map((item) => {
               const selected = selectedTags.includes(item);
               return (
                 <button
                   key={item}
                   onClick={() => onToggleTag(item)}
-                  className={`group relative inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all duration-150 ${
+                  className={`group relative inline-flex items-center justify-between gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all duration-150 w-full ${
                     selected
                       ? "bg-accent-dark text-white border-accent-dark shadow-sm shadow-accent-dark/20 dark:bg-accent dark:text-gray-950 dark:border-accent dark:shadow-accent/20"
                       : "bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-accent-dark/40 dark:hover:border-accent/40 hover:bg-accent-dark/5 dark:hover:bg-accent/5"
                   }`}
                 >
+                  <span className="truncate">{item}</span>
                   {selected && <Check className="h-3 w-3 shrink-0" />}
-                  {item}
                 </button>
               );
             })}

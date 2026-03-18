@@ -355,15 +355,15 @@ export function CoverLettersPage() {
 
           {/* Create new */}
           {showCreate ? (
-            <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-900/10 p-4 space-y-3">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+            <div className="rounded-xl border border-accent/30 dark:border-accent/20 bg-gradient-to-br from-accent/10 to-accent/5 dark:from-accent/8 dark:to-accent/3 p-4 space-y-3 animate-in fade-in">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-accent-dark dark:text-accent">
                 New Cover Letter
               </label>
               <input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
                 placeholder="e.g. Google SWE Application"
-                className="w-full rounded-lg border border-violet-200 dark:border-violet-700 bg-white dark:bg-gray-800 px-3.5 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-shadow"
+                className="w-full rounded-lg border border-accent/30 dark:border-accent/20 bg-white dark:bg-gray-800 px-3.5 py-2.5 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-shadow"
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 autoFocus
               />
@@ -395,7 +395,7 @@ export function CoverLettersPage() {
               className={`w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed py-4 text-sm font-medium transition-all duration-200 group ${
                 atFreeLimit
                   ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
-                  : "border-primary-300 dark:border-primary-700 text-primary-600 dark:text-primary-400 hover:border-primary-500 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20"
+                  : "border-accent/40 dark:border-accent/30 text-accent-dark dark:text-accent hover:border-accent hover:text-accent-dark dark:hover:text-accent hover:bg-accent/8 dark:hover:bg-accent/10"
               }`}
             >
               <PlusCircle className="h-4.5 w-4.5 group-hover:scale-110 transition-transform" />

@@ -494,14 +494,14 @@ function QuizOption({
         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold transition-all ${
           isSelected
             ? "bg-primary-600 text-white shadow-sm"
-            : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 group-hover:bg-gray-200 dark:group-hover:bg-gray-700"
+            : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 group-hover:bg-gray-200 dark:group-hover:bg-gray-700 group-hover:text-gray-900 dark:group-hover:text-gray-100"
         }`}
       >
         {isMultiSelect ? (
           isSelected ? (
             <CheckCircle2 className="h-3.5 w-3.5" />
           ) : (
-            <span className="h-3.5 w-3.5 rounded border-2 border-gray-300 dark:border-gray-500 block" />
+            <span className="h-3.5 w-3.5 rounded border-2 border-gray-400 dark:border-gray-500 block" />
           )
         ) : (
           String.fromCharCode(65 + index)

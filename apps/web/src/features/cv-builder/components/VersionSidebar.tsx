@@ -63,7 +63,7 @@ export function VersionSidebar({
       )}
 
       {showCreateVersion ? (
-        <div className="rounded-xl border border-accent-muted dark:border-accent-muted bg-gradient-to-br from-accent-muted/30 to-accent-muted/10 dark:from-accent-muted/10 dark:to-accent-muted/5 p-4 space-y-3 animate-in fade-in">
+        <div className="rounded-xl border border-accent/30 dark:border-accent/20 bg-gradient-to-br from-accent/10 to-accent/5 dark:from-accent/8 dark:to-accent/3 p-4 space-y-3 animate-in fade-in">
           <label className="block text-xs font-semibold uppercase tracking-wider text-accent-dark dark:text-accent">
             New CV Version
           </label>
@@ -71,7 +71,7 @@ export function VersionSidebar({
             value={newVersionTitle}
             onChange={(e) => onNewVersionTitleChange(e.target.value)}
             placeholder="e.g. Software Engineer CV"
-            className="w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-shadow"
+            className="w-full rounded-lg border border-accent/30 dark:border-accent/20 bg-white dark:bg-gray-800 px-3 py-2 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-shadow"
             onKeyDown={(e) => e.key === "Enter" && onCreateVersion()}
             autoFocus
           />
@@ -103,7 +103,7 @@ export function VersionSidebar({
           className={`w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed py-4 text-sm font-medium transition-all duration-200 group ${
             atFreeLimit
               ? "border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed opacity-50"
-              : "border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-accent hover:text-accent-dark dark:hover:text-accent hover:bg-accent-muted/10"
+              : "border-accent/40 dark:border-accent/30 text-accent-dark dark:text-accent hover:border-accent hover:text-accent-dark dark:hover:text-accent hover:bg-accent/8 dark:hover:bg-accent/10"
           }`}
         >
           <PlusCircle className="h-4.5 w-4.5 group-hover:scale-110 transition-transform" />
