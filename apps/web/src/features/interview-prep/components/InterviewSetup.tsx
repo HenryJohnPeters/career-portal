@@ -254,14 +254,30 @@ export function InterviewSetup({
               </div>
               <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                 {[
-                  { emoji: "🎯", tip: "Questions adapt to your selected difficulty" },
-                  { emoji: "🔍", tip: "Follow-up questions test deeper understanding" },
-                  { emoji: "🎭", tip: "Persona affects interviewer tone & feedback" },
-                  { emoji: "📈", tip: "Review reports to track improvement over time" },
+                  {
+                    emoji: "🎯",
+                    tip: "Questions adapt to your selected difficulty",
+                  },
+                  {
+                    emoji: "🔍",
+                    tip: "Follow-up questions test deeper understanding",
+                  },
+                  {
+                    emoji: "🎭",
+                    tip: "Persona affects interviewer tone & feedback",
+                  },
+                  {
+                    emoji: "📈",
+                    tip: "Review reports to track improvement over time",
+                  },
                 ].map(({ emoji, tip }) => (
                   <li key={tip} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="text-base leading-none shrink-0">{emoji}</span>
-                    <span className="text-xs text-gray-600 dark:text-gray-400 leading-snug">{tip}</span>
+                    <span className="text-base leading-none shrink-0">
+                      {emoji}
+                    </span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400 leading-snug">
+                      {tip}
+                    </span>
                   </li>
                 ))}
               </ul>

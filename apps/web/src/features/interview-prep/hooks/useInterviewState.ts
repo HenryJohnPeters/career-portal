@@ -45,7 +45,9 @@ export function useInterviewState() {
   );
 
   // ── NEW: selected mock interviewer ──────────────────────────────────────
-  const [selectedInterviewerId, setSelectedInterviewerId] = useState<string>(DEFAULT_INTERVIEWER_ID);
+  const [selectedInterviewerId, setSelectedInterviewerId] = useState<string>(
+    DEFAULT_INTERVIEWER_ID
+  );
 
   // Derive difficulty from level
   const difficulty: InterviewDifficulty =

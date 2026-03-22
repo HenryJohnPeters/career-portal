@@ -12,7 +12,8 @@ export function InterviewPrepPage() {
   const practice = usePracticeState();
 
   // Resolve the full interviewer config object from the selected ID
-  const selectedInterviewer = getInterviewerById(state.selectedInterviewerId) ?? null;
+  const selectedInterviewer =
+    getInterviewerById(state.selectedInterviewerId) ?? null;
 
   if (state.optionsLoading || practice.isLoadingOptions) return <Spinner />;
   if (state.isError)

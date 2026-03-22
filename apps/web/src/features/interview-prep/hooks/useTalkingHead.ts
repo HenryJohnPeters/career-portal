@@ -48,12 +48,12 @@ type TalkingHeadInstance = {
 };
 
 export type AvatarStatus =
-  | "idle"          // not yet initialised
-  | "loading"       // importing TalkingHead JS bundle
+  | "idle" // not yet initialised
+  | "loading" // importing TalkingHead JS bundle
   | "avatarLoading" // bundle ready, fetching the GLB model
-  | "ready"         // fully ready
-  | "speaking"      // currently speaking
-  | "error";        // unrecoverable error
+  | "ready" // fully ready
+  | "speaking" // currently speaking
+  | "error"; // unrecoverable error
 
 export interface UseTalkingHeadReturn {
   containerRef: React.RefCallback<HTMLDivElement>;
@@ -98,7 +98,9 @@ export function useTalkingHead(
     // Cancel any in-flight bootstrap
     cancelRef.current?.();
     let cancelled = false;
-    cancelRef.current = () => { cancelled = true; };
+    cancelRef.current = () => {
+      cancelled = true;
+    };
 
     setStatus("loading");
     setErrorMsg(null);
@@ -116,7 +118,11 @@ export function useTalkingHead(
         // Always destroy the previous instance so the new interviewer
         // gets a fresh canvas — showAvatar alone doesn't swap the rig.
         if (headRef.current) {
-          try { headRef.current.stop(); } catch { /* ignore */ }
+          try {
+            headRef.current.stop();
+          } catch {
+            /* ignore */
+          }
           headRef.current = null;
           // Clear the container so TalkingHead can append a fresh <canvas>
           el.innerHTML = "";
@@ -153,7 +159,8 @@ export function useTalkingHead(
         setStatus("ready");
       } catch (err) {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "Avatar failed to load";
+        const msg =
+          err instanceof Error ? err.message : "Avatar failed to load";
         console.error("[useTalkingHead] bootstrap error:", err);
         setErrorMsg(msg);
         setStatus("error");
@@ -162,7 +169,9 @@ export function useTalkingHead(
 
     bootstrap();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
 
     // nodeVersion ensures the effect re-runs the moment the div enters the DOM.
     // interviewer?.id ensures it re-runs when the user picks a different interviewer.
@@ -174,7 +183,11 @@ export function useTalkingHead(
     return () => {
       cancelRef.current?.();
       window.speechSynthesis?.cancel();
-      try { headRef.current?.stop(); } catch { /* ignore */ }
+      try {
+        headRef.current?.stop();
+      } catch {
+        /* ignore */
+      }
       headRef.current = null;
     };
   }, []);
@@ -219,38 +232,58 @@ export function useTalkingHead(
         // Jordan (am_fenrir) → direct male voice (Daniel, Alex, Google UK Male)
         switch (interviewer.id) {
           case "alex":
-            selectedVoice = voices.find(v => 
-              v.lang.startsWith("en") && 
-              (v.name.toLowerCase().includes("samantha") || 
-               v.name.toLowerCase().includes("karen") ||
-               v.name.toLowerCase().includes("victoria"))
-            ) ?? voices.find(v => v.lang.startsWith("en") && v.name.toLowerCase().includes("female")) ?? null;
+            selectedVoice =
+              voices.find(
+                (v) =>
+                  v.lang.startsWith("en") &&
+                  (v.name.toLowerCase().includes("samantha") ||
+                    v.name.toLowerCase().includes("karen") ||
+                    v.name.toLowerCase().includes("victoria"))
+              ) ??
+              voices.find(
+                (v) =>
+                  v.lang.startsWith("en") &&
+                  v.name.toLowerCase().includes("female")
+              ) ??
+              null;
             break;
 
           case "morgan":
-            selectedVoice = voices.find(v => 
-              v.lang.startsWith("en-US") && 
-              (v.name.toLowerCase().includes("google") && v.name.toLowerCase().includes("female"))
-            ) ?? voices.find(v => 
-              v.lang.startsWith("en") && 
-              (v.name.toLowerCase().includes("zira") || v.name.toLowerCase().includes("fiona"))
-            ) ?? null;
+            selectedVoice =
+              voices.find(
+                (v) =>
+                  v.lang.startsWith("en-US") &&
+                  v.name.toLowerCase().includes("google") &&
+                  v.name.toLowerCase().includes("female")
+              ) ??
+              voices.find(
+                (v) =>
+                  v.lang.startsWith("en") &&
+                  (v.name.toLowerCase().includes("zira") ||
+                    v.name.toLowerCase().includes("fiona"))
+              ) ??
+              null;
             break;
 
           case "jordan":
-            selectedVoice = voices.find(v => 
-              v.lang.startsWith("en") && 
-              (v.name.toLowerCase().includes("daniel") || 
-               v.name.toLowerCase().includes("alex"))
-            ) ?? voices.find(v => 
-              v.lang.startsWith("en") && 
-              v.name.toLowerCase().includes("male")
-            ) ?? null;
+            selectedVoice =
+              voices.find(
+                (v) =>
+                  v.lang.startsWith("en") &&
+                  (v.name.toLowerCase().includes("daniel") ||
+                    v.name.toLowerCase().includes("alex"))
+              ) ??
+              voices.find(
+                (v) =>
+                  v.lang.startsWith("en") &&
+                  v.name.toLowerCase().includes("male")
+              ) ??
+              null;
             break;
 
           default:
             // Fallback: any en voice
-            selectedVoice = voices.find(v => v.lang.startsWith("en")) ?? null;
+            selectedVoice = voices.find((v) => v.lang.startsWith("en")) ?? null;
         }
 
         if (selectedVoice) utter.voice = selectedVoice;
@@ -288,5 +321,12 @@ export function useTalkingHead(
     if (status === "speaking") setStatus("ready");
   }, [status]);
 
-  return { containerRef, status, errorMsg, speakText, stopSpeaking, isSpeaking };
+  return {
+    containerRef,
+    status,
+    errorMsg,
+    speakText,
+    stopSpeaking,
+    isSpeaking,
+  };
 }

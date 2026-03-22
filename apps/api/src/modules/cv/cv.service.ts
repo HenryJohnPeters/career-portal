@@ -83,6 +83,8 @@ export class CvService {
   ) {
     const version = await this.assertVersionOwner(userId, id);
 
+    console.log("[CV Service] Updating version:", id, "with data:", data);
+
     // Restrict template selection for free users
     if (data.templateId) {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -104,7 +106,7 @@ export class CvService {
       });
     }
 
-    return this.prisma.cvVersion.update({
+    const updated = await this.prisma.cvVersion.update({
       where: { id },
       data: {
         ...data,
@@ -112,6 +114,18 @@ export class CvService {
       },
       include: { sections: { orderBy: { order: "asc" } } },
     });
+
+    console.log("[CV Service] Version updated successfully. Contact fields:", {
+      name: updated.name,
+      email: updated.email,
+      phone: updated.phone,
+      location: updated.location,
+      website: updated.website,
+      linkedin: updated.linkedin,
+      github: updated.github,
+    });
+
+    return updated;
   }
 
   async deleteVersion(userId: string, id: string) {

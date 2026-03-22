@@ -45,8 +45,14 @@ export function InterviewSession({
   selectedInterviewer,
 }: InterviewSessionProps) {
   // ── Avatar + TTS ────────────────────────────────────────────────────────
-  const { containerRef, status, errorMsg, speakText, stopSpeaking, isSpeaking } =
-    useTalkingHead(selectedInterviewer, true);
+  const {
+    containerRef,
+    status,
+    errorMsg,
+    speakText,
+    stopSpeaking,
+    isSpeaking,
+  } = useTalkingHead(selectedInterviewer, true);
 
   // Track which question has been spoken so we never double-fire
   const lastSpokenQuestionIdRef = useRef<string | null>(null);
@@ -425,13 +431,17 @@ export function InterviewSession({
               {activeSession?.persona && (
                 <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                   <span>🎭</span>
-                  <span className="capitalize">{activeSession.persona} interviewer</span>
+                  <span className="capitalize">
+                    {activeSession.persona} interviewer
+                  </span>
                 </div>
               )}
               {activeSession?.interviewType && (
                 <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                   <span>💻</span>
-                  <span className="capitalize">{activeSession.interviewType}</span>
+                  <span className="capitalize">
+                    {activeSession.interviewType}
+                  </span>
                 </div>
               )}
             </div>

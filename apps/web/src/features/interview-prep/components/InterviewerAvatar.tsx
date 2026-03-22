@@ -51,7 +51,10 @@ export function InterviewerAvatar({
       <div
         ref={containerRef}
         className="w-full"
-        style={{ height: 320, background: interviewer?.avatar.background ?? "#0a0f1e" }}
+        style={{
+          height: 320,
+          background: interviewer?.avatar.background ?? "#0a0f1e",
+        }}
         aria-label={`3D avatar of ${name}`}
       />
 
@@ -78,7 +81,8 @@ export function InterviewerAvatar({
             Avatar unavailable
           </p>
           <p className="text-[10px] text-gray-400 text-center leading-relaxed max-w-[180px]">
-            {errorMsg ?? "Could not load 3D model. Interview continues normally."}
+            {errorMsg ??
+              "Could not load 3D model. Interview continues normally."}
           </p>
         </div>
       )}
@@ -87,7 +91,9 @@ export function InterviewerAvatar({
       {status === "idle" && (
         <div className="absolute inset-0 top-1 flex flex-col items-center justify-center bg-gray-950/70">
           <span className="text-5xl mb-3">{emoji}</span>
-          <p className="text-xs text-gray-400">Avatar will load during session</p>
+          <p className="text-xs text-gray-400">
+            Avatar will load during session
+          </p>
         </div>
       )}
 
@@ -95,12 +101,8 @@ export function InterviewerAvatar({
       <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-gradient-to-t from-gray-950/95 to-transparent pointer-events-none">
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-sm font-bold text-white leading-tight">
-              {name}
-            </p>
-            <p className="text-[11px] text-gray-400 leading-tight">
-              {role}
-            </p>
+            <p className="text-sm font-bold text-white leading-tight">{name}</p>
+            <p className="text-[11px] text-gray-400 leading-tight">{role}</p>
           </div>
 
           {/* Speaking indicator / mute button */}

@@ -25,7 +25,7 @@ export default defineConfig({
         "../../libs/web/ui/src/index.tsx"
       ),
     },
-    dedupe: ['@tanstack/react-query', 'react', 'react-dom', 'three'],
+    dedupe: ["@tanstack/react-query", "react", "react-dom", "three"],
   },
   build: {
     commonjsOptions: {
@@ -34,20 +34,29 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          if (id.includes('@tanstack/react-query')) return 'vendor';
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) return 'vendor';
+          if (id.includes("@tanstack/react-query")) return "vendor";
+          if (
+            id.includes("node_modules/react") ||
+            id.includes("node_modules/react-dom")
+          )
+            return "vendor";
           // Avatar / TTS libs are lazy-imported — keep them in their own chunks
-          if (id.includes('@met4citizen/talkinghead') || id.includes('talkinghead.mjs')) return 'avatar-talkinghead';
-          if (id.includes('@met4citizen/headtts') || id.includes('headtts.mjs')) return 'avatar-headtts';
-          if (id.includes('node_modules/three')) return 'avatar-three';
+          if (
+            id.includes("@met4citizen/talkinghead") ||
+            id.includes("talkinghead.mjs")
+          )
+            return "avatar-talkinghead";
+          if (id.includes("@met4citizen/headtts") || id.includes("headtts.mjs"))
+            return "avatar-headtts";
+          if (id.includes("node_modules/three")) return "avatar-three";
         },
       },
     },
   },
   optimizeDeps: {
-    include: ['@tanstack/react-query', 'react', 'react-dom'],
+    include: ["@tanstack/react-query", "react", "react-dom"],
     // @met4citizen packages are native ESM — do NOT pre-bundle them
-    exclude: ['@met4citizen/talkinghead', '@met4citizen/headtts'],
+    exclude: ["@met4citizen/talkinghead", "@met4citizen/headtts"],
     force: true,
   },
 });

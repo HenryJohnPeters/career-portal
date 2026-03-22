@@ -131,7 +131,29 @@ export class PdfService implements OnModuleDestroy {
 
   async generateCvHtml(cvVersionId: string): Promise<string> {
     const v = await this.fetchCvVersion(cvVersionId);
-    return renderCvHtml(this.buildRenderArgs(v));
+    console.log("[PDF Service] Generating HTML for version:", cvVersionId);
+    console.log("[PDF Service] Contact data from DB:", {
+      name: v.name,
+      email: v.email,
+      phone: v.phone,
+      location: v.location,
+      website: v.website,
+      linkedin: v.linkedin,
+      github: v.github,
+      userName_fallback: v.user.name,
+      userEmail_fallback: v.user.email,
+    });
+    const renderArgs = this.buildRenderArgs(v);
+    console.log("[PDF Service] Render args (what gets passed to template):", {
+      userName: renderArgs.userName,
+      userEmail: renderArgs.userEmail,
+      phone: renderArgs.phone,
+      location: renderArgs.location,
+      website: renderArgs.website,
+      linkedin: renderArgs.linkedin,
+      github: renderArgs.github,
+    });
+    return renderCvHtml(renderArgs);
   }
 
   async generateCvPdf(

@@ -25,7 +25,15 @@ export interface InterviewerAvatarConfig {
   /** Body form: "M" | "F" */
   body: "M" | "F";
   /** TalkingHead mood for this persona */
-  avatarMood: "neutral" | "happy" | "angry" | "sad" | "fear" | "disgust" | "love" | "sleep";
+  avatarMood:
+    | "neutral"
+    | "happy"
+    | "angry"
+    | "sad"
+    | "fear"
+    | "disgust"
+    | "love"
+    | "sleep";
   /** TalkingHead camera view */
   cameraView: "full" | "mid" | "upper" | "head";
   /** CSS background for the canvas container — visually differentiates interviewers */
