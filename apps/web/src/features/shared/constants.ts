@@ -68,7 +68,7 @@ export const TRACK_META: Record<string, TrackMeta> = {
 export const LEVEL_META: Record<string, LevelMeta> = {
   junior: {
     label: "Junior",
-    icon: "🌱",
+    icon: "Sprout",
     description: "Fundamentals & core concepts",
     color: "text-emerald-600 dark:text-emerald-400",
     gradient: "from-emerald-500 to-teal-500",
@@ -76,7 +76,7 @@ export const LEVEL_META: Record<string, LevelMeta> = {
   },
   mid: {
     label: "Mid-Level",
-    icon: "🚀",
+    icon: "Rocket",
     description: "Patterns, architecture & tradeoffs",
     color: "text-amber-600 dark:text-amber-400",
     gradient: "from-amber-500 to-orange-500",
@@ -84,7 +84,7 @@ export const LEVEL_META: Record<string, LevelMeta> = {
   },
   senior: {
     label: "Senior",
-    icon: "⭐",
+    icon: "Star",
     description: "System design & deep expertise",
     color: "text-red-600 dark:text-red-400",
     gradient: "from-red-500 to-rose-500",

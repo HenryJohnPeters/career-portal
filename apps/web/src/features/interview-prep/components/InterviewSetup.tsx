@@ -14,6 +14,11 @@ import {
   Sparkles,
   Play,
   Brain,
+  Target,
+  Zap,
+  CheckCircle2,
+  Users,
+  Settings2,
 } from "lucide-react";
 import { PageHero, OptionGrid, SectionHeading, LEVEL_META } from "../../shared";
 import type { OptionItem } from "../../shared";
@@ -53,20 +58,19 @@ export function InterviewSetup({
   onInterviewerChange,
 }: InterviewSetupProps) {
   const levelMeta = LEVEL_META[level] ?? LEVEL_META.mid;
-  const typeMeta = INTERVIEW_TYPE_ITEMS.find((t) => t.key === interviewType);
   const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === roleFocus);
 
   return (
-    <div className="w-full space-y-6 sm:space-y-8">
+    <div className="w-full space-y-6">
       <PageHero
         icon={Mic}
-        title="Interview Prep"
+        title="Practice"
         subtitle="Configure every dimension · The question engine adapts dynamically"
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">
         {/* Left — Config */}
-        <div className="lg:col-span-2 space-y-5 sm:space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           <section>
             <SectionHeading icon={TrendingUp} label="Level" />
             <OptionGrid
@@ -86,17 +90,6 @@ export function InterviewSetup({
             />
           </section>
 
-          <section>
-            <SectionHeading icon={MessageSquare} label="Interview Type" />
-            <OptionGrid
-              items={INTERVIEW_TYPE_ITEMS}
-              value={interviewType}
-              onChange={(v) => onInterviewTypeChange(v as InterviewType)}
-              columns="grid-cols-1 sm:grid-cols-3"
-            />
-          </section>
-
-          {/* ── NEW: Mock Interviewer selector ─────────────────────── */}
           <InterviewerSelector
             selectedId={selectedInterviewerId}
             onSelect={onInterviewerChange}
@@ -112,12 +105,12 @@ export function InterviewSetup({
 
           <section>
             <SectionHeading icon={SlidersHorizontal} label="Question Count" />
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Questions
+            <div className="rounded-xl border border-border bg-bg-secondary p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-text-secondary">
+                  Number of Questions
                 </span>
-                <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
                   {questionCount}
                 </span>
               </div>
@@ -127,9 +120,9 @@ export function InterviewSetup({
                 max={25}
                 value={questionCount}
                 onChange={(e) => onQuestionCountChange(Number(e.target.value))}
-                className="w-full accent-blue-500"
+                className="w-full h-1.5 accent-primary-600 cursor-pointer"
               />
-              <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+              <div className="flex justify-between text-[10px] text-text-tertiary mt-1.5">
                 <span>3 (quick)</span>
                 <span>25 (thorough)</span>
               </div>
@@ -137,64 +130,60 @@ export function InterviewSetup({
           </section>
         </div>
 
-        {/* Right — Summary + Start */}
+        {/* Right — Summary + Actions */}
         <div className="lg:col-span-1">
           <div className="lg:sticky lg:top-6 space-y-4">
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="h-2 bg-primary-600" />
-              <div className="p-5 space-y-4">
+            {/* Interview Summary Card */}
+            <div className="rounded-xl border border-border bg-bg-secondary overflow-hidden shadow-sm">
+              <div className="h-1 bg-primary-600" />
+              <div className="p-4 space-y-4">
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
+                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1.5">
                     Your Interview
                   </p>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                    {typeMeta?.label ?? "Coding"} · {levelMeta.label}
+                  <h3 className="text-base font-bold text-text-primary">
+                    {levelMeta.label} Practice
                   </h3>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <PreviewRow
-                    icon={levelMeta.icon}
+                    icon={TrendingUp}
                     label="Level"
                     value={levelMeta.label}
                     valueClass={levelMeta.color}
                   />
                   <PreviewRow
-                    icon={roleMeta?.icon ?? "🔗"}
+                    icon={Briefcase}
                     label="Role Focus"
                     value={roleMeta?.label ?? "Fullstack"}
                   />
                   <PreviewRow
-                    icon={typeMeta?.icon ?? "💻"}
-                    label="Type"
-                    value={typeMeta?.label ?? "Coding"}
-                  />
-                  <PreviewRow
-                    icon="📝"
+                    icon={Hash}
                     label="Questions"
                     value={String(questionCount)}
                   />
                   {selectedTags.length > 0 && (
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
-                        <Hash className="h-3.5 w-3.5 text-gray-500" />
+                    <div className="flex items-start gap-2.5 pt-1">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-bg-primary">
+                        <Hash className="h-3.5 w-3.5 text-text-tertiary" />
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-medium text-text-tertiary mb-1">
                           Topics
                         </p>
-                        <div className="flex flex-wrap gap-1 mt-0.5">
-                          {selectedTags.slice(0, 5).map((t) => (
+                        <div className="flex flex-wrap gap-1">
+                          {selectedTags.slice(0, 4).map((t) => (
                             <span
                               key={t}
-                              className="text-[10px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded"
+                              className="text-[10px] font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 px-2 py-0.5 rounded-md"
                             >
                               {t}
                             </span>
                           ))}
-                          {selectedTags.length > 5 && (
-                            <span className="text-[10px] text-gray-400">
-                              +{selectedTags.length - 5} more
+                          {selectedTags.length > 4 && (
+                            <span className="text-[10px] font-medium text-text-tertiary px-1 py-0.5">
+                              +{selectedTags.length - 4}
                             </span>
                           )}
                         </div>
@@ -204,78 +193,82 @@ export function InterviewSetup({
                 </div>
               </div>
 
-              <div className="px-5 pb-5">
+              <div className="px-4 pb-4">
                 <Button
                   size="lg"
                   onClick={onCreateSession}
                   loading={isCreating}
                   className="w-full"
                 >
-                  <Play className="h-4 w-4 mr-2" /> Start Interview
+                  <Play className="h-4 w-4" /> Start Interview
                 </Button>
               </div>
             </div>
 
-            {/* Practice card */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="h-2 bg-emerald-500" />
-              <div className="p-5 space-y-3">
-                <div>
-                  <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
-                    Quick Practice
-                  </p>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                    Endless Questions
-                  </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Uses your selected role, level &amp; topics above. Instant
-                    feedback, track your streak &amp; accuracy.
-                  </p>
+            {/* Practice Mode Card */}
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 overflow-hidden shadow-sm">
+              <div className="h-1 bg-emerald-500" />
+              <div className="p-4 space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500 shadow-sm">
+                    <Brain className="h-4 w-4 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
+                      Quick Practice
+                    </h3>
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5 leading-relaxed">
+                      Endless questions with instant feedback. Perfect for
+                      building confidence.
+                    </p>
+                  </div>
                 </div>
                 <Button
                   size="lg"
                   onClick={onStartPractice}
                   loading={isPracticeStarting}
-                  className="w-full"
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  <Brain className="h-4 w-4 mr-2" /> Start Practicing
+                  <Zap className="h-4 w-4" /> Start Practicing
                 </Button>
               </div>
             </div>
 
-            <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-                <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary-600 text-white">
-                  <Sparkles className="h-3.5 w-3.5" />
+            {/* Tips Card */}
+            <div className="rounded-xl border border-border bg-bg-secondary overflow-hidden shadow-sm">
+              <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border">
+                <div className="flex h-5 w-5 items-center justify-center rounded-md bg-primary-600">
+                  <Sparkles className="h-3 w-3 text-white" />
                 </div>
-                <p className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">
                   Quick Tips
                 </p>
               </div>
-              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+              <ul className="divide-y divide-border">
                 {[
                   {
-                    emoji: "🎯",
+                    icon: Target,
                     tip: "Questions adapt to your selected difficulty",
                   },
                   {
-                    emoji: "🔍",
+                    icon: CheckCircle2,
                     tip: "Follow-up questions test deeper understanding",
                   },
                   {
-                    emoji: "🎭",
+                    icon: Users,
                     tip: "Persona affects interviewer tone & feedback",
                   },
                   {
-                    emoji: "📈",
+                    icon: TrendingUp,
                     tip: "Review reports to track improvement over time",
                   },
-                ].map(({ emoji, tip }) => (
-                  <li key={tip} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="text-base leading-none shrink-0">
-                      {emoji}
-                    </span>
-                    <span className="text-xs text-gray-600 dark:text-gray-400 leading-snug">
+                ].map(({ icon: Icon, tip }) => (
+                  <li
+                    key={tip}
+                    className="flex items-center gap-2.5 px-3.5 py-2.5"
+                  >
+                    <Icon className="h-3.5 w-3.5 text-primary-600 dark:text-primary-400 shrink-0" />
+                    <span className="text-[11px] text-text-secondary leading-snug">
                       {tip}
                     </span>
                   </li>
@@ -292,24 +285,26 @@ export function InterviewSetup({
 /* ── Preview Row (local to setup) ── */
 
 function PreviewRow({
-  icon,
+  icon: Icon,
   label,
   value,
-  valueClass = "text-gray-800 dark:text-gray-200",
+  valueClass = "text-text-primary",
 }: {
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
   valueClass?: string;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
-        <span className="text-sm">{icon}</span>
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-bg-primary">
+        <Icon className="h-3.5 w-3.5 text-text-tertiary" />
       </div>
-      <div>
-        <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
-        <p className={`text-sm font-semibold ${valueClass}`}>{value}</p>
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-medium text-text-tertiary">{label}</p>
+        <p className={`text-sm font-semibold ${valueClass} truncate`}>
+          {value}
+        </p>
       </div>
     </div>
   );

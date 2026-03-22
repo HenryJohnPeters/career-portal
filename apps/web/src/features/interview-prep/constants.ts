@@ -4,19 +4,19 @@ import type { InterviewRoleFocus } from "@careerportal/shared/types";
 export const PERSONA_ITEMS: OptionItem[] = [
   {
     key: "friendly",
-    icon: "😊",
+    icon: "Smile",
     label: "Friendly",
     description: "Encouraging and supportive",
   },
   {
     key: "neutral",
-    icon: "🤝",
+    icon: "Handshake",
     label: "Neutral",
     description: "Professional and balanced",
   },
   {
     key: "tough",
-    icon: "🔥",
+    icon: "Flame",
     label: "Tough",
     description: "Challenging and direct",
   },
@@ -25,25 +25,25 @@ export const PERSONA_ITEMS: OptionItem[] = [
 export const ROLE_FOCUS_ITEMS: OptionItem[] = [
   {
     key: "frontend",
-    icon: "🎨",
+    icon: "Palette",
     label: "Frontend",
     description: "UI frameworks, state, styling",
   },
   {
     key: "backend",
-    icon: "⚙️",
+    icon: "Settings",
     label: "Backend",
     description: "APIs, databases, services",
   },
   {
     key: "fullstack",
-    icon: "🔗",
+    icon: "Link",
     label: "Fullstack",
     description: "End-to-end development",
   },
   {
     key: "platform",
-    icon: "☁️",
+    icon: "Cloud",
     label: "Platform / DevOps",
     description: "Cloud, CI/CD, infrastructure",
   },
@@ -52,52 +52,52 @@ export const ROLE_FOCUS_ITEMS: OptionItem[] = [
 export const INTERVIEW_TYPE_ITEMS: OptionItem[] = [
   {
     key: "coding",
-    icon: "💻",
+    icon: "Laptop",
     label: "Coding",
     description: "Algorithms & implementation",
   },
   {
     key: "system-design",
-    icon: "🏗️",
+    icon: "Building",
     label: "System Design",
     description: "Architecture & trade-offs",
   },
   {
     key: "behavioral",
-    icon: "🗣️",
+    icon: "MessageCircle",
     label: "Behavioral",
     description: "STAR format & soft skills",
   },
 ];
 
 export const DIFFICULTY_ITEMS: OptionItem[] = [
-  { key: "easy", icon: "🟢", label: "Easy" },
-  { key: "medium", icon: "🟡", label: "Medium" },
-  { key: "hard", icon: "🔴", label: "Hard" },
+  { key: "easy", icon: "Circle", label: "Easy" },
+  { key: "medium", icon: "Circle", label: "Medium" },
+  { key: "hard", icon: "Circle", label: "Hard" },
 ];
 
 export const DURATION_ITEMS: OptionItem[] = [
-  { key: "30", icon: "⚡", label: "30 min", description: "Quick round" },
-  { key: "60", icon: "⏱️", label: "60 min", description: "Standard" },
-  { key: "90", icon: "🕐", label: "90 min", description: "Deep dive" },
+  { key: "30", icon: "Zap", label: "30 min", description: "Quick round" },
+  { key: "60", icon: "Clock", label: "60 min", description: "Standard" },
+  { key: "90", icon: "Clock", label: "90 min", description: "Deep dive" },
 ];
 
 export const COMPANY_STYLE_ITEMS: OptionItem[] = [
   {
     key: "faang",
-    icon: "🏢",
+    icon: "Building2",
     label: "FAANG-style",
     description: "LC-heavy, bar-raiser",
   },
   {
     key: "startup",
-    icon: "🚀",
+    icon: "Rocket",
     label: "Startup",
     description: "Practical, ship-fast",
   },
   {
     key: "enterprise",
-    icon: "🏛️",
+    icon: "Building2",
     label: "Enterprise",
     description: "Process & compliance",
   },
@@ -123,28 +123,28 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fe-language",
       label: "Language",
-      icon: "📝",
+      icon: "FileCode",
       description: "Pick your primary language",
       items: ["TypeScript", "JavaScript"],
     },
     {
       key: "fe-framework",
       label: "UI Framework",
-      icon: "⚛️",
+      icon: "Layout",
       description: "Which framework are you interviewing for?",
       items: ["React", "Angular", "Vue", "Svelte", "Solid"],
     },
     {
       key: "fe-meta-framework",
       label: "Meta-Framework",
-      icon: "📦",
+      icon: "Package",
       description: "Full-stack or SSR framework",
       items: ["Next.js", "Nuxt", "Remix", "Astro", "SvelteKit"],
     },
     {
       key: "fe-state",
       label: "State Management",
-      icon: "🔄",
+      icon: "RefreshCw",
       description: "How you manage application state",
       items: [
         "Redux",
@@ -161,7 +161,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fe-styling",
       label: "Styling & UI",
-      icon: "🎨",
+      icon: "Paintbrush",
       description: "CSS approach and component libraries",
       items: [
         "Tailwind CSS",
@@ -179,7 +179,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fe-testing",
       label: "Testing",
-      icon: "🧪",
+      icon: "FlaskConical",
       description: "Testing tools and approaches",
       items: [
         "Jest",
@@ -193,7 +193,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fe-tooling",
       label: "Build & Tooling",
-      icon: "🔧",
+      icon: "Wrench",
       description: "Bundlers, linters, and dev tools",
       items: [
         "Vite",
@@ -209,7 +209,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fe-concepts",
       label: "Core Concepts",
-      icon: "💡",
+      icon: "Lightbulb",
       description: "Key frontend interview topics",
       items: [
         "Performance Optimization",
@@ -230,7 +230,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "be-language",
       label: "Language",
-      icon: "📝",
+      icon: "FileCode",
       description: "Pick your primary backend language",
       items: [
         "TypeScript",
@@ -248,7 +248,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "be-framework",
       label: "Framework",
-      icon: "🏗️",
+      icon: "Layers",
       description: "Which backend framework are you interviewing for?",
       items: [
         "NestJS",
@@ -269,7 +269,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "be-database",
       label: "Database",
-      icon: "🗄️",
+      icon: "Database",
       description: "Primary database technology",
       items: [
         "PostgreSQL",
@@ -287,7 +287,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "be-orm",
       label: "ORM / Data Access",
-      icon: "🔗",
+      icon: "Link",
       description: "How you interact with your database",
       items: [
         "Prisma",
@@ -305,7 +305,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "be-api",
       label: "API Design",
-      icon: "🌐",
+      icon: "Globe",
       description: "API patterns and protocols",
       items: [
         "REST",
@@ -320,7 +320,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "be-messaging",
       label: "Messaging & Events",
-      icon: "📨",
+      icon: "Mail",
       description: "Async communication patterns",
       items: [
         "RabbitMQ",
@@ -335,7 +335,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "be-auth",
       label: "Auth & Security",
-      icon: "🔐",
+      icon: "Lock",
       description: "Authentication and security patterns",
       items: [
         "JWT",
@@ -352,7 +352,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "be-testing",
       label: "Testing",
-      icon: "🧪",
+      icon: "FlaskConical",
       description: "Backend testing strategies",
       items: [
         "Jest",
@@ -368,7 +368,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "be-concepts",
       label: "Core Concepts",
-      icon: "💡",
+      icon: "Lightbulb",
       description: "Key backend interview topics",
       items: [
         "Scaling",
@@ -389,7 +389,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fs-language",
       label: "Language",
-      icon: "📝",
+      icon: "FileCode",
       description: "Your primary development language",
       items: [
         "TypeScript",
@@ -405,14 +405,14 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fs-frontend",
       label: "Frontend Framework",
-      icon: "⚛️",
+      icon: "Layout",
       description: "UI framework you'll be tested on",
       items: ["React", "Angular", "Vue", "Svelte", "Next.js", "Nuxt", "Remix"],
     },
     {
       key: "fs-backend",
       label: "Backend Framework",
-      icon: "🏗️",
+      icon: "Layers",
       description: "Server-side framework",
       items: [
         "NestJS",
@@ -429,7 +429,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fs-database",
       label: "Database",
-      icon: "🗄️",
+      icon: "Database",
       description: "Database technologies",
       items: [
         "PostgreSQL",
@@ -444,7 +444,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fs-orm",
       label: "ORM / Data Access",
-      icon: "🔗",
+      icon: "Link",
       description: "Data layer tooling",
       items: [
         "Prisma",
@@ -458,14 +458,14 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fs-api",
       label: "API & Communication",
-      icon: "🌐",
+      icon: "Globe",
       description: "How frontend and backend talk",
       items: ["REST", "GraphQL", "tRPC", "WebSockets", "Server-Sent Events"],
     },
     {
       key: "fs-state",
       label: "State & Data Fetching",
-      icon: "🔄",
+      icon: "RefreshCw",
       description: "Client-side state and data",
       items: [
         "Redux",
@@ -480,7 +480,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fs-testing",
       label: "Testing",
-      icon: "🧪",
+      icon: "FlaskConical",
       description: "Full-stack testing approach",
       items: [
         "Jest",
@@ -494,7 +494,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fs-deploy",
       label: "Deployment",
-      icon: "🚀",
+      icon: "Rocket",
       description: "How you ship to production",
       items: [
         "Vercel",
@@ -510,7 +510,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "fs-concepts",
       label: "Core Concepts",
-      icon: "💡",
+      icon: "Lightbulb",
       description: "Key fullstack interview topics",
       items: [
         "SSR vs CSR",
@@ -530,14 +530,14 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "pl-cloud",
       label: "Cloud Provider",
-      icon: "☁️",
+      icon: "Cloud",
       description: "Which cloud platform?",
       items: ["AWS", "Azure", "GCP", "DigitalOcean", "Cloudflare", "Hetzner"],
     },
     {
       key: "pl-containers",
       label: "Containers & Orchestration",
-      icon: "🐳",
+      icon: "Box",
       description: "Container runtime and management",
       items: [
         "Docker",
@@ -552,7 +552,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "pl-iac",
       label: "Infrastructure as Code",
-      icon: "📜",
+      icon: "FileText",
       description: "How you define infrastructure",
       items: [
         "Terraform",
@@ -567,7 +567,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "pl-cicd",
       label: "CI/CD",
-      icon: "🔄",
+      icon: "Repeat",
       description: "Build and deployment pipelines",
       items: [
         "GitHub Actions",
@@ -583,7 +583,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "pl-observability",
       label: "Observability",
-      icon: "📊",
+      icon: "BarChart",
       description: "Monitoring, logging, and tracing",
       items: [
         "Prometheus",
@@ -600,7 +600,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "pl-networking",
       label: "Networking",
-      icon: "🌐",
+      icon: "Wifi",
       description: "Network and traffic management",
       items: [
         "DNS",
@@ -616,7 +616,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "pl-security",
       label: "Security",
-      icon: "🔐",
+      icon: "Shield",
       description: "Platform security practices",
       items: [
         "Secrets Management",
@@ -632,7 +632,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "pl-sre",
       label: "SRE & Reliability",
-      icon: "🛡️",
+      icon: "ShieldCheck",
       description: "Reliability engineering concepts",
       items: [
         "SLOs/SLAs",
@@ -648,7 +648,7 @@ export const ROLE_TECH_PATHWAYS: Record<InterviewRoleFocus, TechPathway[]> = {
     {
       key: "pl-concepts",
       label: "Core Concepts",
-      icon: "💡",
+      icon: "Lightbulb",
       description: "Key platform interview topics",
       items: [
         "Scaling",

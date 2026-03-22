@@ -46,7 +46,7 @@ export function App() {
         <Route path="cover-letters" element={<CoverLettersPage />} />
         <Route path="jobs" element={<JobsPage />} />
         <Route path="billing" element={<BillingPage />} />
-        <Route path="interview-prep" element={<InterviewPrepPage />} />
+        <Route path="practice" element={<InterviewPrepPage />} />
         <Route path="technical-tests" element={<TechnicalTestsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Check, ChevronDown, Layers, Sparkles, X } from "lucide-react";
+import * as Icons from "lucide-react";
 import type { InterviewRoleFocus } from "@careerportal/shared/types";
 import {
   ROLE_TECH_PATHWAYS,
@@ -11,6 +12,12 @@ interface TechStackPickerProps {
   roleFocus: InterviewRoleFocus;
   selectedTags: string[];
   onToggleTag: (tag: string) => void;
+}
+
+// Helper to get icon component from string name
+function getIconComponent(iconName: string) {
+  const IconComponent = (Icons as any)[iconName];
+  return IconComponent || Icons.HelpCircle;
 }
 
 export function TechStackPicker({
@@ -131,6 +138,8 @@ function PathwayCard({
     }
   };
 
+  const IconComponent = getIconComponent(pathway.icon);
+
   return (
     <div
       className={`rounded-xl border transition-all duration-200 overflow-hidden ${
@@ -144,7 +153,9 @@ function PathwayCard({
         onClick={onToggle}
         className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
       >
-        <span className="text-lg shrink-0">{pathway.icon}</span>
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 shrink-0">
+          <IconComponent className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">

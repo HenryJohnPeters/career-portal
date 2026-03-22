@@ -64,7 +64,7 @@ const NAV_ENTRIES: NavEntry[] = [
       icon: Brain,
       children: [
         {
-          to: "/app/interview-prep",
+          to: "/app/practice",
           label: "Practice Questions",
           icon: Brain,
           beta: true,
@@ -92,7 +92,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/app/jobs": "Job Tracker",
   "/app/billing": "Billing & Plans",
   "/app/qualifications": "Qualifications",
-  "/app/interview-prep": "Interview Prep",
+  "/app/practice": "Practice",
   "/app/technical-tests": "Technical Tests",
 };
 
