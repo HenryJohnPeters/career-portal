@@ -17,7 +17,6 @@ export interface InterviewSetupProps {
   track: InterviewTrack;
   level: InterviewLevel;
   selectedTags: string[];
-  questionCount: number;
   roleFocus: InterviewRoleFocus;
   interviewType: InterviewType;
   expandedCategories: Set<string>;
@@ -26,16 +25,13 @@ export interface InterviewSetupProps {
   onLevelChange: (level: InterviewLevel) => void;
   onRoleFocusChange: (roleFocus: InterviewRoleFocus) => void;
   onInterviewTypeChange: (type: InterviewType) => void;
-  onQuestionCountChange: (count: number) => void;
   onToggleTag: (tag: string) => void;
   onToggleCategory: (key: string) => void;
   onCreateSession: () => void;
-  // Practice
-  isPracticeStarting: boolean;
-  onStartPractice: () => void;
   /** ID of the currently selected mock interviewer */
   selectedInterviewerId: string;
   onInterviewerChange: (id: string) => void;
+  isPremium?: boolean;
 }
 
 export interface InterviewSessionProps {

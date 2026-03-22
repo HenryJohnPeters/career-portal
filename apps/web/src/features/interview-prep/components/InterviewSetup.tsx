@@ -26,6 +26,7 @@ import { ROLE_FOCUS_ITEMS, INTERVIEW_TYPE_ITEMS } from "../constants";
 import type { InterviewSetupProps } from "../types";
 import { TechStackPicker } from "./TechStackPicker";
 import { InterviewerSelector } from "./InterviewerSelector";
+import { useAuth } from "../../../lib/auth";
 
 const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
   ([key, m]) => ({
@@ -40,7 +41,6 @@ export function InterviewSetup({
   options,
   level,
   selectedTags,
-  questionCount,
   roleFocus,
   interviewType,
   expandedCategories,
@@ -48,15 +48,14 @@ export function InterviewSetup({
   onLevelChange,
   onRoleFocusChange,
   onInterviewTypeChange,
-  onQuestionCountChange,
   onToggleTag,
   onToggleCategory,
   onCreateSession,
-  isPracticeStarting,
-  onStartPractice,
   selectedInterviewerId,
   onInterviewerChange,
+  isPremium,
 }: InterviewSetupProps) {
+  const { user } = useAuth();
   const levelMeta = LEVEL_META[level] ?? LEVEL_META.mid;
   const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === roleFocus);
 
@@ -65,216 +64,58 @@ export function InterviewSetup({
       <PageHero
         icon={Mic}
         title="Practice"
-        subtitle="Configure every dimension · The question engine adapts dynamically"
+        subtitle="Configure your practice session · Questions adapt to your selections"
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-5">
-        {/* Left — Config */}
-        <div className="lg:col-span-2 space-y-4">
-          <section>
-            <SectionHeading icon={TrendingUp} label="Level" />
-            <OptionGrid
-              items={LEVEL_ITEMS}
-              value={level}
-              onChange={(v) => onLevelChange(v as InterviewLevel)}
-              columns="grid-cols-1 sm:grid-cols-3"
-            />
-          </section>
+      {/* INTERVIEWER SELECTOR - FULL WIDTH AT TOP */}
+      <div className="w-full">
+        <InterviewerSelector
+          selectedId={selectedInterviewerId}
+          onSelect={onInterviewerChange}
+        />
+      </div>
 
-          <section>
-            <SectionHeading icon={Briefcase} label="Role Focus" />
-            <OptionGrid
-              items={ROLE_FOCUS_ITEMS}
-              value={roleFocus}
-              onChange={(v) => onRoleFocusChange(v as InterviewRoleFocus)}
-            />
-          </section>
-
-          <InterviewerSelector
-            selectedId={selectedInterviewerId}
-            onSelect={onInterviewerChange}
+      {/* MAIN CONTENT - FULL WIDTH */}
+      <div className="w-full space-y-4">
+        <section>
+          <SectionHeading icon={TrendingUp} label="Level" />
+          <OptionGrid
+            items={LEVEL_ITEMS}
+            value={level}
+            onChange={(v) => onLevelChange(v as InterviewLevel)}
+            columns="grid-cols-1 sm:grid-cols-3"
           />
+        </section>
 
-          <section>
-            <TechStackPicker
-              roleFocus={roleFocus}
-              selectedTags={selectedTags}
-              onToggleTag={onToggleTag}
-            />
-          </section>
+        <section>
+          <SectionHeading icon={Briefcase} label="Role Focus" />
+          <OptionGrid
+            items={ROLE_FOCUS_ITEMS}
+            value={roleFocus}
+            onChange={(v) => onRoleFocusChange(v as InterviewRoleFocus)}
+          />
+        </section>
 
-          <section>
-            <SectionHeading icon={SlidersHorizontal} label="Question Count" />
-            <div className="rounded-xl border border-border bg-bg-secondary p-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-text-secondary">
-                  Number of Questions
-                </span>
-                <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
-                  {questionCount}
-                </span>
-              </div>
-              <input
-                type="range"
-                min={3}
-                max={25}
-                value={questionCount}
-                onChange={(e) => onQuestionCountChange(Number(e.target.value))}
-                className="w-full h-1.5 accent-primary-600 cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] text-text-tertiary mt-1.5">
-                <span>3 (quick)</span>
-                <span>25 (thorough)</span>
-              </div>
-            </div>
-          </section>
-        </div>
+        <section>
+          <TechStackPicker
+            roleFocus={roleFocus}
+            selectedTags={selectedTags}
+            onToggleTag={onToggleTag}
+            isPremium={isPremium}
+          />
+        </section>
 
-        {/* Right — Summary + Actions */}
-        <div className="lg:col-span-1">
-          <div className="lg:sticky lg:top-6 space-y-4">
-            {/* Interview Summary Card */}
-            <div className="rounded-xl border border-border bg-bg-secondary overflow-hidden shadow-sm">
-              <div className="h-1 bg-primary-600" />
-              <div className="p-4 space-y-4">
-                <div>
-                  <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1.5">
-                    Your Interview
-                  </p>
-                  <h3 className="text-base font-bold text-text-primary">
-                    {levelMeta.label} Practice
-                  </h3>
-                </div>
-
-                <div className="space-y-2">
-                  <PreviewRow
-                    icon={TrendingUp}
-                    label="Level"
-                    value={levelMeta.label}
-                    valueClass={levelMeta.color}
-                  />
-                  <PreviewRow
-                    icon={Briefcase}
-                    label="Role Focus"
-                    value={roleMeta?.label ?? "Fullstack"}
-                  />
-                  <PreviewRow
-                    icon={Hash}
-                    label="Questions"
-                    value={String(questionCount)}
-                  />
-                  {selectedTags.length > 0 && (
-                    <div className="flex items-start gap-2.5 pt-1">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-bg-primary">
-                        <Hash className="h-3.5 w-3.5 text-text-tertiary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-medium text-text-tertiary mb-1">
-                          Topics
-                        </p>
-                        <div className="flex flex-wrap gap-1">
-                          {selectedTags.slice(0, 4).map((t) => (
-                            <span
-                              key={t}
-                              className="text-[10px] font-medium bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 px-2 py-0.5 rounded-md"
-                            >
-                              {t}
-                            </span>
-                          ))}
-                          {selectedTags.length > 4 && (
-                            <span className="text-[10px] font-medium text-text-tertiary px-1 py-0.5">
-                              +{selectedTags.length - 4}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="px-4 pb-4">
-                <Button
-                  size="lg"
-                  onClick={onCreateSession}
-                  loading={isCreating}
-                  className="w-full"
-                >
-                  <Play className="h-4 w-4" /> Start Interview
-                </Button>
-              </div>
-            </div>
-
-            {/* Practice Mode Card */}
-            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 overflow-hidden shadow-sm">
-              <div className="h-1 bg-emerald-500" />
-              <div className="p-4 space-y-3">
-                <div className="flex items-start gap-2.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500 shadow-sm">
-                    <Brain className="h-4 w-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-100">
-                      Quick Practice
-                    </h3>
-                    <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5 leading-relaxed">
-                      Endless questions with instant feedback. Perfect for
-                      building confidence.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  size="lg"
-                  onClick={onStartPractice}
-                  loading={isPracticeStarting}
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                >
-                  <Zap className="h-4 w-4" /> Start Practicing
-                </Button>
-              </div>
-            </div>
-
-            {/* Tips Card */}
-            <div className="rounded-xl border border-border bg-bg-secondary overflow-hidden shadow-sm">
-              <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-border">
-                <div className="flex h-5 w-5 items-center justify-center rounded-md bg-primary-600">
-                  <Sparkles className="h-3 w-3 text-white" />
-                </div>
-                <p className="text-[10px] font-bold uppercase tracking-widest text-text-secondary">
-                  Quick Tips
-                </p>
-              </div>
-              <ul className="divide-y divide-border">
-                {[
-                  {
-                    icon: Target,
-                    tip: "Questions adapt to your selected difficulty",
-                  },
-                  {
-                    icon: CheckCircle2,
-                    tip: "Follow-up questions test deeper understanding",
-                  },
-                  {
-                    icon: Users,
-                    tip: "Persona affects interviewer tone & feedback",
-                  },
-                  {
-                    icon: TrendingUp,
-                    tip: "Review reports to track improvement over time",
-                  },
-                ].map(({ icon: Icon, tip }) => (
-                  <li
-                    key={tip}
-                    className="flex items-center gap-2.5 px-3.5 py-2.5"
-                  >
-                    <Icon className="h-3.5 w-3.5 text-primary-600 dark:text-primary-400 shrink-0" />
-                    <span className="text-[11px] text-text-secondary leading-snug">
-                      {tip}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+        {/* START INTERVIEW BUTTON - SINGLE UNIFIED ACTION */}
+        <div className="pt-4 w-full">
+          <div className="rounded-xl border border-border bg-bg-secondary overflow-hidden shadow-sm">
+            <Button
+              size="lg"
+              onClick={onCreateSession}
+              loading={isCreating}
+              className="w-full"
+            >
+              <Play className="h-4 w-4" /> Start Interview
+            </Button>
           </div>
         </div>
       </div>

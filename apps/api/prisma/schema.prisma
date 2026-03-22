@@ -172,6 +172,7 @@ model InterviewSession {
   companyStyle    String   @default("startup")
   questionCount   Int      @default(10)
   persona         String   @default("neutral")
+  interviewerId   String?  // interviewer config ID
   status          String   @default("in_progress")
   totalScore      Float?
   report          Json?

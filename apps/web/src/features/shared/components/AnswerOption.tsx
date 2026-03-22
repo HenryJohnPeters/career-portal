@@ -5,6 +5,7 @@ interface AnswerOptionProps {
   state?: "default" | "correct" | "incorrect" | "missed";
   onSelect: () => void;
   disabled?: boolean;
+  eliminated?: boolean;
 }
 
 export function AnswerOption({
@@ -14,6 +15,7 @@ export function AnswerOption({
   state = "default",
   onSelect,
   disabled = false,
+  eliminated = false,
 }: AnswerOptionProps) {
   const letter = String.fromCharCode(65 + index);
 
@@ -40,18 +42,29 @@ export function AnswerOption({
 
   return (
     <button
-      onClick={onSelect}
+      onClick={() => {
+        if (disabled || eliminated) return;
+        onSelect();
+      }}
       disabled={disabled}
       className={`w-full text-left rounded-2xl border-2 p-4 transition-all duration-200 flex items-start gap-3 ${
         stateStyles[state]
-      } ${disabled ? "cursor-default" : "cursor-pointer"}`}
+      } ${
+        disabled || eliminated
+          ? "opacity-40 cursor-not-allowed"
+          : "cursor-pointer"
+      }`}
     >
       <span
         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold transition-all ${dotStyles[state]}`}
       >
         {letter}
       </span>
-      <span className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed pt-0.5">
+      <span
+        className={`text-sm text-gray-700 dark:text-gray-300 leading-relaxed pt-0.5 ${
+          eliminated ? "line-through decoration-2" : ""
+        }`}
+      >
         {text}
       </span>
     </button>

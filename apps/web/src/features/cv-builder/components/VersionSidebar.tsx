@@ -53,9 +53,9 @@ export function VersionSidebar({
   return (
     <div className="space-y-4">
       {atFreeLimit && !showCreateVersion && (
-        <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10 p-3 flex items-start gap-2">
-          <Crown className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-amber-700 dark:text-amber-300 leading-relaxed">
+        <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-3 flex items-start gap-2">
+          <Crown className="h-4 w-4 text-accent-600 dark:text-accent-400 shrink-0 mt-0.5" />
+          <p className="text-[10px] text-accent-800 dark:text-accent-200 leading-relaxed">
             Free accounts are limited to {FREE_CV_LIMIT} CV. Upgrade to Premium
             for unlimited CVs.
           </p>

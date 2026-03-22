@@ -76,6 +76,11 @@ export class CreateInterviewSessionDto {
   @IsString()
   @IsIn(["friendly", "neutral", "tough"])
   persona?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  interviewerId?: string;
 }
 
 export class SubmitAnswerDto {

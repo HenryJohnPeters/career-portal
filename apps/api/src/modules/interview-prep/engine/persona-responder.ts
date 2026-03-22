@@ -9,24 +9,63 @@ export class PersonaResponder implements IPersonaResponder {
     persona: string,
     score: number,
     maxScore: number,
-    pointsMissed: string[]
+    pointsMissed: string[],
+    adviceLevel: "minimal" | "standard" | "detailed" = "standard"
   ): string {
     const ratio = maxScore > 0 ? score / maxScore : 0;
     const templates =
       PERSONA_TEMPLATES[persona] ?? PERSONA_TEMPLATES["neutral"];
 
-    if (ratio >= 0.8) return templates.excellent;
-    if (ratio >= 0.6) return templates.good;
-    if (ratio >= 0.4) {
-      const missed = pointsMissed.slice(0, 2).join(" and ");
-      return templates.partial.replace(
+    // Minimal advice: very brief responses
+    if (adviceLevel === "minimal") {
+      if (ratio >= 0.8) return "Good answer.";
+      if (ratio >= 0.6) return "Acceptable, but could be better.";
+      if (ratio >= 0.4) return "Needs improvement. Review the key concepts.";
+      return "Insufficient. Study this topic thoroughly.";
+    }
+
+    // Standard advice: current behavior
+    if (adviceLevel === "standard") {
+      if (ratio >= 0.8) return templates.excellent;
+      if (ratio >= 0.6) return templates.good;
+      if (ratio >= 0.4) {
+        const missed = pointsMissed.slice(0, 2).join(" and ");
+        return templates.partial.replace(
+          "{missed}",
+          missed || "some key concepts"
+        );
+      }
+      return templates.weak.replace(
         "{missed}",
-        missed || "some key concepts"
+        pointsMissed.slice(0, 3).join(", ") || "several important concepts"
       );
     }
-    return templates.weak.replace(
-      "{missed}",
-      pointsMissed.slice(0, 3).join(", ") || "several important concepts"
+
+    // Detailed advice: expanded responses with extra tips
+    if (ratio >= 0.8) {
+      return (
+        templates.excellent +
+        " Pro tip: In a real interview, you'd want to also discuss potential edge cases and scalability considerations. Keep up the great work!"
+      );
+    }
+    if (ratio >= 0.6) {
+      return (
+        templates.good +
+        " For future answers, try to provide specific examples from your experience and mention any trade-offs you considered. This shows deeper understanding."
+      );
+    }
+    if (ratio >= 0.4) {
+      const missed = pointsMissed.slice(0, 2).join(" and ");
+      return (
+        templates.partial.replace("{missed}", missed || "some key concepts") +
+        " Remember: interviewers value clear communication just as much as technical knowledge. Try structuring your answer with 'what, why, and how' to make your points clearer."
+      );
+    }
+    const missed =
+      pointsMissed.slice(0, 3).join(", ") || "several important concepts";
+    return (
+      templates.weak.replace("{missed}", missed) +
+      " Here's what I'd recommend: review the fundamentals, practice explaining the concepts out loud, and try to connect the theory to real-world use cases. You'll get there!"
     );
   }
 }

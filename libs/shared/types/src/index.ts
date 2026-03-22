@@ -7,6 +7,13 @@ export interface User {
   stripeCurrentPeriodEnd?: string | null;
 }
 
+// === Interviewer Traits ===
+export interface InterviewerTraits {
+  questionCount: number;
+  adviceLevel: "minimal" | "standard" | "detailed";
+  fiftyFifty: boolean;
+}
+
 // === Billing ===
 export interface SubscriptionStatus {
   isPremium: boolean;
@@ -366,6 +373,7 @@ export interface CreateInterviewSessionRequest {
   companyStyle?: InterviewCompanyStyle;
   questionCount?: number;
   persona?: InterviewPersona;
+  interviewerId?: string;
 }
 
 // === Practice Quiz (Endless Questions) ===

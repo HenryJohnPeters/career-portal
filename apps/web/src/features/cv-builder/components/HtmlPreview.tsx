@@ -20,7 +20,7 @@ export function HtmlPreview({
   onFullPreview,
 }: HtmlPreviewProps) {
   return (
-    <div className="sticky top-4 space-y-3">
+    <div className="flex flex-col h-full gap-3">
       <div className="rounded-xl border border-border bg-bg-elevated p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -65,6 +65,7 @@ export function HtmlPreview({
         hasContent={!!html}
         isLoading={isLoading}
         title="HTML Preview"
+        className="flex-1 min-h-0"
       />
     </div>
   );

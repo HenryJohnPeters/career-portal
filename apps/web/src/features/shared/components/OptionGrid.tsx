@@ -44,29 +44,33 @@ export function OptionGrid<T extends string | number>({
                 : "border-border bg-bg-secondary hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-sm"
             }`}
           >
-            <div
-              className={`flex items-center justify-center h-9 w-9 rounded-lg mb-3 transition-colors ${
-                selected
-                  ? "bg-primary-100 dark:bg-primary-900/40"
-                  : "bg-bg-primary"
-              }`}
-            >
-              <IconComponent
-                className={`h-5 w-5 transition-colors ${
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex items-center justify-center h-9 w-9 rounded-lg shrink-0 transition-colors ${
                   selected
-                    ? "text-primary-600 dark:text-primary-400"
-                    : "text-text-tertiary"
+                    ? "bg-primary-100 dark:bg-primary-900/40"
+                    : "bg-bg-primary"
                 }`}
-              />
+              >
+                <IconComponent
+                  className={`h-5 w-5 transition-colors ${
+                    selected
+                      ? "text-primary-600 dark:text-primary-400"
+                      : "text-text-tertiary"
+                  }`}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-text-primary mb-0.5">
+                  {item.label}
+                </p>
+                {item.description && (
+                  <p className="text-[11px] text-text-secondary leading-snug">
+                    {item.description}
+                  </p>
+                )}
+              </div>
             </div>
-            <p className="text-sm font-semibold text-text-primary mb-0.5">
-              {item.label}
-            </p>
-            {item.description && (
-              <p className="text-[11px] text-text-secondary leading-snug">
-                {item.description}
-              </p>
-            )}
             {selected && (
               <div className="absolute top-3 right-3 h-2 w-2 rounded-full bg-primary-600 dark:bg-primary-400 shadow-sm" />
             )}

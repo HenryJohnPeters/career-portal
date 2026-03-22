@@ -101,26 +101,26 @@ export function PracticeQuiz({ state }: PracticeQuizProps) {
 
       {/* Daily limit */}
       {(dailyLimitReached || dailyLimitError) && (
-        <div className="rounded-2xl border border-amber-200 dark:border-amber-800/50 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-8 text-center">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-800/30 mb-4">
-            <Lock className="h-7 w-7 text-amber-600 dark:text-amber-400" />
+        <div className="rounded-2xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-6 text-center">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-400/20 mb-4">
+            <Lock className="h-6 w-6 text-accent-600 dark:text-accent-400" />
           </div>
-          <h3 className="text-base font-bold text-amber-900 dark:text-amber-200 mb-1.5">
+          <h3 className="text-base font-bold text-accent-700 dark:text-accent-300 mb-1.5">
             Daily Limit Reached
           </h3>
-          <p className="text-sm text-amber-700/80 dark:text-amber-400/70 mb-1 max-w-sm mx-auto">
+          <p className="text-sm text-accent-800 dark:text-accent-200 mb-1 max-w-sm mx-auto">
             You've used all {practiceUsage?.limit ?? 10} free questions today.
           </p>
           {practiceUsage?.resetsAt && (
-            <p className="text-xs text-amber-500/70 dark:text-amber-400/50 mb-5">
+            <p className="text-xs text-accent-600 dark:text-accent-400 mb-5">
               Resets midnight UTC ·{" "}
               {new Date(practiceUsage.resetsAt).toLocaleDateString()}
             </p>
           )}
-          <div className="flex justify-center gap-3">
+          <div className="flex justify-center gap-2.5">
             <NavLink
               to="/app/billing"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary-600 hover:bg-primary-700 px-5 py-2.5 text-sm font-bold text-white transition-colors shadow-sm"
+              className="inline-flex items-center gap-2 rounded-xl bg-accent-400 hover:bg-accent-500 px-5 py-2.5 text-sm font-bold text-white transition-colors shadow-sm"
             >
               <Crown className="h-4 w-4" /> Upgrade to Premium
             </NavLink>

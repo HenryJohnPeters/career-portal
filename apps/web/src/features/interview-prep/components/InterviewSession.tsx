@@ -27,8 +27,8 @@ import {
 } from "../../shared";
 import type { InterviewSessionProps } from "../types";
 import { InterviewerAvatar } from "./InterviewerAvatar";
-import { useTalkingHead } from "../hooks/useTalkingHead";
-import { useEffect, useRef } from "react";
+import { use2DAvatarLipSync } from "../hooks/use2DAvatarLipSync";
+import { useEffect, useRef, useMemo } from "react";
 
 export function InterviewSession({
   nextQuestion,
@@ -44,20 +44,74 @@ export function InterviewSession({
   onBackToSetup,
   selectedInterviewer,
 }: InterviewSessionProps) {
-  // ── Avatar + TTS ────────────────────────────────────────────────────────
-  const {
-    containerRef,
-    status,
-    errorMsg,
-    speakText,
-    stopSpeaking,
-    isSpeaking,
-  } = useTalkingHead(selectedInterviewer, true);
+  // ── 2D Avatar + Lip-Sync ───────────────────────────────────────────────
+  const { status, mouthShape, isSpeaking, speakText, stopSpeaking } =
+    use2DAvatarLipSync(selectedInterviewer, true);
 
   // Track which question has been spoken so we never double-fire
   const lastSpokenQuestionIdRef = useRef<string | null>(null);
   // Queue a prompt here if the avatar isn't ready yet when the question arrives
   const pendingSpeakRef = useRef<string | null>(null);
+
+  // ── Get current question and progress BEFORE any early returns ──
+  const sq = nextQuestion?.sessionQuestion;
+  const progress = nextQuestion?.progress ?? { answered: 0, total: 0 };
+  const progressPct =
+    progress.total > 0
+      ? Math.round((progress.answered / progress.total) * 100)
+      : 0;
+
+  const trackMeta =
+    TRACK_META[activeSession?.track ?? "frontend"] ?? TRACK_META.frontend;
+  const levelMeta = LEVEL_META[activeSession?.level ?? "mid"] ?? LEVEL_META.mid;
+
+  const isCompleted =
+    nextQuestion?.sessionStatus === "completed" ||
+    !nextQuestion?.sessionQuestion;
+
+  // ── 50/50 Hint: Must be called before any conditional returns ──
+  const displayOptions = useMemo(() => {
+    if (!sq?.question.options || !Array.isArray(sq.question.options)) return [];
+
+    const hasFiftyFifty = selectedInterviewer?.traits?.fiftyFifty;
+    if (!hasFiftyFifty) {
+      return sq.question.options.map((opt, idx) => ({
+        text: opt,
+        index: idx,
+        eliminated: false,
+      }));
+    }
+
+    // Find correct answer index from the rubric
+    const rubric = (sq.question as any).rubric;
+    const correctAnswer = rubric?.correctAnswer || "";
+    const correctIdx = sq.question.options.findIndex(
+      (opt) => opt === correctAnswer
+    );
+
+    if (correctIdx === -1 || sq.question.options.length < 4) {
+      return sq.question.options.map((opt, idx) => ({
+        text: opt,
+        index: idx,
+        eliminated: false,
+      }));
+    }
+
+    // Get all incorrect indices
+    const incorrectIndices = sq.question.options
+      .map((_, idx) => idx)
+      .filter((idx) => idx !== correctIdx);
+
+    // Randomly select 2 to eliminate
+    const shuffled = incorrectIndices.sort(() => Math.random() - 0.5);
+    const eliminatedIndices = shuffled.slice(0, 2);
+
+    return sq.question.options.map((opt, idx) => ({
+      text: opt,
+      index: idx,
+      eliminated: eliminatedIndices.includes(idx),
+    }));
+  }, [sq?.question, selectedInterviewer]);
 
   // When a new question arrives — speak immediately if ready, else queue it
   useEffect(() => {
@@ -73,7 +127,7 @@ export function InterviewSession({
       // Avatar still loading — queue it; the effect below will fire it
       pendingSpeakRef.current = sq.question.prompt;
     }
-  }, [nextQuestion?.sessionQuestion?.id, lastFeedback]);
+  }, [nextQuestion?.sessionQuestion?.id, lastFeedback, status, speakText]);
 
   // Once the avatar becomes ready, flush any queued question
   useEffect(() => {
@@ -84,22 +138,8 @@ export function InterviewSession({
     }
   }, [status, speakText]);
 
-  // ── Existing computed values ────────────────────────────────────────────
+  // ── NOW it's safe to do early returns ──────────────────────────────────
   if (nextLoading) return <Spinner />;
-
-  const isCompleted =
-    nextQuestion?.sessionStatus === "completed" ||
-    !nextQuestion?.sessionQuestion;
-  const sq = nextQuestion?.sessionQuestion;
-  const progress = nextQuestion?.progress ?? { answered: 0, total: 0 };
-  const progressPct =
-    progress.total > 0
-      ? Math.round((progress.answered / progress.total) * 100)
-      : 0;
-
-  const trackMeta =
-    TRACK_META[activeSession?.track ?? "frontend"] ?? TRACK_META.frontend;
-  const levelMeta = LEVEL_META[activeSession?.level ?? "mid"] ?? LEVEL_META.mid;
 
   if (isCompleted && !lastFeedback) {
     return (
@@ -333,6 +373,11 @@ export function InterviewSession({
                         <Zap className="h-3 w-3" /> Follow-up
                       </span>
                     )}
+                    {selectedInterviewer?.traits?.fiftyFifty && (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                        <Zap className="h-3 w-3" /> 50/50 Hint
+                      </span>
+                    )}
                     {sq.question.tags.slice(0, 3).map((tag) => (
                       <span
                         key={tag}
@@ -349,17 +394,16 @@ export function InterviewSession({
               </div>
 
               <div className="grid grid-cols-1 gap-2.5">
-                {((sq.question.options ?? []) as string[]).map(
-                  (option, idx) => (
-                    <AnswerOption
-                      key={idx}
-                      index={idx}
-                      text={option}
-                      selected={selectedOptionIndex === idx}
-                      onSelect={() => onSelectOption(idx)}
-                    />
-                  )
-                )}
+                {displayOptions.map((option) => (
+                  <AnswerOption
+                    key={option.index}
+                    index={option.index}
+                    text={option.text}
+                    selected={selectedOptionIndex === option.index}
+                    onSelect={() => onSelectOption(option.index)}
+                    eliminated={option.eliminated}
+                  />
+                ))}
               </div>
 
               <Button
@@ -377,13 +421,12 @@ export function InterviewSession({
 
         {/* Sidebar */}
         <div className="space-y-4">
-          {/* Avatar — always in DOM at full size so TalkingHead gets real dimensions */}
-          {selectedInterviewer && (
+          {/* Avatar — only show if interviewer is selected (not "none") */}
+          {selectedInterviewer && selectedInterviewer.id !== "none" && (
             <InterviewerAvatar
               interviewer={selectedInterviewer}
-              containerRef={containerRef}
               status={status}
-              errorMsg={errorMsg}
+              mouthShape={mouthShape}
               isSpeaking={isSpeaking}
               onStopSpeaking={stopSpeaking}
             />

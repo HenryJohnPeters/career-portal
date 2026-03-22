@@ -12,6 +12,25 @@ import { CreateInterviewSessionDto } from "./interview-prep.dto";
 import { AiQuestionGeneratorService } from "../ai/ai-question-generator.service";
 import { TECH_CATEGORIES, DIFFICULTY_RANGES } from "../../common/constants";
 
+// Interviewer traits type (synced with frontend)
+interface InterviewerTraits {
+  questionCount: number;
+  adviceLevel: "minimal" | "standard" | "detailed";
+  fiftyFifty: boolean;
+}
+
+// Interviewer traits lookup map (synced with frontend configs)
+const INTERVIEWER_TRAITS: Record<string, InterviewerTraits> = {
+  alex: { questionCount: 5, adviceLevel: "detailed", fiftyFifty: true },
+  riley: { questionCount: 7, adviceLevel: "detailed", fiftyFifty: false },
+  morgan: { questionCount: 10, adviceLevel: "standard", fiftyFifty: false },
+  sam: { questionCount: 12, adviceLevel: "standard", fiftyFifty: false },
+  kai: { questionCount: 15, adviceLevel: "minimal", fiftyFifty: false },
+  jordan: { questionCount: 15, adviceLevel: "minimal", fiftyFifty: false },
+  phoenix: { questionCount: 18, adviceLevel: "minimal", fiftyFifty: false },
+  nova: { questionCount: 20, adviceLevel: "minimal", fiftyFifty: false },
+};
+
 // Feedback interface — exported so the controller return type is resolvable
 export interface AnswerFeedback {
   pointsHit: string[];
@@ -77,6 +96,7 @@ export class InterviewPrepService {
     const duration = dto.duration ?? 60;
     const difficulty = dto.difficulty ?? "medium";
     const companyStyle = dto.companyStyle ?? "startup";
+    const interviewerId = dto.interviewerId;
 
     // Normalize tags to lowercase — the DB stores lowercase tags
     const tags = (dto.tags ?? []).map((t) => t.toLowerCase());
@@ -173,6 +193,7 @@ export class InterviewPrepService {
         companyStyle,
         questionCount: selected.length,
         persona,
+        interviewerId,
         status: "in_progress",
         questions: {
           create: selected.map((q, idx) => ({
@@ -182,7 +203,7 @@ export class InterviewPrepService {
             isFollowUp: false,
           })),
         },
-      },
+      } as any,
       include: {
         questions: {
           include: { question: true },
@@ -234,12 +255,21 @@ export class InterviewPrepService {
     // Evaluate the answer
     const evaluation = this.evaluator.evaluate(questionRecord, answer);
 
-    // Generate persona response
+    // Get interviewer traits to determine advice level
+    const sessionWithInterviewer = session as any;
+    const adviceLevel =
+      sessionWithInterviewer.interviewerId &&
+      INTERVIEWER_TRAITS[sessionWithInterviewer.interviewerId]
+        ? INTERVIEWER_TRAITS[sessionWithInterviewer.interviewerId].adviceLevel
+        : "standard";
+
+    // Generate persona response with advice level
     const personaResponse = this.personaResponder.respond(
       session.persona,
       evaluation.score,
       evaluation.maxScore,
-      evaluation.pointsMissed
+      evaluation.pointsMissed,
+      adviceLevel
     );
 
     const feedback: AnswerFeedback = {

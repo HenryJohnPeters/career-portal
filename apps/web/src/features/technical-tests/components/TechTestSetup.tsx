@@ -17,6 +17,7 @@ import type {
   InterviewLevel,
 } from "@careerportal/shared/types";
 import type { useTechTestState } from "../hooks/useTechTestState";
+import { useAuth } from "../../../lib/auth";
 
 const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
   ([key, m]) => ({
@@ -40,6 +41,8 @@ interface TechTestSetupProps {
 }
 
 export function TechTestSetup({ state }: TechTestSetupProps) {
+  const { user } = useAuth();
+  const isPremium = user?.isPremium ?? false;
   const levelMeta = LEVEL_META[state.level] ?? LEVEL_META.mid;
   const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === state.roleFocus);
   const timeMeta = TIME_LIMIT_ITEMS.find(
@@ -100,6 +103,7 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
               roleFocus={state.roleFocus}
               selectedTags={state.selectedTags}
               onToggleTag={state.toggleTag}
+              isPremium={isPremium}
             />
           </section>
           <section>

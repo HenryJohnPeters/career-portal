@@ -180,7 +180,10 @@ export class BillingService {
 
   private async onCheckoutCompleted(session: Stripe.Checkout.Session) {
     const subscriptionId = session.subscription as string;
-    if (!subscriptionId) return;
+    if (!subscriptionId) {
+      this.logger.warn("checkout.session.completed: no subscription ID");
+      return;
+    }
 
     const subscription = await this.stripe.subscriptions.retrieve(
       subscriptionId
@@ -195,6 +198,10 @@ export class BillingService {
     const priceId = subscription.items.data[0]?.price?.id ?? null;
     const periodEnd = this.getItemPeriodEnd(subscription);
 
+    this.logger.log(
+      `Processing checkout for user ${userId}, subscription ${subscriptionId}, status: ${subscription.status}`
+    );
+
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -206,7 +213,7 @@ export class BillingService {
       },
     });
 
-    this.logger.log(`User ${userId} upgraded to Premium`);
+    this.logger.log(`✅ User ${userId} upgraded to Premium successfully`);
   }
 
   private async onInvoicePaid(invoice: Stripe.Invoice) {

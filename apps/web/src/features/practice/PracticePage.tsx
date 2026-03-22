@@ -38,8 +38,8 @@ function PracticePremiumGate() {
       <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         {/* Left — Hero */}
         <div className="flex flex-col items-center lg:items-start text-center lg:text-left">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-800/30 mb-5">
-            <Brain className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-400/20 mb-5">
+            <Brain className="h-8 w-8 text-accent-600 dark:text-accent-400" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-3 leading-tight">
             Practice Questions
@@ -50,10 +50,10 @@ function PracticePremiumGate() {
           </p>
           <NavLink
             to="/app/billing"
-            className="inline-flex items-center gap-2 rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white hover:bg-accent-dark transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 rounded-xl bg-accent-400 hover:bg-accent-500 px-6 py-3 text-sm font-bold text-white transition-colors shadow-sm"
           >
             <Crown className="h-4 w-4" />
-            Upgrade to Premium
+            Upgrade to Premium — £9.99/mo
           </NavLink>
           <p className="mt-3 text-xs text-gray-400 dark:text-gray-600">
             <Sparkles className="h-3 w-3 inline mr-1" />
@@ -62,11 +62,11 @@ function PracticePremiumGate() {
         </div>
 
         {/* Right — Features grid */}
-        <div className="rounded-2xl border border-amber-200 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/20 p-6">
-          <p className="text-xs font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-4">
+        <div className="rounded-2xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-6">
+          <p className="text-xs font-semibold uppercase tracking-widest text-accent-600 dark:text-accent-400 mb-4">
             What's included
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {[
               "Tailored to your role & level",
               "Covers frontend, backend, fullstack & more",
@@ -77,9 +77,9 @@ function PracticePremiumGate() {
             ].map((feature) => (
               <div
                 key={feature}
-                className="flex items-start gap-2 rounded-xl bg-white/70 dark:bg-white/5 border border-amber-100 dark:border-amber-800/30 px-3 py-2.5 text-sm text-gray-700 dark:text-gray-300"
+                className="flex items-start gap-2 rounded-xl bg-white/70 dark:bg-white/5 border border-accent-200/60 dark:border-accent-800/30 px-3 py-2.5 text-xs text-accent-800 dark:text-accent-200"
               >
-                <CheckCircle2 className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <CheckCircle2 className="h-3.5 w-3.5 text-accent-500 shrink-0 mt-0.5" />
                 <span className="leading-snug">{feature}</span>
               </div>
             ))}

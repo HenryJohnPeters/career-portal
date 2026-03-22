@@ -1,38 +1,32 @@
 /**
  * InterviewerAvatar.tsx
  *
- * Renders the TalkingHead WebGL canvas inside a styled panel.
- * The containerRef from useTalkingHead is mounted here — Three.js
- * writes its <canvas> directly into the div.
- *
- * Status overlays (loading spinner, error state) are shown on top
- * of the canvas without unmounting / remounting the WebGL context.
+ * Renders a 2D avatar with lip-sync animation.
+ * Replaces the expensive 3D GLB system with a lightweight, free solution.
+ * Uses DiceBear API + SVG mouth shapes for realistic lip animation.
  */
 
-import type { RefCallback } from "react";
-import { Volume2, VolumeX, AlertTriangle, Loader2 } from "lucide-react";
-import type { AvatarStatus } from "../hooks/useTalkingHead";
+import { Volume2, VolumeX, AlertTriangle } from "lucide-react";
+import type { AvatarStatus, MouthShape } from "../hooks/use2DAvatarLipSync";
 import type { InterviewerConfig } from "../interviewer-configs";
+import { Avatar2D } from "./Avatar2D";
 
 interface InterviewerAvatarProps {
   /** null while the config hasn't resolved yet — renders a neutral placeholder */
   interviewer: InterviewerConfig | null;
-  containerRef: RefCallback<HTMLDivElement>;
   status: AvatarStatus;
-  errorMsg: string | null;
+  mouthShape: MouthShape;
   isSpeaking: boolean;
   onStopSpeaking: () => void;
 }
 
 export function InterviewerAvatar({
   interviewer,
-  containerRef,
   status,
-  errorMsg,
+  mouthShape,
   isSpeaking,
   onStopSpeaking,
 }: InterviewerAvatarProps) {
-  const isLoading = status === "loading" || status === "avatarLoading";
   const isError = status === "error";
 
   // Fallback values when no interviewer is selected yet
@@ -46,32 +40,29 @@ export function InterviewerAvatar({
       {/* ── Gradient accent strip ─────────────────────────────────────── */}
       <div className={`h-1 w-full bg-gradient-to-r ${gradient}`} />
 
-      {/* ── WebGL mount point ─────────────────────────────────────────── */}
-      {/* Keep this div always in the DOM so TalkingHead never loses its canvas */}
+      {/* ── 2D Avatar Container ──────────────────────────────────────── */}
       <div
-        ref={containerRef}
-        className="w-full"
+        className="w-full relative"
         style={{
           height: 320,
           background: interviewer?.avatar.background ?? "#0a0f1e",
         }}
-        aria-label={`3D avatar of ${name}`}
-      />
-
-      {/* ── Loading overlay ───────────────────────────────────────────── */}
-      {isLoading && (
-        <div className="absolute inset-0 top-1 flex flex-col items-center justify-center bg-gray-950/80 backdrop-blur-sm">
-          <Loader2 className="h-8 w-8 text-blue-400 animate-spin mb-3" />
-          <p className="text-xs font-medium text-gray-300">
-            {status === "avatarLoading"
-              ? `Loading ${name}…`
-              : "Initialising avatar engine…"}
-          </p>
-          <p className="text-[10px] text-gray-500 mt-1">
-            First load downloads the AI model (~80 MB)
-          </p>
-        </div>
-      )}
+        aria-label={`Avatar of ${name}`}
+      >
+        {interviewer ? (
+          <Avatar2D
+            interviewer={interviewer}
+            mouthShape={mouthShape}
+            isSpeaking={isSpeaking}
+          />
+        ) : (
+          /* ── Idle placeholder ────────────────── */
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-5xl mb-3">{emoji}</span>
+            <p className="text-xs text-gray-400">Select an interviewer</p>
+          </div>
+        )}
+      </div>
 
       {/* ── Error overlay ─────────────────────────────────────────────── */}
       {isError && (
@@ -81,18 +72,7 @@ export function InterviewerAvatar({
             Avatar unavailable
           </p>
           <p className="text-[10px] text-gray-400 text-center leading-relaxed max-w-[180px]">
-            {errorMsg ??
-              "Could not load 3D model. Interview continues normally."}
-          </p>
-        </div>
-      )}
-
-      {/* ── Idle placeholder (before bootstrap starts) ────────────────── */}
-      {status === "idle" && (
-        <div className="absolute inset-0 top-1 flex flex-col items-center justify-center bg-gray-950/70">
-          <span className="text-5xl mb-3">{emoji}</span>
-          <p className="text-xs text-gray-400">
-            Avatar will load during session
+            Could not initialize avatar. Interview continues normally.
           </p>
         </div>
       )}

@@ -19,7 +19,10 @@ import type {
 import type { View } from "../types";
 import { getTagsForRole } from "../constants";
 import { LEVEL_TO_DIFFICULTY } from "../../shared";
-import { DEFAULT_INTERVIEWER_ID } from "../interviewer-configs";
+import {
+  DEFAULT_INTERVIEWER_ID,
+  INTERVIEWER_CONFIGS,
+} from "../interviewer-configs";
 
 export function useInterviewState() {
   const [view, setView] = useState<View>("setup");
@@ -33,7 +36,7 @@ export function useInterviewState() {
   const [track, setTrack] = useState<InterviewTrack>("frontend");
   const [level, setLevel] = useState<InterviewLevel>("mid");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [questionCount, setQuestionCount] = useState(5);
+  const [questionCount] = useState(100); // Endless mode - set high number
   const [persona, setPersona] = useState<InterviewPersona>("neutral");
   const [roleFocus, setRoleFocusRaw] =
     useState<InterviewRoleFocus>("fullstack");
@@ -82,12 +85,20 @@ export function useInterviewState() {
   const nextQuestion = nextData?.data;
 
   const handleCreateSession = () => {
+    const selectedInterviewer = INTERVIEWER_CONFIGS.find(
+      (i) => i.id === selectedInterviewerId
+    );
+    const questionCountToUse =
+      selectedInterviewer?.id === "none"
+        ? 25
+        : Math.min(selectedInterviewer?.traits?.questionCount ?? 10, 25);
+
     createSession.mutate(
       {
         track,
         level,
         tags: selectedTags.map((t) => t.toLowerCase()),
-        questionCount,
+        questionCount: questionCountToUse,
         persona,
         roleFocus,
         interviewType,
@@ -187,7 +198,6 @@ export function useInterviewState() {
     setInterviewType,
     setCompanyStyle,
     setPersona,
-    setQuestionCount,
     setSelectedOptionIndex,
     handleCreateSession,
     handleSubmitAnswer,

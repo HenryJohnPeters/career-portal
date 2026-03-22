@@ -18,6 +18,7 @@ import type { PracticeState } from "../types";
 import { ROLE_FOCUS_ITEMS } from "../../interview-prep/constants";
 import { TechStackPicker } from "../../interview-prep/components/TechStackPicker";
 import type { InterviewRoleFocus } from "@careerportal/shared/types";
+import { useAuth } from "../../../lib/auth";
 
 const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
   ([key, m]) => ({
@@ -34,6 +35,8 @@ interface PracticeSetupProps {
 }
 
 export function PracticeSetup({ state, onStart }: PracticeSetupProps) {
+  const { user } = useAuth();
+  const isPremium = user?.isPremium ?? false;
   const levelMeta = LEVEL_META[state.level] ?? LEVEL_META.mid;
   const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === state.roleFocus);
   const usage = state.practiceUsage;
@@ -105,6 +108,7 @@ export function PracticeSetup({ state, onStart }: PracticeSetupProps) {
               roleFocus={state.roleFocus}
               selectedTags={state.selectedTags}
               onToggleTag={state.toggleTag}
+              isPremium={usage?.isPremium ?? false}
             />
           </section>
         </div>

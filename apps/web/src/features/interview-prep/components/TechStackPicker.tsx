@@ -1,6 +1,16 @@
 import { useState } from "react";
-import { Check, ChevronDown, Layers, Sparkles, X } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Layers,
+  Sparkles,
+  X,
+  Crown,
+  ArrowRight,
+} from "lucide-react";
 import * as Icons from "lucide-react";
+import { Button } from "@careerportal/web/ui";
+import { NavLink } from "react-router-dom";
 import type { InterviewRoleFocus } from "@careerportal/shared/types";
 import {
   ROLE_TECH_PATHWAYS,
@@ -12,6 +22,7 @@ interface TechStackPickerProps {
   roleFocus: InterviewRoleFocus;
   selectedTags: string[];
   onToggleTag: (tag: string) => void;
+  isPremium?: boolean;
 }
 
 // Helper to get icon component from string name
@@ -24,6 +35,7 @@ export function TechStackPicker({
   roleFocus,
   selectedTags,
   onToggleTag,
+  isPremium = false,
 }: TechStackPickerProps) {
   const pathways = ROLE_TECH_PATHWAYS[roleFocus] ?? [];
   const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === roleFocus);
@@ -32,6 +44,8 @@ export function TechStackPicker({
   );
 
   const totalSelected = selectedTags.length;
+  const isFullstack = roleFocus === "fullstack";
+  const needsUpgrade = isFullstack && !isPremium;
 
   return (
     <div className="space-y-4">
@@ -51,7 +65,7 @@ export function TechStackPicker({
           </div>
         </div>
 
-        {totalSelected > 0 && (
+        {totalSelected > 0 && !needsUpgrade && (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full bg-accent-dark/10 dark:bg-accent/10 px-2.5 py-1 text-[11px] font-semibold text-accent-dark dark:text-accent">
               <Sparkles className="h-3 w-3" />
@@ -67,8 +81,37 @@ export function TechStackPicker({
         )}
       </div>
 
-      {/* Selected tags pills — quick overview at a glance */}
-      {totalSelected > 0 && (
+      {/* Premium upgrade banner for fullstack - compact cyan style */}
+      {needsUpgrade && (
+        <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-400/20">
+              <Crown className="h-4.5 w-4.5 text-accent-600 dark:text-accent-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-sm font-bold text-accent-700 dark:text-accent-300 mb-1">
+                Premium Feature
+              </h3>
+              <p className="text-xs text-accent-800 dark:text-accent-200 leading-relaxed mb-3">
+                Fullstack interview prep with custom tech stack selection is
+                available for Premium members.
+              </p>
+              <Button
+                size="sm"
+                className="!bg-accent-400 hover:!bg-accent-500"
+                onClick={() => (window.location.href = "/app/billing")}
+              >
+                <Crown className="h-3.5 w-3.5 mr-1.5" />
+                Upgrade to Premium — £9.99/mo
+                <ArrowRight className="h-3.5 w-3.5 ml-1.5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Selected tags pills — only show if not locked */}
+      {!needsUpgrade && totalSelected > 0 && (
         <div className="flex flex-wrap gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 p-3">
           {selectedTags.map((tag) => (
             <button
@@ -83,23 +126,25 @@ export function TechStackPicker({
         </div>
       )}
 
-      {/* Pathway cards */}
-      <div className="space-y-2">
-        {pathways.map((pathway) => (
-          <PathwayCard
-            key={pathway.key}
-            pathway={pathway}
-            selectedTags={selectedTags}
-            isExpanded={expandedPathway === pathway.key}
-            onToggle={() =>
-              setExpandedPathway(
-                expandedPathway === pathway.key ? null : pathway.key
-              )
-            }
-            onToggleTag={onToggleTag}
-          />
-        ))}
-      </div>
+      {/* Pathway cards in single column — only show if not locked */}
+      {!needsUpgrade && (
+        <div className="">
+          {pathways.map((pathway) => (
+            <PathwayCard
+              key={pathway.key}
+              pathway={pathway}
+              selectedTags={selectedTags}
+              isExpanded={expandedPathway === pathway.key}
+              onToggle={() =>
+                setExpandedPathway(
+                  expandedPathway === pathway.key ? null : pathway.key
+                )
+              }
+              onToggleTag={onToggleTag}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
