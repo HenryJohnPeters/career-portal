@@ -271,10 +271,10 @@ export function DashboardLayout() {
     setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
   const closeMobileSidebar = () => setMobileOpen(false);
 
-  const sidebarContent = (
+  const sidebarContent = (isMobile = false) => (
     <>
       {/* Logo */}
-      {!collapsed && (
+      {!collapsed && !isMobile && (
         <div className="flex items-center gap-3 px-4 h-14 shrink-0 border-b border-border">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 shadow-sm">
             <Code2 className="h-3.5 w-3.5 text-white" />
@@ -445,7 +445,7 @@ export function DashboardLayout() {
               <X className="h-4 w-4" />
             </button>
           </div>
-          {sidebarContent}
+          {sidebarContent(true)}
         </aside>
 
         {/* Desktop sidebar */}
@@ -454,7 +454,7 @@ export function DashboardLayout() {
             collapsed ? "w-16" : "w-60"
           } bg-bg-secondary border-r border-border transition-all duration-300 ease-in-out shrink-0 flex-col hidden lg:flex`}
         >
-          {sidebarContent}
+          {sidebarContent()}
         </aside>
 
         {/* Main content */}
