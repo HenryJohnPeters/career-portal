@@ -110,7 +110,7 @@ export function DashboardPage() {
   const { counts, recentActivity } = summary;
 
   return (
-    <div className="space-y-5 animate-fade-in-up max-w-5xl">
+    <div className="space-y-5 animate-fade-in-up">
       <PageHero
         icon={TrendingUp}
         title={`Welcome back${
