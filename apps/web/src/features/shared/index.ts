@@ -8,6 +8,9 @@ export { ResultBanner } from "./components/ResultBanner";
 export { BackButton } from "./components/BackButton";
 export { AnswerOption } from "./components/AnswerOption";
 export { EmptyFeatureState } from "./components/EmptyFeatureState";
+export { PremiumUpgradeBanner } from "./components/PremiumUpgradeBanner";
+export { ItemCard } from "./components/ItemCard";
+export type { ItemCardAction } from "./components/ItemCard";
 export {
   TRACK_META,
   LEVEL_META,

@@ -9,7 +9,7 @@ import {
   useRewriteCoverLetter,
 } from "@careerportal/web/data-access";
 import { Button, Spinner, ErrorState } from "@careerportal/web/ui";
-import { PageHero } from "../shared";
+import { PageHero, PremiumUpgradeBanner, ItemCard } from "../shared";
 import { useAuth } from "../../lib/auth";
 import { AiCoverLetterAssist } from "./AiCoverLetterAssist";
 import type { CoverLetter } from "@careerportal/shared/types";
@@ -17,7 +17,6 @@ import {
   Mail,
   Plus,
   PlusCircle,
-  Trash2,
   Save,
   X,
   Lightbulb,
@@ -319,13 +318,9 @@ export function CoverLettersPage() {
                   </button>
                 </div>
                 {!isPremium && (
-                  <button
-                    onClick={() => navigate("/app/billing")}
-                    className="mt-3 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1 hover:underline underline-offset-2"
-                  >
-                    <Crown className="h-3 w-3" />
-                    AI features require Premium — Upgrade now →
-                  </button>
+                  <div className="mt-3">
+                    <PremiumUpgradeBanner message="AI features require Premium. Upgrade for suggestions, rewrites & more." />
+                  </div>
                 )}
               </div>
             </div>
@@ -336,24 +331,45 @@ export function CoverLettersPage() {
         <div className="space-y-4">
           {/* Free-user cap warning */}
           {atFreeLimit && !showCreate && (
-            <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-3 flex items-start gap-2">
-              <Crown className="h-4 w-4 text-accent-600 dark:text-accent-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-[10px] text-accent-800 dark:text-accent-200 leading-relaxed">
-                  Free accounts are limited to {FREE_COVER_LETTER_LIMIT} cover
-                  letters. Upgrade to Premium for unlimited cover letters.
-                </p>
-                <button
-                  onClick={() => navigate("/app/billing")}
-                  className="text-[10px] font-semibold text-accent-600 hover:text-accent-800 dark:text-accent-400 dark:hover:text-accent-200 mt-1 underline underline-offset-2"
-                >
-                  Upgrade to Premium — £9.99/mo →
-                </button>
+            <PremiumUpgradeBanner
+              message={`Free accounts are limited to ${FREE_COVER_LETTER_LIMIT} cover letters. Upgrade for unlimited cover letters and AI-powered tools.`}
+            />
+          )}
+
+          {/* Letter grid */}
+          {letters.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800 mb-3">
+                <FolderOpen className="h-6 w-6 text-gray-400" />
               </div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                No cover letters yet
+              </p>
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                Create your first one below
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {letters.map((cl) => (
+                <ItemCard
+                  key={cl.id}
+                  icon={Mail}
+                  title={cl.title}
+                  subtitle={
+                    cl.body
+                      ? `${cl.body.slice(0, 80).trim()}…`
+                      : "Empty — click to start writing"
+                  }
+                  date={cl.updatedAt}
+                  onDelete={() => handleDelete(cl.id)}
+                  onClick={() => startEdit(cl)}
+                />
+              ))}
             </div>
           )}
 
-          {/* Create new */}
+          {/* Create new — now below the list */}
           {showCreate ? (
             <div className="rounded-xl border border-accent/30 dark:border-accent/20 bg-gradient-to-br from-accent/10 to-accent/5 dark:from-accent/8 dark:to-accent/3 p-4 space-y-3 animate-in fade-in">
               <label className="block text-xs font-semibold uppercase tracking-wider text-accent-dark dark:text-accent">
@@ -401,72 +417,6 @@ export function CoverLettersPage() {
               <PlusCircle className="h-4.5 w-4.5 group-hover:scale-110 transition-transform" />
               New Cover Letter
             </button>
-          )}
-
-          {/* Letter grid — styled to match VersionCard exactly */}
-          {letters.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800 mb-3">
-                <FolderOpen className="h-6 w-6 text-gray-400" />
-              </div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                No cover letters yet
-              </p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-                Create your first one above
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {letters.map((cl) => (
-                <div
-                  key={cl.id}
-                  onClick={() => startEdit(cl)}
-                  className="group relative rounded-xl border p-3 cursor-pointer transition-all duration-200 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm bg-white dark:bg-gray-800/50"
-                >
-                  {/* Top row: icon + text */}
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                      <Mail className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
-                        {cl.title}
-                      </h3>
-                      <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
-                        {cl.body
-                          ? `${cl.body.slice(0, 60).trim()}…`
-                          : "Empty — click to start writing"}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Action bar — mirrors VersionCard's action bar */}
-                  <div
-                    className="flex items-center gap-0.5 mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-700 opacity-0 group-hover:opacity-100 transition-all"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span className="text-[9px] text-gray-400 dark:text-gray-500 px-1 flex-1 tabular-nums">
-                      {new Date(cl.updatedAt).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(cl.id);
-                      }}
-                      className="rounded-md p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors ml-auto"
-                      title="Delete"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
           )}
         </div>
       )}

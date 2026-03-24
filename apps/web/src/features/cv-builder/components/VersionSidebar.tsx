@@ -1,7 +1,7 @@
-import { Plus, PlusCircle, FolderOpen, Crown } from "lucide-react";
+import { Plus, PlusCircle, FolderOpen, FileText, Star, Pencil, Copy } from "lucide-react";
 import { Button } from "@careerportal/web/ui";
 import type { CvVersion } from "@careerportal/shared/types";
-import { VersionCard } from "./VersionCard";
+import { ItemCard, PremiumUpgradeBanner } from "../../shared";
 
 const FREE_CV_LIMIT = 1;
 
@@ -53,12 +53,78 @@ export function VersionSidebar({
   return (
     <div className="space-y-4">
       {atFreeLimit && !showCreateVersion && (
-        <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-3 flex items-start gap-2">
-          <Crown className="h-4 w-4 text-accent-600 dark:text-accent-400 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-accent-800 dark:text-accent-200 leading-relaxed">
-            Free accounts are limited to {FREE_CV_LIMIT} CV. Upgrade to Premium
-            for unlimited CVs.
+        <PremiumUpgradeBanner
+          message={`Free accounts are limited to ${FREE_CV_LIMIT} CV. Upgrade for unlimited CVs and AI-powered tools.`}
+        />
+      )}
+
+      {versions.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800 mb-3">
+            <FolderOpen className="h-6 w-6 text-gray-400" />
+          </div>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            No versions yet
           </p>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+            Create your first version
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {versions.map((v) => {
+            const sectionCount = v.sections?.length ?? 0;
+            const filledCount =
+              v.sections?.filter((s) => s.content.trim().length > 0).length ?? 0;
+
+            return (
+              <ItemCard
+                key={v.id}
+                icon={FileText}
+                title={v.title}
+                subtitle={
+                  sectionCount > 0
+                    ? `${filledCount}/${sectionCount} sections filled`
+                    : "No sections yet — click to start"
+                }
+                badge={
+                  v.isActive
+                    ? { label: "Active", variant: "success" }
+                    : undefined
+                }
+                date={v.updatedAt}
+                isRenaming={renamingVersionId === v.id}
+                renameValue={renameTitle}
+                onRenameChange={onRenameTitleChange}
+                onRenameSubmit={() => onRenameSubmit(v.id)}
+                onRenameCancel={onRenameCancel}
+                actions={[
+                  ...(!v.isActive
+                    ? [
+                        {
+                          icon: Star,
+                          label: "Set as active CV",
+                          onClick: () => onSetActive(v.id),
+                          variant: "success" as const,
+                        },
+                      ]
+                    : []),
+                  {
+                    icon: Copy,
+                    label: "Duplicate version",
+                    onClick: () => onDuplicate(v.id),
+                  },
+                  {
+                    icon: Pencil,
+                    label: "Rename",
+                    onClick: () => onStartRename(v),
+                  },
+                ]}
+                onDelete={() => onDelete(v.id)}
+                onClick={() => onSelectVersion(v.id)}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -109,40 +175,6 @@ export function VersionSidebar({
           <PlusCircle className="h-4.5 w-4.5 group-hover:scale-110 transition-transform" />
           New Version
         </button>
-      )}
-
-      {versions.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800 mb-3">
-            <FolderOpen className="h-6 w-6 text-gray-400" />
-          </div>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            No versions yet
-          </p>
-          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
-            Create your first version
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {versions.map((v) => (
-            <VersionCard
-              key={v.id}
-              version={v}
-              isSelected={selectedVersionId === v.id}
-              isRenaming={renamingVersionId === v.id}
-              renameTitle={renameTitle}
-              onSelect={onSelectVersion}
-              onRenameChange={onRenameTitleChange}
-              onRenameSubmit={onRenameSubmit}
-              onRenameCancel={onRenameCancel}
-              onStartRename={onStartRename}
-              onSetActive={onSetActive}
-              onDelete={onDelete}
-              onDuplicate={onDuplicate}
-            />
-          ))}
-        </div>
       )}
     </div>
   );
