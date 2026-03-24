@@ -106,7 +106,9 @@ export function ItemCard({
               )}
               {badge && (
                 <span
-                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ring-1 shrink-0 ${badgeStyles[badge.variant]}`}
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ring-1 shrink-0 ${
+                    badgeStyles[badge.variant]
+                  }`}
                 >
                   {badge.variant === "success" && (
                     <span className="h-1 w-1 rounded-full bg-current animate-pulse" />
@@ -164,7 +166,9 @@ export function ItemCard({
                 <button
                   key={i}
                   onClick={action.onClick}
-                  className={`rounded-lg p-1.5 transition-colors ${actionVariants[action.variant ?? "default"]}`}
+                  className={`rounded-lg p-1.5 transition-colors ${
+                    actionVariants[action.variant ?? "default"]
+                  }`}
                   title={action.label}
                 >
                   <ActionIcon className="h-3.5 w-3.5" />

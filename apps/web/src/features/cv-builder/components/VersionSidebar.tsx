@@ -1,4 +1,12 @@
-import { Plus, PlusCircle, FolderOpen, FileText, Star, Pencil, Copy } from "lucide-react";
+import {
+  Plus,
+  PlusCircle,
+  FolderOpen,
+  FileText,
+  Star,
+  Pencil,
+  Copy,
+} from "lucide-react";
 import { Button } from "@careerportal/web/ui";
 import type { CvVersion } from "@careerportal/shared/types";
 import { ItemCard, PremiumUpgradeBanner } from "../../shared";
@@ -75,7 +83,8 @@ export function VersionSidebar({
           {versions.map((v) => {
             const sectionCount = v.sections?.length ?? 0;
             const filledCount =
-              v.sections?.filter((s) => s.content.trim().length > 0).length ?? 0;
+              v.sections?.filter((s) => s.content.trim().length > 0).length ??
+              0;
 
             return (
               <ItemCard
