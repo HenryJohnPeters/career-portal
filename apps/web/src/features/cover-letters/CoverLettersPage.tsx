@@ -336,16 +336,16 @@ export function CoverLettersPage() {
         <div className="space-y-4">
           {/* Free-user cap warning */}
           {atFreeLimit && !showCreate && (
-            <div className="rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10 p-3 flex items-start gap-2">
-              <Crown className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+            <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-3 flex items-start gap-2">
+              <Crown className="h-4 w-4 text-accent-600 dark:text-accent-400 shrink-0 mt-0.5" />
               <div>
-                <p className="text-[10px] text-amber-700 dark:text-amber-300 leading-relaxed">
+                <p className="text-[10px] text-accent-800 dark:text-accent-200 leading-relaxed">
                   Free accounts are limited to {FREE_COVER_LETTER_LIMIT} cover
-                  letters. Upgrade to Premium for unlimited.
+                  letters. Upgrade to Premium for unlimited cover letters.
                 </p>
                 <button
                   onClick={() => navigate("/app/billing")}
-                  className="text-[10px] font-semibold text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200 mt-1 underline underline-offset-2"
+                  className="text-[10px] font-semibold text-accent-600 hover:text-accent-800 dark:text-accent-400 dark:hover:text-accent-200 mt-1 underline underline-offset-2"
                 >
                   Upgrade to Premium — £9.99/mo →
                 </button>
