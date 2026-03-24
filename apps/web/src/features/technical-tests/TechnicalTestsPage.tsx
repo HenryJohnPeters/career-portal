@@ -40,7 +40,7 @@ function TechTestPremiumGate() {
         </h2>
         <p className="text-sm text-accent-800 dark:text-accent-200 mb-6 max-w-md mx-auto leading-relaxed">
           Take-home style coding challenges with AI-generated scenarios tailored
-          to your tech stack, level, and role focus.
+          to your tech stack and level.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6 text-left max-w-md mx-auto">

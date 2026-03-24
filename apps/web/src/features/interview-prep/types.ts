@@ -5,7 +5,6 @@ import type {
   NextQuestionResponse,
   InterviewTrack,
   InterviewLevel,
-  InterviewRoleFocus,
   InterviewType,
 } from "@careerportal/shared/types";
 import type { InterviewerConfig } from "./interviewer-configs";
@@ -17,13 +16,11 @@ export interface InterviewSetupProps {
   track: InterviewTrack;
   level: InterviewLevel;
   selectedTags: string[];
-  roleFocus: InterviewRoleFocus;
   interviewType: InterviewType;
   expandedCategories: Set<string>;
   isCreating: boolean;
   onTrackChange: (track: InterviewTrack) => void;
   onLevelChange: (level: InterviewLevel) => void;
-  onRoleFocusChange: (roleFocus: InterviewRoleFocus) => void;
   onInterviewTypeChange: (type: InterviewType) => void;
   onToggleTag: (tag: string) => void;
   onToggleCategory: (key: string) => void;

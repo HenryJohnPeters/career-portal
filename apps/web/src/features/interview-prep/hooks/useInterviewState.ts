@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   useInterviewOptions,
   useInterviewSession,
@@ -11,13 +11,12 @@ import type {
   InterviewTrack,
   InterviewLevel,
   InterviewPersona,
-  InterviewRoleFocus,
   InterviewType,
   InterviewDifficulty,
   InterviewCompanyStyle,
 } from "@careerportal/shared/types";
 import type { View } from "../types";
-import { getTagsForRole } from "../constants";
+import { deriveRoleFocusFromTags } from "../constants";
 import { LEVEL_TO_DIFFICULTY } from "../../shared";
 import {
   DEFAULT_INTERVIEWER_ID,
@@ -38,8 +37,6 @@ export function useInterviewState() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [questionCount] = useState(100); // Endless mode - set high number
   const [persona, setPersona] = useState<InterviewPersona>("neutral");
-  const [roleFocus, setRoleFocusRaw] =
-    useState<InterviewRoleFocus>("fullstack");
   const [interviewType, setInterviewType] = useState<InterviewType>("coding");
   const [companyStyle, setCompanyStyle] =
     useState<InterviewCompanyStyle>("startup");
@@ -52,19 +49,15 @@ export function useInterviewState() {
     DEFAULT_INTERVIEWER_ID
   );
 
+  // Derive roleFocus automatically from selected tags
+  const roleFocus = useMemo(
+    () => deriveRoleFocusFromTags(selectedTags),
+    [selectedTags]
+  );
+
   // Derive difficulty from level
   const difficulty: InterviewDifficulty =
     LEVEL_TO_DIFFICULTY[level] ?? "medium";
-
-  /**
-   * When the role focus changes, keep only the tags that exist
-   * in the new role's pathways so the user never sends irrelevant tags.
-   */
-  const setRoleFocus = useCallback((next: InterviewRoleFocus) => {
-    setRoleFocusRaw(next);
-    const validTags = getTagsForRole(next);
-    setSelectedTags((prev) => prev.filter((t) => validTags.has(t)));
-  }, []);
 
   const {
     data: optionsData,
@@ -194,7 +187,6 @@ export function useInterviewState() {
     expandedCategories,
     setTrack,
     setLevel,
-    setRoleFocus,
     setInterviewType,
     setCompanyStyle,
     setPersona,

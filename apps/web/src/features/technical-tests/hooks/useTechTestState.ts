@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   useCreateTechnicalTest,
   useStartTechnicalTest,
@@ -7,22 +7,27 @@ import {
   useDeleteTechnicalTest,
 } from "@careerportal/web/data-access";
 import type {
-  InterviewRoleFocus,
   InterviewLevel,
   InterviewDifficulty,
   TechnicalTest,
 } from "@careerportal/shared/types";
 import { LEVEL_TO_DIFFICULTY } from "../../shared";
 import type { TechTestView } from "../types";
+import { deriveRoleFocusFromTags } from "../../interview-prep/constants";
 
 export function useTechTestState() {
   const [view, setView] = useState<TechTestView>("setup");
 
   // Setup filters
-  const [roleFocus, setRoleFocus] = useState<InterviewRoleFocus>("fullstack");
   const [level, setLevel] = useState<InterviewLevel>("mid");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [timeLimit, setTimeLimit] = useState(60); // minutes
+
+  // Derive roleFocus automatically from selected tags
+  const roleFocus = useMemo(
+    () => deriveRoleFocusFromTags(selectedTags),
+    [selectedTags]
+  );
 
   // Derive difficulty from level
   const difficulty: InterviewDifficulty =
@@ -176,7 +181,6 @@ export function useTechTestState() {
     setView,
     // Setup
     roleFocus,
-    setRoleFocus,
     level,
     setLevel,
     difficulty,

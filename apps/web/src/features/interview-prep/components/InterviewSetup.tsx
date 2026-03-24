@@ -1,14 +1,9 @@
 import { Button } from "@careerportal/web/ui";
-import type {
-  InterviewLevel,
-  InterviewRoleFocus,
-  InterviewType,
-} from "@careerportal/shared/types";
+import type { InterviewLevel, InterviewType } from "@careerportal/shared/types";
 import {
   Mic,
   Hash,
   TrendingUp,
-  Briefcase,
   MessageSquare,
   SlidersHorizontal,
   Sparkles,
@@ -22,7 +17,7 @@ import {
 } from "lucide-react";
 import { PageHero, OptionGrid, SectionHeading, LEVEL_META } from "../../shared";
 import type { OptionItem } from "../../shared";
-import { ROLE_FOCUS_ITEMS, INTERVIEW_TYPE_ITEMS } from "../constants";
+import { INTERVIEW_TYPE_ITEMS } from "../constants";
 import type { InterviewSetupProps } from "../types";
 import { TechStackPicker } from "./TechStackPicker";
 import { InterviewerSelector } from "./InterviewerSelector";
@@ -41,12 +36,10 @@ export function InterviewSetup({
   options,
   level,
   selectedTags,
-  roleFocus,
   interviewType,
   expandedCategories,
   isCreating,
   onLevelChange,
-  onRoleFocusChange,
   onInterviewTypeChange,
   onToggleTag,
   onToggleCategory,
@@ -56,8 +49,6 @@ export function InterviewSetup({
   isPremium,
 }: InterviewSetupProps) {
   const { user } = useAuth();
-  const levelMeta = LEVEL_META[level] ?? LEVEL_META.mid;
-  const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === roleFocus);
 
   return (
     <div className="w-full space-y-6">
@@ -88,17 +79,7 @@ export function InterviewSetup({
         </section>
 
         <section>
-          <SectionHeading icon={Briefcase} label="Role Focus" />
-          <OptionGrid
-            items={ROLE_FOCUS_ITEMS}
-            value={roleFocus}
-            onChange={(v) => onRoleFocusChange(v as InterviewRoleFocus)}
-          />
-        </section>
-
-        <section>
           <TechStackPicker
-            roleFocus={roleFocus}
             selectedTags={selectedTags}
             onToggleTag={onToggleTag}
             isPremium={isPremium}

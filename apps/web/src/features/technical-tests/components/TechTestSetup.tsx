@@ -5,17 +5,12 @@ import {
   Timer,
   Play,
   Sparkles,
-  Briefcase,
   History,
 } from "lucide-react";
 import { PageHero, OptionGrid, SectionHeading, LEVEL_META } from "../../shared";
 import type { OptionItem } from "../../shared";
-import { ROLE_FOCUS_ITEMS } from "../../interview-prep/constants";
 import { TechStackPicker } from "../../interview-prep/components/TechStackPicker";
-import type {
-  InterviewRoleFocus,
-  InterviewLevel,
-} from "@careerportal/shared/types";
+import type { InterviewLevel } from "@careerportal/shared/types";
 import type { useTechTestState } from "../hooks/useTechTestState";
 import { useAuth } from "../../../lib/auth";
 
@@ -44,7 +39,6 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
   const { user } = useAuth();
   const isPremium = user?.isPremium ?? false;
   const levelMeta = LEVEL_META[state.level] ?? LEVEL_META.mid;
-  const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === state.roleFocus);
   const timeMeta = TIME_LIMIT_ITEMS.find(
     (t) => t.key === String(state.timeLimit)
   );
@@ -82,14 +76,6 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
         {/* Left — Config */}
         <div className="lg:col-span-2 space-y-5 sm:space-y-6">
           <section>
-            <SectionHeading icon={Briefcase} label="Role Focus" />
-            <OptionGrid
-              items={ROLE_FOCUS_ITEMS}
-              value={state.roleFocus}
-              onChange={(v) => state.setRoleFocus(v as InterviewRoleFocus)}
-            />
-          </section>
-          <section>
             <SectionHeading icon={TrendingUp} label="Experience Level" />
             <OptionGrid
               items={LEVEL_ITEMS}
@@ -100,7 +86,6 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
           </section>
           <section>
             <TechStackPicker
-              roleFocus={state.roleFocus}
               selectedTags={state.selectedTags}
               onToggleTag={state.toggleTag}
               isPremium={isPremium}
@@ -129,15 +114,10 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
                     Your Test
                   </p>
                   <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
-                    {roleMeta?.label ?? "Fullstack"} · {levelMeta.label}
+                    {levelMeta.label}
                   </h3>
                 </div>
                 <div className="space-y-2.5">
-                  <PreviewRow
-                    icon={roleMeta?.icon ?? "🔗"}
-                    label="Role"
-                    value={roleMeta?.label ?? "Fullstack"}
-                  />
                   <PreviewRow
                     icon={levelMeta.icon}
                     label="Level"

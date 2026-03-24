@@ -5,13 +5,21 @@
  * Users can scroll through 8 unique interviewers with distinct appearances.
  */
 
-import { Check, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  Lightbulb,
+  MessageCircle,
+  Infinity,
+} from "lucide-react";
 import { INTERVIEWER_CONFIGS } from "../interviewer-configs";
 import type { InterviewerConfig } from "../interviewer-configs";
 import { SectionHeading } from "../../shared";
 import { UserCircle2 } from "lucide-react";
 import { Avatar2D } from "./Avatar2D";
-import { useRef } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 
 interface InterviewerSelectorProps {
   selectedId: string;
@@ -23,17 +31,33 @@ export function InterviewerSelector({
   onSelect,
 }: InterviewerSelectorProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
 
-  const scrollLeft = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -280, behavior: "smooth" });
-    }
-  };
+  const updateScrollState = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 8);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
+  }, []);
 
-  const scrollRight = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 280, behavior: "smooth" });
-    }
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    updateScrollState();
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    window.addEventListener("resize", updateScrollState);
+    return () => {
+      el.removeEventListener("scroll", updateScrollState);
+      window.removeEventListener("resize", updateScrollState);
+    };
+  }, [updateScrollState]);
+
+  const scroll = (dir: "left" | "right") => {
+    scrollContainerRef.current?.scrollBy({
+      left: dir === "left" ? -280 : 280,
+      behavior: "smooth",
+    });
   };
 
   return (
@@ -41,48 +65,65 @@ export function InterviewerSelector({
       <SectionHeading icon={UserCircle2} label="Choose Your Interviewer" />
 
       {/* Scroll buttons */}
-      <button
-        onClick={scrollLeft}
-        className="absolute left-0 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors hidden md:flex"
-        aria-label="Scroll left"
-      >
-        <ChevronLeft className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-      </button>
+      {canScrollLeft && (
+        <button
+          onClick={() => scroll("left")}
+          className="absolute -left-3 top-[55%] -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-bg-elevated border border-border shadow-lg flex items-center justify-center hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:border-primary-300 dark:hover:border-primary-700 transition-all duration-200 hidden md:flex"
+          aria-label="Scroll left"
+        >
+          <ChevronLeft className="h-4 w-4 text-text-secondary" />
+        </button>
+      )}
 
-      <button
-        onClick={scrollRight}
-        className="absolute right-0 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-lg flex items-center justify-center hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors hidden md:flex"
-        aria-label="Scroll right"
-      >
-        <ChevronRight className="h-5 w-5 text-gray-700 dark:text-gray-300" />
-      </button>
+      {canScrollRight && (
+        <button
+          onClick={() => scroll("right")}
+          className="absolute -right-3 top-[55%] -translate-y-1/2 z-20 h-9 w-9 rounded-full bg-bg-elevated border border-border shadow-lg flex items-center justify-center hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:border-primary-300 dark:hover:border-primary-700 transition-all duration-200 hidden md:flex"
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="h-4 w-4 text-text-secondary" />
+        </button>
+      )}
 
-      {/* Horizontal scrolling container */}
-      <div
-        ref={scrollContainerRef}
-        className="flex gap-4 overflow-x-auto pb-4 px-1 snap-x snap-mandatory scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
-        style={{ scrollbarWidth: "thin" }}
-      >
-        {INTERVIEWER_CONFIGS.map((cfg) => (
-          <InterviewerCard
-            key={cfg.id}
-            config={cfg}
-            selected={selectedId === cfg.id}
-            onSelect={() => onSelect(cfg.id)}
-          />
-        ))}
+      {/* Fade edges */}
+      <div className="relative">
+        {canScrollLeft && (
+          <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-bg-primary to-transparent z-10 pointer-events-none rounded-l-2xl" />
+        )}
+        {canScrollRight && (
+          <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-bg-primary to-transparent z-10 pointer-events-none rounded-r-2xl" />
+        )}
+
+        {/* Horizontal scrolling container */}
+        <div
+          ref={scrollContainerRef}
+          className="flex gap-3 overflow-x-auto pb-4 px-1 pt-1 snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          {INTERVIEWER_CONFIGS.map((cfg, i) => (
+            <InterviewerCard
+              key={cfg.id}
+              config={cfg}
+              selected={selectedId === cfg.id}
+              onSelect={() => onSelect(cfg.id)}
+              index={i}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Scroll indicator */}
-      <div className="flex justify-center gap-2 mt-2">
+      {/* Scroll indicator dots */}
+      <div className="flex justify-center gap-1.5 mt-1">
         {INTERVIEWER_CONFIGS.map((cfg) => (
-          <div
+          <button
             key={cfg.id}
-            className={`h-1.5 rounded-full transition-all ${
+            onClick={() => onSelect(cfg.id)}
+            className={`rounded-full transition-all duration-300 ${
               selectedId === cfg.id
-                ? "w-6 bg-blue-500"
-                : "w-1.5 bg-gray-300 dark:bg-gray-700"
+                ? "w-6 h-1.5 bg-primary-500 shadow-glow-sm"
+                : "w-1.5 h-1.5 bg-neutral-300 dark:bg-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-600"
             }`}
+            aria-label={`Select ${cfg.name}`}
           />
         ))}
       </div>
@@ -96,10 +137,12 @@ function InterviewerCard({
   config,
   selected,
   onSelect,
+  index,
 }: {
   config: InterviewerConfig;
   selected: boolean;
   onSelect: () => void;
+  index: number;
 }) {
   // Special card for "No Interviewer" option
   if (config.id === "none") {
@@ -107,52 +150,79 @@ function InterviewerCard({
       <button
         type="button"
         onClick={onSelect}
+        style={{ animationDelay: `${index * 50}ms` }}
         className={[
-          "relative flex-shrink-0 w-40 snap-center rounded-2xl border-2 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 hover:scale-105",
+          "group relative flex-shrink-0 w-44 snap-center rounded-2xl border transition-all duration-300 animate-fade-in-up",
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary",
           selected
-            ? "border-blue-500 shadow-2xl"
-            : "border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg",
+            ? "border-primary-500 dark:border-primary-400 bg-primary-50/50 dark:bg-primary-950/30 shadow-lg shadow-primary-500/10 scale-[1.02]"
+            : "border-border bg-bg-secondary/50 backdrop-blur-sm hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-md hover:scale-[1.02]",
         ].join(" ")}
       >
-        {/* Selected check */}
+        {/* Selected indicator */}
         {selected && (
-          <span className="absolute -top-2 -right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-blue-500 shadow-lg ring-4 ring-white dark:ring-gray-900">
-            <Check className="h-4 w-4 text-white" strokeWidth={3} />
+          <span className="absolute -top-1.5 -right-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-primary-500 shadow-md shadow-primary-500/30 ring-2 ring-bg-primary animate-scale-in">
+            <Check className="h-3 w-3 text-white" strokeWidth={3} />
           </span>
         )}
 
-        {/* No Interviewer Icon */}
-        <div className="relative pt-3 px-3">
+        {/* Gradient accent bar */}
+        <div
+          className={`h-1 rounded-t-2xl bg-gradient-to-r ${config.gradient} ${
+            selected ? "opacity-100" : "opacity-40 group-hover:opacity-70"
+          } transition-opacity duration-300`}
+        />
+
+        {/* Icon area */}
+        <div className="relative pt-4 px-4">
           <div
-            className={`w-full h-36 rounded-xl overflow-hidden transition-all flex items-center justify-center ${
-              selected ? "ring-3 ring-blue-500" : ""
+            className={`w-full aspect-[4/3] rounded-xl overflow-hidden transition-all duration-300 flex items-center justify-center ${
+              selected
+                ? "ring-2 ring-primary-400/50 shadow-inner"
+                : "group-hover:shadow-sm"
             }`}
             style={{ background: config.avatar.background }}
           >
-            <div className="text-6xl opacity-50">{config.emoji}</div>
+            <Infinity
+              className={`h-12 w-12 transition-all duration-300 ${
+                selected
+                  ? "text-primary-400 scale-110"
+                  : "text-neutral-500 group-hover:text-neutral-400 group-hover:scale-105"
+              }`}
+              strokeWidth={1.5}
+            />
           </div>
         </div>
 
         {/* Name and Role */}
-        <div className="px-3 pb-3 pt-2">
+        <div className="px-4 pb-2 pt-3">
           <p
-            className={`text-base font-black text-center leading-tight ${
+            className={`text-sm font-bold text-center leading-tight transition-colors duration-200 ${
               selected
-                ? "text-blue-600 dark:text-blue-400"
-                : "text-gray-900 dark:text-gray-100"
+                ? "text-primary-600 dark:text-primary-400"
+                : "text-text-primary group-hover:text-primary-600 dark:group-hover:text-primary-400"
             }`}
           >
             {config.name}
           </p>
-          <p className="text-[11px] text-center text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-[11px] text-center text-text-tertiary mt-1 leading-snug">
             {config.role}
           </p>
         </div>
 
-        {/* Traits display for endless mode */}
-        <div className="px-3 pb-3 pt-1 border-t border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-center gap-1 text-[10px] text-gray-600 dark:text-gray-400">
-            <span className="font-semibold">∞ Questions</span>
+        {/* Trait badge */}
+        <div className="px-3 pb-3 pt-1">
+          <div className="flex items-center justify-center">
+            <span
+              className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors duration-200 ${
+                selected
+                  ? "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
+                  : "bg-neutral-100 dark:bg-neutral-800 text-text-tertiary group-hover:bg-primary-50 dark:group-hover:bg-primary-950/20"
+              }`}
+            >
+              <Sparkles className="h-3 w-3" />
+              Unlimited
+            </span>
           </div>
         </div>
       </button>
@@ -163,29 +233,40 @@ function InterviewerCard({
     <button
       type="button"
       onClick={onSelect}
+      style={{ animationDelay: `${index * 50}ms` }}
       className={[
-        "relative flex-shrink-0 w-40 snap-center rounded-2xl border-2 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 hover:scale-105",
+        "group relative flex-shrink-0 w-44 snap-center rounded-2xl border transition-all duration-300 animate-fade-in-up",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary",
         selected
-          ? "border-blue-500 shadow-2xl"
-          : "border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-lg",
+          ? "border-primary-500 dark:border-primary-400 bg-primary-50/50 dark:bg-primary-950/30 shadow-lg shadow-primary-500/10 scale-[1.02]"
+          : "border-border bg-bg-secondary/50 backdrop-blur-sm hover:border-neutral-300 dark:hover:border-neutral-600 hover:shadow-md hover:scale-[1.02]",
       ].join(" ")}
     >
-      {/* Selected check */}
+      {/* Selected indicator */}
       {selected && (
-        <span className="absolute -top-2 -right-2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-blue-500 shadow-lg ring-4 ring-white dark:ring-gray-900">
-          <Check className="h-4 w-4 text-white" strokeWidth={3} />
+        <span className="absolute -top-1.5 -right-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-primary-500 shadow-md shadow-primary-500/30 ring-2 ring-bg-primary animate-scale-in">
+          <Check className="h-3 w-3 text-white" strokeWidth={3} />
         </span>
       )}
+
+      {/* Gradient accent bar */}
+      <div
+        className={`h-1 rounded-t-2xl bg-gradient-to-r ${config.gradient} ${
+          selected ? "opacity-100" : "opacity-40 group-hover:opacity-70"
+        } transition-opacity duration-300`}
+      />
 
       {/* Avatar thumbnail */}
       <div className="relative pt-3 px-3">
         <div
-          className={`w-full h-36 rounded-xl overflow-hidden transition-all ${
-            selected ? "ring-3 ring-blue-500" : ""
+          className={`w-full aspect-[4/3] rounded-xl overflow-hidden transition-all duration-300 ${
+            selected
+              ? "ring-2 ring-primary-400/50 shadow-inner"
+              : "group-hover:shadow-sm"
           }`}
           style={{ background: config.avatar.background }}
         >
-          <div className="scale-75 -mt-3">
+          <div className="scale-[0.7] origin-top translate-y-[-8%]">
             <Avatar2D
               interviewer={config}
               mouthShape="closed"
@@ -195,39 +276,51 @@ function InterviewerCard({
         </div>
       </div>
 
-      {/* Name and Works at */}
-      <div className="px-3 pb-3 pt-2">
+      {/* Name and company */}
+      <div className="px-3 pb-1 pt-3">
         <p
-          className={`text-base font-black text-center leading-tight ${
+          className={`text-sm font-bold text-center leading-tight transition-colors duration-200 ${
             selected
-              ? "text-blue-600 dark:text-blue-400"
-              : "text-gray-900 dark:text-gray-100"
+              ? "text-primary-600 dark:text-primary-400"
+              : "text-text-primary group-hover:text-primary-600 dark:group-hover:text-primary-400"
           }`}
         >
           {config.name}
         </p>
-        <p className="text-[11px] text-center text-gray-500 dark:text-gray-400 mt-1">
-          Works at {config.role.split("·")[0].trim()}
+        <p className="text-[11px] text-center text-text-tertiary mt-1 leading-snug">
+          {config.role.split("·")[0].trim()}
         </p>
       </div>
 
-      {/* Traits display */}
+      {/* Traits */}
       {config.traits && (
-        <div className="px-3 pb-3 pt-1 space-y-1 border-t border-gray-100 dark:border-gray-800">
-          <div className="flex items-center justify-center gap-2 text-[10px] text-gray-600 dark:text-gray-400">
-            <span className="font-semibold">
+        <div className="px-3 pb-3 pt-2 space-y-1.5">
+          {/* Question count pill */}
+          <div className="flex items-center justify-center">
+            <span
+              className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors duration-200 ${
+                selected
+                  ? "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300"
+                  : "bg-neutral-100 dark:bg-neutral-800 text-text-tertiary group-hover:bg-primary-50 dark:group-hover:bg-primary-950/20"
+              }`}
+            >
+              <Sparkles className="h-3 w-3" />
               {config.traits.questionCount} Questions
             </span>
           </div>
-          <div className="flex items-center justify-center gap-2">
+
+          {/* Ability pills */}
+          <div className="flex items-center justify-center gap-1 flex-wrap">
             {config.traits.adviceLevel === "detailed" && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-1.5 py-0.5 rounded">
-                💬 Extra Advice
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-2 py-0.5 rounded-full">
+                <MessageCircle className="h-2.5 w-2.5" />
+                Advice
               </span>
             )}
             {config.traits.fiftyFifty && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded">
-                💡 Hints
+              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2 py-0.5 rounded-full">
+                <Lightbulb className="h-2.5 w-2.5" />
+                Hints
               </span>
             )}
           </div>

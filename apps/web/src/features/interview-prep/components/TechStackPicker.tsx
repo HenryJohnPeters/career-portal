@@ -1,21 +1,9 @@
 import { useState } from "react";
-import {
-  Check,
-  ChevronDown,
-  Layers,
-  Sparkles,
-  X,
-} from "lucide-react";
+import { Check, ChevronDown, Layers, Sparkles, X } from "lucide-react";
 import * as Icons from "lucide-react";
-import type { InterviewRoleFocus } from "@careerportal/shared/types";
-import {
-  ROLE_TECH_PATHWAYS,
-  ROLE_FOCUS_ITEMS,
-  type TechPathway,
-} from "../constants";
+import { ROLE_TECH_PATHWAYS, type TechPathway } from "../constants";
 
 interface TechStackPickerProps {
-  roleFocus: InterviewRoleFocus;
   selectedTags: string[];
   onToggleTag: (tag: string) => void;
   isPremium?: boolean;
@@ -28,12 +16,10 @@ function getIconComponent(iconName: string) {
 }
 
 export function TechStackPicker({
-  roleFocus,
   selectedTags,
   onToggleTag,
 }: TechStackPickerProps) {
-  const pathways = ROLE_TECH_PATHWAYS[roleFocus] ?? [];
-  const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === roleFocus);
+  const pathways = ROLE_TECH_PATHWAYS["fullstack"];
   const [expandedPathway, setExpandedPathway] = useState<string | null>(
     pathways[0]?.key ?? null
   );
@@ -42,7 +28,7 @@ export function TechStackPicker({
 
   return (
     <div className="space-y-4">
-      {/* Header with role context + selected count */}
+      {/* Header with selected count */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 shadow-sm">
@@ -50,10 +36,10 @@ export function TechStackPicker({
           </div>
           <div>
             <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-              {roleMeta?.label ?? "Fullstack"} Stack
+              Tech Stack
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {totalSelected > 0 
+              {totalSelected > 0
                 ? `${totalSelected} selected · Questions will focus on these technologies`
                 : "Select technologies to refine your interview questions"}
             </p>
@@ -96,7 +82,11 @@ export function TechStackPicker({
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-gray-800 dark:text-gray-200 leading-relaxed">
-                Your interview questions will be tailored to <span className="font-bold text-primary-700 dark:text-primary-400">{totalSelected} selected {totalSelected === 1 ? 'technology' : 'technologies'}</span>
+                Your interview questions will be tailored to{" "}
+                <span className="font-bold text-primary-700 dark:text-primary-400">
+                  {totalSelected} selected{" "}
+                  {totalSelected === 1 ? "technology" : "technologies"}
+                </span>
               </p>
               <p className="text-[10px] text-gray-600 dark:text-gray-400 mt-0.5">
                 Questions adapt in real-time based on your selections
@@ -169,25 +159,27 @@ function PathwayCard({
         count > 0
           ? "border-primary-300 dark:border-primary-700 bg-white dark:bg-gray-900 shadow-md shadow-primary-100 dark:shadow-primary-900/20"
           : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-700 hover:shadow-sm"
-      } ${isExpanded ? 'md:col-span-2' : ''}`}
+      } ${isExpanded ? "md:col-span-2" : ""}`}
     >
       {/* Header - compact single row */}
       <button
         onClick={onToggle}
         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
       >
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-colors ${
-          count > 0 
-            ? "bg-gradient-to-br from-primary-500 to-primary-600 shadow-sm" 
-            : "bg-gray-100 dark:bg-gray-800"
-        }`}>
-          <IconComponent className={`h-4 w-4 ${
-            count > 0 
-              ? "text-white" 
-              : "text-gray-600 dark:text-gray-400"
-          }`} />
+        <div
+          className={`flex h-8 w-8 items-center justify-center rounded-lg shrink-0 transition-colors ${
+            count > 0
+              ? "bg-gradient-to-br from-primary-500 to-primary-600 shadow-sm"
+              : "bg-gray-100 dark:bg-gray-800"
+          }`}
+        >
+          <IconComponent
+            className={`h-4 w-4 ${
+              count > 0 ? "text-white" : "text-gray-600 dark:text-gray-400"
+            }`}
+          />
         </div>
-        
+
         <div className="flex-1 min-w-0 flex items-center gap-2">
           <span className="text-sm font-bold text-gray-900 dark:text-gray-100 whitespace-nowrap">
             {pathway.label}
@@ -214,7 +206,9 @@ function PathwayCard({
               </span>
             ))}
             {count > 2 && (
-              <span className="text-[10px] font-medium text-gray-500">+{count - 2}</span>
+              <span className="text-[10px] font-medium text-gray-500">
+                +{count - 2}
+              </span>
             )}
           </div>
         )}

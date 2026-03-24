@@ -675,3 +675,35 @@ export function getTagsForRole(role: InterviewRoleFocus): Set<string> {
   }
   return tags;
 }
+
+/**
+ * Derive the best-matching role focus from the currently selected tags.
+ * Counts how many selected tags fall into each role's pathways and
+ * returns the role with the highest overlap. Defaults to "fullstack".
+ */
+export function deriveRoleFocusFromTags(
+  selectedTags: string[]
+): InterviewRoleFocus {
+  if (selectedTags.length === 0) return "fullstack";
+
+  const roles: InterviewRoleFocus[] = [
+    "frontend",
+    "backend",
+    "fullstack",
+    "platform",
+  ];
+
+  let bestRole: InterviewRoleFocus = "fullstack";
+  let bestScore = -1;
+
+  for (const role of roles) {
+    const roleTags = getTagsForRole(role);
+    const overlap = selectedTags.filter((t) => roleTags.has(t)).length;
+    if (overlap > bestScore) {
+      bestScore = overlap;
+      bestRole = role;
+    }
+  }
+
+  return bestRole;
+}

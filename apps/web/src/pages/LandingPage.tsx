@@ -70,7 +70,7 @@ const highlights = [
 const stats = [
   { value: "6", label: "Tools included" },
   { value: "5+", label: "AI features" },
-  { value: "4", label: "Role focuses" },
+  { value: "30+", label: "Tech categories" },
 ];
 
 export function LandingPage() {

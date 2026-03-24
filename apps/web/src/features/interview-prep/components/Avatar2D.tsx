@@ -1064,8 +1064,27 @@ export function Avatar2D({
 
   return (
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+      {/* Ambient glow behind avatar */}
+      <div
+        className={`absolute w-64 h-64 rounded-full blur-3xl transition-opacity duration-700 ${
+          isSpeaking ? "opacity-30" : "opacity-10"
+        }`}
+        style={{
+          background: `radial-gradient(circle, ${interviewer.avatar.lightAmbientColor} 0%, transparent 70%)`,
+        }}
+      />
+
       {/* Avatar base */}
-      <div className="relative w-56 h-56 rounded-full overflow-hidden ring-4 ring-white/10 bg-gradient-to-br from-gray-800 to-gray-900">
+      <div
+        className={`relative w-56 h-56 rounded-full overflow-hidden transition-all duration-500 ${
+          isSpeaking
+            ? "ring-[3px] ring-primary-400/60 shadow-lg shadow-primary-500/20 scale-[1.02]"
+            : "ring-2 ring-white/10 shadow-md"
+        }`}
+        style={{
+          background: interviewer.avatar.background,
+        }}
+      >
         {/* Pure SVG Avatar */}
         {generateSVGAvatar(interviewer)}
 
@@ -1084,27 +1103,36 @@ export function Avatar2D({
           </g>
         </svg>
 
-        {/* Speaking pulse animation */}
-        {isSpeaking && (
-          <div className="absolute inset-0 rounded-full ring-4 ring-blue-400/50 animate-pulse" />
-        )}
+        {/* Subtle inner vignette */}
+        <div className="absolute inset-0 rounded-full shadow-[inset_0_0_30px_rgba(0,0,0,0.25)] pointer-events-none" />
       </div>
 
-      {/* Sound waves animation when speaking */}
+      {/* Speaking ripples — clean concentric rings */}
       {isSpeaking && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {[...Array(3)].map((_, i) => (
+          {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="absolute w-64 h-64 rounded-full border-2 border-blue-400/30 animate-ping"
+              className="absolute rounded-full border opacity-0"
               style={{
-                animationDelay: `${i * 0.3}s`,
-                animationDuration: "1.5s",
+                width: `${240 + i * 40}px`,
+                height: `${240 + i * 40}px`,
+                borderColor: interviewer.avatar.lightAmbientColor,
+                borderWidth: `${2 - i * 0.5}px`,
+                animation: `ripple 2s ease-out ${i * 0.4}s infinite`,
               }}
             />
           ))}
         </div>
       )}
+
+      {/* Inline keyframes for ripple */}
+      <style>{`
+        @keyframes ripple {
+          0% { transform: scale(0.9); opacity: 0.5; }
+          100% { transform: scale(1.3); opacity: 0; }
+        }
+      `}</style>
     </div>
   );
 }

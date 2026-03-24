@@ -31,13 +31,11 @@ export function InterviewPrepPage() {
         track={state.track}
         level={state.level}
         selectedTags={state.selectedTags}
-        roleFocus={state.roleFocus}
         interviewType={state.interviewType}
         expandedCategories={state.expandedCategories}
         isCreating={state.isCreating}
         onTrackChange={state.setTrack}
         onLevelChange={state.setLevel}
-        onRoleFocusChange={state.setRoleFocus}
         onInterviewTypeChange={state.setInterviewType}
         onToggleTag={state.toggleTag}
         onToggleCategory={state.toggleCategory}
