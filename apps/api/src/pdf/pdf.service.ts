@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException, OnModuleDestroy } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleDestroy,
+} from "@nestjs/common";
 import { CvService } from "../modules/cv/cv.service";
 import { PrismaService } from "../common/prisma.service";
 import { renderCvHtml } from "./render-cv-html";
@@ -6,7 +11,7 @@ import { Semaphore } from "./semaphore";
 
 // Lazy-load playwright so the module boots even when browsers aren't installed.
 // Only PDF generation needs it; the HTML preview works without it.
-let _chromium: typeof import("playwright")["chromium"] | null = null;
+let _chromium: (typeof import("playwright"))["chromium"] | null = null;
 async function getChromium() {
   if (!_chromium) {
     const pw = await import("playwright");
@@ -15,11 +20,12 @@ async function getChromium() {
   return _chromium;
 }
 
-type Browser = Awaited<ReturnType<typeof getChromium>> extends {
-  launch: (...args: any[]) => Promise<infer B>;
-}
-  ? B
-  : never;
+type Browser =
+  Awaited<ReturnType<typeof getChromium>> extends {
+    launch: (...args: any[]) => Promise<infer B>;
+  }
+    ? B
+    : never;
 
 interface CacheEntry {
   buffer: Buffer;
@@ -62,7 +68,7 @@ export class PdfService implements OnModuleDestroy {
 
   constructor(
     private readonly cvService: CvService,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
   ) {}
 
   async onModuleDestroy() {
@@ -91,7 +97,7 @@ export class PdfService implements OnModuleDestroy {
   }
 
   private async fetchCvVersion(
-    cvVersionId: string
+    cvVersionId: string,
   ): Promise<CvVersionWithSections> {
     const version = await this.prisma.cvVersion.findUnique({
       where: { id: cvVersionId },
@@ -105,7 +111,7 @@ export class PdfService implements OnModuleDestroy {
   }
 
   private buildRenderArgs(
-    v: CvVersionWithSections
+    v: CvVersionWithSections,
   ): Parameters<typeof renderCvHtml>[0] {
     return {
       title: v.title,
@@ -136,7 +142,7 @@ export class PdfService implements OnModuleDestroy {
   }
 
   async generateCvPdf(
-    cvVersionId: string
+    cvVersionId: string,
   ): Promise<{ buffer: Buffer; cacheHit: boolean }> {
     const v = await this.fetchCvVersion(cvVersionId);
     const contentVersion = v.updatedAt.toISOString();

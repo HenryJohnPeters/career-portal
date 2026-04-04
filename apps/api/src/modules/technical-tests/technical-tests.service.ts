@@ -15,7 +15,7 @@ import { isActivePremium } from "../../common/subscription.util";
 export class TechnicalTestsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiScenarioGenerator: AiScenarioGeneratorService
+    private readonly aiScenarioGenerator: AiScenarioGeneratorService,
   ) {}
 
   /** List all technical tests for a user */
@@ -41,7 +41,7 @@ export class TechnicalTestsService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !isActivePremium(user)) {
       throw new ForbiddenException(
-        "Technical tests are a Premium feature. Upgrade to access take-home test scenarios."
+        "Technical tests are a Premium feature. Upgrade to access take-home test scenarios.",
       );
     }
 
@@ -69,7 +69,7 @@ export class TechnicalTestsService {
           difficulty: dto.difficulty,
           tags,
         },
-        userId
+        userId,
       );
       if (aiScenario) {
         scenario = aiScenario;
@@ -194,14 +194,14 @@ export class TechnicalTestsService {
         "documentation",
       ];
       const structureHits = structureKeywords.filter((k) =>
-        submissionLower.includes(k.toLowerCase())
+        submissionLower.includes(k.toLowerCase()),
       ).length;
       score += Math.min(maxScore * 0.3, structureHits * (maxScore * 0.05));
 
       // Check for requirement keyword coverage
       const reqKeywords = requirements.map((r) => r.key.toLowerCase());
       const reqHits = reqKeywords.filter((k) =>
-        submissionLower.includes(k)
+        submissionLower.includes(k),
       ).length;
       const reqCoverage =
         reqKeywords.length > 0 ? reqHits / reqKeywords.length : 0;
@@ -210,11 +210,11 @@ export class TechnicalTestsService {
       // Check for criterion-specific keywords
       const criterionWords = c.name.toLowerCase().split(/\s+/);
       const criterionHits = criterionWords.filter((w) =>
-        submissionLower.includes(w)
+        submissionLower.includes(w),
       ).length;
       score += Math.min(
         maxScore * 0.2,
-        (criterionHits / Math.max(criterionWords.length, 1)) * maxScore * 0.2
+        (criterionHits / Math.max(criterionWords.length, 1)) * maxScore * 0.2,
       );
 
       return {
@@ -252,15 +252,15 @@ export class TechnicalTestsService {
 
     if (wordCount < 100)
       improvements.push(
-        "Submission is very brief — provide more detail about your approach, implementation, and reasoning."
+        "Submission is very brief — provide more detail about your approach, implementation, and reasoning.",
       );
     if (!submissionLower.includes("```"))
       improvements.push(
-        "Include code snippets or pseudocode to demonstrate your implementation."
+        "Include code snippets or pseudocode to demonstrate your implementation.",
       );
     if (!submissionLower.includes("test") && !submissionLower.includes("spec"))
       improvements.push(
-        "Discuss your testing strategy — what would you test and how?"
+        "Discuss your testing strategy — what would you test and how?",
       );
     if (
       !submissionLower.includes("trade") &&
@@ -268,7 +268,7 @@ export class TechnicalTestsService {
       !submissionLower.includes("why")
     )
       improvements.push(
-        "Explain WHY you made certain choices — trade-off analysis is crucial."
+        "Explain WHY you made certain choices — trade-off analysis is crucial.",
       );
 
     const reqsMissed = requirements
@@ -291,8 +291,8 @@ export class TechnicalTestsService {
         percentage >= 70
           ? "Strong submission that covers the core requirements well. Review the improvement suggestions to push it further."
           : percentage >= 40
-          ? "Good effort with room for improvement. Focus on the missed requirements and add more implementation detail."
-          : "The submission needs significantly more detail. Review the requirements carefully and expand your solution with code, explanations, and trade-off analysis.",
+            ? "Good effort with room for improvement. Focus on the missed requirements and add more implementation detail."
+            : "The submission needs significantly more detail. Review the requirements carefully and expand your solution with code, explanations, and trade-off analysis.",
     };
   }
 

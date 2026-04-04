@@ -56,7 +56,7 @@ export class InterviewPrepService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiQuestionGenerator: AiQuestionGeneratorService
+    private readonly aiQuestionGenerator: AiQuestionGeneratorService,
   ) {}
 
   /** List all sessions for a user */
@@ -120,7 +120,7 @@ export class InterviewPrepService {
         // Pass userId so the per-user daily generation cap is enforced (fix #3)
         await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(
           poolFilters,
-          userId
+          userId,
         );
       } catch {
         // Non-critical — proceed with whatever we have
@@ -128,14 +128,13 @@ export class InterviewPrepService {
 
       // If the pool is STILL empty after urgent generation, try without
       // tags so the selector at least has *something* to work with.
-      const poolSizeAfter = await this.aiQuestionGenerator.getPoolSize(
-        poolFilters
-      );
+      const poolSizeAfter =
+        await this.aiQuestionGenerator.getPoolSize(poolFilters);
       if (poolSizeAfter === 0 && tags.length > 0) {
         try {
           await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(
             { ...poolFilters, tags: [] },
-            userId
+            userId,
           );
         } catch {
           // Non-critical
@@ -177,7 +176,7 @@ export class InterviewPrepService {
         companyStyle,
       },
       [],
-      []
+      [],
     );
 
     // Create the session with its questions
@@ -241,7 +240,7 @@ export class InterviewPrepService {
     userId: string,
     sessionId: string,
     sessionQuestionId: string,
-    answer: string
+    answer: string,
   ) {
     const session = await this.getSession(userId, sessionId);
     const sq = session.questions.find((q) => q.id === sessionQuestionId);
@@ -270,7 +269,7 @@ export class InterviewPrepService {
       evaluation.score,
       evaluation.maxScore,
       evaluation.pointsMissed,
-      adviceLevel
+      adviceLevel,
     );
 
     const feedback: AnswerFeedback = {
@@ -311,12 +310,12 @@ export class InterviewPrepService {
       const followUpQuestion = this.followUpStrategy.selectFollowUp(
         questionRecord,
         evaluation,
-        poolRecords
+        poolRecords,
       );
 
       if (followUpQuestion) {
         const maxOrder = Math.max(
-          ...session.questions.map((q) => q.orderIndex)
+          ...session.questions.map((q) => q.orderIndex),
         );
         followUp = await this.prisma.interviewSessionQuestion.create({
           data: {
@@ -341,7 +340,7 @@ export class InterviewPrepService {
     // Check if session is complete (all questions answered)
     const refreshedSession = await this.getSession(userId, sessionId);
     const allAnswered = refreshedSession.questions.every(
-      (q) => q.userAnswer !== null
+      (q) => q.userAnswer !== null,
     );
 
     if (allAnswered) {
@@ -370,7 +369,7 @@ export class InterviewPrepService {
     const report = this.reportGenerator.generate(
       session.track,
       session.level,
-      scoredQuestions
+      scoredQuestions,
     );
 
     const totalScore = scoredQuestions.reduce((sum, q) => sum + q.score, 0);
@@ -401,7 +400,7 @@ export class InterviewPrepService {
             difficulty: session.difficulty,
             tags: session.tags,
           },
-          userId
+          userId,
         )
         .catch(() => {});
     }

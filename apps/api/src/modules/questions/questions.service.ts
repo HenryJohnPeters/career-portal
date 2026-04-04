@@ -16,7 +16,7 @@ import { isActivePremium } from "../../common/subscription.util";
 export class QuestionsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiQuestionGenerator: AiQuestionGeneratorService
+    private readonly aiQuestionGenerator: AiQuestionGeneratorService,
   ) {}
 
   async getQuestions(category?: string) {
@@ -38,7 +38,7 @@ export class QuestionsService {
   async answerQuestion(
     userId: string,
     questionId: string,
-    data: { answerText?: string; selectedOptionId?: string; skipped?: boolean }
+    data: { answerText?: string; selectedOptionId?: string; skipped?: boolean },
   ) {
     return this.prisma.questionAnswer.upsert({
       where: { userId_questionId: { userId, questionId } },
@@ -103,7 +103,7 @@ export class QuestionsService {
       difficulty?: string;
       tags?: string[];
       excludeIds?: string[];
-    }
+    },
   ) {
     // Check daily limit for free users
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -113,7 +113,7 @@ export class QuestionsService {
       const used = await this.getDailyUsageCount(userId);
       if (used >= FREE_DAILY_QUESTION_LIMIT) {
         throw new ForbiddenException(
-          `You've reached your daily limit of ${FREE_DAILY_QUESTION_LIMIT} practice questions. Upgrade to Premium for unlimited practice.`
+          `You've reached your daily limit of ${FREE_DAILY_QUESTION_LIMIT} practice questions. Upgrade to Premium for unlimited practice.`,
         );
       }
     }
@@ -212,7 +212,7 @@ export class QuestionsService {
                 difficulty: genDifficulty,
                 tags: normalizedTags ?? [],
               },
-              userId
+              userId,
             );
 
           if (generated) {
@@ -252,7 +252,7 @@ export class QuestionsService {
               difficulty,
               tags: normalizedTags ?? [],
             },
-            userId
+            userId,
           )
           .catch(() => {});
       }
@@ -280,7 +280,7 @@ export class QuestionsService {
   async checkPracticeAnswer(
     questionId: string,
     selectedOptionIndex?: number,
-    selectedOptionIndices?: number[]
+    selectedOptionIndices?: number[],
   ) {
     const question: any = await this.prisma.interviewQuestion.findUnique({
       where: { id: questionId },
@@ -296,7 +296,7 @@ export class QuestionsService {
         (question.correctOptionIndices as number[]) ?? []
       ).sort((a: number, b: number) => a - b);
       const userIndices: number[] = [...(selectedOptionIndices ?? [])].sort(
-        (a: number, b: number) => a - b
+        (a: number, b: number) => a - b,
       );
       const isCorrect =
         correctIndices.length === userIndices.length &&

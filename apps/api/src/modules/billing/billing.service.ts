@@ -12,7 +12,7 @@ export class BillingService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService<EnvConfig, true>
+    private readonly config: ConfigService<EnvConfig, true>,
   ) {
     this.stripe = new Stripe(this.config.get("STRIPE_SECRET_KEY"), {
       apiVersion: "2026-01-28.clover",
@@ -33,7 +33,12 @@ export class BillingService {
   ): Promise<void> {
     try {
       await this.prisma.auditLog.create({
-        data: { userId, action, reason, metadata: metadata as Prisma.InputJsonValue },
+        data: {
+          userId,
+          action,
+          reason,
+          metadata: metadata as Prisma.InputJsonValue,
+        },
       });
     } catch (err) {
       this.logger.error(`AuditLog write failed for ${userId}/${action}`, err);
@@ -117,7 +122,7 @@ export class BillingService {
       },
       // Fix #6: Idempotency key scoped to userId prevents duplicate checkout
       // sessions from concurrent requests racing past the isPremium check above.
-      { idempotencyKey: `checkout-${userId}` }
+      { idempotencyKey: `checkout-${userId}` },
     );
 
     if (!session.url) {
@@ -162,7 +167,7 @@ export class BillingService {
     return this.stripe.webhooks.constructEvent(
       payload,
       signature,
-      this.config.get("STRIPE_WEBHOOK_SECRET")
+      this.config.get("STRIPE_WEBHOOK_SECRET"),
     );
   }
 
@@ -172,7 +177,7 @@ export class BillingService {
     switch (event.type) {
       case "checkout.session.completed":
         await this.onCheckoutCompleted(
-          event.data.object as Stripe.Checkout.Session
+          event.data.object as Stripe.Checkout.Session,
         );
         break;
       case "invoice.payment_succeeded":
@@ -183,12 +188,12 @@ export class BillingService {
         break;
       case "customer.subscription.updated":
         await this.onSubscriptionUpdated(
-          event.data.object as Stripe.Subscription
+          event.data.object as Stripe.Subscription,
         );
         break;
       case "customer.subscription.deleted":
         await this.onSubscriptionDeleted(
-          event.data.object as Stripe.Subscription
+          event.data.object as Stripe.Subscription,
         );
         break;
       default:
@@ -205,9 +210,8 @@ export class BillingService {
       return;
     }
 
-    const subscription = await this.stripe.subscriptions.retrieve(
-      subscriptionId
-    );
+    const subscription =
+      await this.stripe.subscriptions.retrieve(subscriptionId);
 
     const userId = session.metadata?.userId || subscription.metadata?.userId;
     if (!userId) {
@@ -219,7 +223,7 @@ export class BillingService {
     const periodEnd = this.getItemPeriodEnd(subscription);
 
     this.logger.log(
-      `Processing checkout for user ${userId}, subscription ${subscriptionId}, status: ${subscription.status}`
+      `Processing checkout for user ${userId}, subscription ${subscriptionId}, status: ${subscription.status}`,
     );
 
     await this.prisma.user.update({
@@ -244,9 +248,8 @@ export class BillingService {
     const subscriptionId = this.getInvoiceSubscriptionId(invoice);
     if (!subscriptionId) return;
 
-    const subscription = await this.stripe.subscriptions.retrieve(
-      subscriptionId
-    );
+    const subscription =
+      await this.stripe.subscriptions.retrieve(subscriptionId);
 
     const user = await this.prisma.user.findUnique({
       where: { stripeSubscriptionId: subscriptionId },
@@ -263,7 +266,9 @@ export class BillingService {
       },
     });
 
-    await this.writeAuditLog(user.id, "premium.renewed", "invoice_paid", { periodEnd });
+    await this.writeAuditLog(user.id, "premium.renewed", "invoice_paid", {
+      periodEnd,
+    });
     this.logger.log(`Invoice paid — renewed Premium for user ${user.id}`);
   }
 
@@ -276,7 +281,11 @@ export class BillingService {
     });
     if (!user) return;
 
-    await this.writeAuditLog(user.id, "payment.failed", "invoice_payment_failed");
+    await this.writeAuditLog(
+      user.id,
+      "payment.failed",
+      "invoice_payment_failed",
+    );
     this.logger.warn(`Invoice payment failed for user ${user.id}`);
     // Stripe will retry automatically. The subscription status transitions to
     // `past_due` or `unpaid`, which fires `customer.subscription.updated` →
@@ -307,13 +316,18 @@ export class BillingService {
     });
 
     if (user.isPremium && !isActive) {
-      await this.writeAuditLog(user.id, "premium.downgraded", `subscription_${subscription.status}`, {
-        subscriptionId: subscription.id,
-        status: subscription.status,
-      });
+      await this.writeAuditLog(
+        user.id,
+        "premium.downgraded",
+        `subscription_${subscription.status}`,
+        {
+          subscriptionId: subscription.id,
+          status: subscription.status,
+        },
+      );
     }
     this.logger.log(
-      `Subscription updated for user ${user.id} — active: ${isActive}`
+      `Subscription updated for user ${user.id} — active: ${isActive}`,
     );
   }
 
@@ -333,9 +347,14 @@ export class BillingService {
       },
     });
 
-    await this.writeAuditLog(user.id, "premium.cancelled", "subscription_deleted", {
-      subscriptionId: subscription.id,
-    });
+    await this.writeAuditLog(
+      user.id,
+      "premium.cancelled",
+      "subscription_deleted",
+      {
+        subscriptionId: subscription.id,
+      },
+    );
     this.logger.log(`Subscription cancelled — user ${user.id} downgraded`);
   }
 }

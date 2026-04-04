@@ -14,7 +14,7 @@ export class CoverLettersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly aiUsage: AiUsageService
+    private readonly aiUsage: AiUsageService,
   ) {}
 
   async findAll(userId: string) {
@@ -27,14 +27,14 @@ export class CoverLettersService {
 
   async create(
     userId: string,
-    data: { title: string; body?: string; jobId?: string }
+    data: { title: string; body?: string; jobId?: string },
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !isActivePremium(user)) {
       const count = await this.prisma.coverLetter.count({ where: { userId } });
       if (count >= FREE_COVER_LETTER_LIMIT) {
         throw new ForbiddenException(
-          `Free accounts are limited to ${FREE_COVER_LETTER_LIMIT} cover letters. Upgrade to Premium for unlimited cover letters.`
+          `Free accounts are limited to ${FREE_COVER_LETTER_LIMIT} cover letters. Upgrade to Premium for unlimited cover letters.`,
         );
       }
     }
@@ -53,7 +53,7 @@ export class CoverLettersService {
   async update(
     userId: string,
     id: string,
-    data: { title?: string; body?: string; jobId?: string }
+    data: { title?: string; body?: string; jobId?: string },
   ) {
     await this.assertOwner(userId, id);
     return this.prisma.coverLetter.update({
@@ -82,7 +82,7 @@ export class CoverLettersService {
     const canUse = await this.aiUsage.canUseAi(userId);
     if (!canUse) {
       throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 
@@ -93,7 +93,7 @@ export class CoverLettersService {
       letter.body.slice(0, 3000),
       jobTitle,
       companyName,
-      jobDescription
+      jobDescription,
     );
 
     // Record usage only after a successful OpenAI response
@@ -105,7 +105,7 @@ export class CoverLettersService {
   async rewrite(
     userId: string,
     id: string,
-    tone?: "professional" | "friendly"
+    tone?: "professional" | "friendly",
   ) {
     const letter = await this.assertOwner(userId, id);
     const body = letter.body || "";
@@ -121,19 +121,19 @@ export class CoverLettersService {
     const canUse = await this.aiUsage.canUseAi(userId);
     if (!canUse) {
       throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 
     const { jobTitle, companyName } = await this.resolveJobContext(
-      letter.jobId
+      letter.jobId,
     );
 
     const result = await this.aiService.rewriteCoverLetter(
       body.slice(0, 3000),
       selectedTone,
       jobTitle,
-      companyName
+      companyName,
     );
 
     // Record usage only after a successful OpenAI response
@@ -152,7 +152,7 @@ export class CoverLettersService {
       companyUrl?: string;
       jobDescription?: string;
       tone?: "professional" | "friendly";
-    }
+    },
   ) {
     const letter = await this.assertOwner(userId, id);
 
@@ -160,7 +160,7 @@ export class CoverLettersService {
     const canUse = await this.aiUsage.canUseAi(userId);
     if (!canUse) {
       throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 

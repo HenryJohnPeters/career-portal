@@ -52,14 +52,14 @@ export class AiUsageService {
   /**
    * Check whether a user can perform an AI action.
    * Premium users always can; free users are capped.
-   * 
+   *
    * CRITICAL: Checks both isPremium flag AND subscription period end date.
    * Expired subscriptions are treated as free accounts.
    */
   async canUseAi(userId: string): Promise<boolean> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return false;
-    
+
     // Check if premium subscription is active (not expired)
     if (isActivePremium(user)) return true;
 

@@ -19,7 +19,7 @@ export class CvService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly aiService: AiService,
-    private readonly aiUsage: AiUsageService
+    private readonly aiUsage: AiUsageService,
   ) {}
 
   async getVersions(userId: string) {
@@ -37,7 +37,7 @@ export class CvService {
       const count = await this.prisma.cvVersion.count({ where: { userId } });
       if (count >= FREE_CV_LIMIT) {
         throw new ForbiddenException(
-          `Free accounts are limited to ${FREE_CV_LIMIT} CV. Upgrade to Premium for unlimited CVs.`
+          `Free accounts are limited to ${FREE_CV_LIMIT} CV. Upgrade to Premium for unlimited CVs.`,
         );
       }
     }
@@ -80,7 +80,7 @@ export class CvService {
       website?: string;
       linkedin?: string;
       github?: string;
-    }
+    },
   ) {
     const version = await this.assertVersionOwner(userId, id);
 
@@ -92,7 +92,7 @@ export class CvService {
         !(FREE_TEMPLATE_IDS as readonly string[]).includes(data.templateId)
       ) {
         throw new ForbiddenException(
-          "Free accounts can only use the first 5 templates. Upgrade to Premium for all templates."
+          "Free accounts can only use the first 5 templates. Upgrade to Premium for all templates.",
         );
       }
     }
@@ -135,7 +135,7 @@ export class CvService {
     versionId: string,
     title: string,
     content?: string,
-    sectionType?: string
+    sectionType?: string,
   ) {
     await this.assertVersionOwner(userId, versionId);
     const maxOrder = await this.prisma.cvSection.aggregate({
@@ -158,7 +158,7 @@ export class CvService {
   async updateSection(
     userId: string,
     sectionId: string,
-    data: { title?: string; content?: string; sectionType?: string }
+    data: { title?: string; content?: string; sectionType?: string },
   ) {
     const section = await this.assertSectionOwner(userId, sectionId);
     return this.prisma.cvSection.update({ where: { id: sectionId }, data });
@@ -172,7 +172,7 @@ export class CvService {
   async moveSection(
     userId: string,
     sectionId: string,
-    direction: "up" | "down"
+    direction: "up" | "down",
   ) {
     const section = await this.assertSectionOwner(userId, sectionId);
     const sections = await this.prisma.cvSection.findMany({
@@ -209,7 +209,7 @@ export class CvService {
       const count = await this.prisma.cvVersion.count({ where: { userId } });
       if (count >= FREE_CV_LIMIT) {
         throw new ForbiddenException(
-          `Free accounts are limited to ${FREE_CV_LIMIT} CV. Upgrade to Premium for unlimited CVs.`
+          `Free accounts are limited to ${FREE_CV_LIMIT} CV. Upgrade to Premium for unlimited CVs.`,
         );
       }
     }
@@ -261,7 +261,7 @@ export class CvService {
   async reorderSections(
     userId: string,
     versionId: string,
-    sectionIds: string[]
+    sectionIds: string[],
   ) {
     await this.assertVersionOwner(userId, versionId);
     const sections = await this.prisma.cvSection.findMany({
@@ -281,8 +281,8 @@ export class CvService {
         this.prisma.cvSection.update({
           where: { id },
           data: { order: index },
-        })
-      )
+        }),
+      ),
     );
 
     return this.prisma.cvSection.findMany({
@@ -294,7 +294,7 @@ export class CvService {
   async aiGenerateSection(
     userId: string,
     sectionId: string,
-    dto: { action: AiCvAction; jobTitle?: string; jobDescription?: string }
+    dto: { action: AiCvAction; jobTitle?: string; jobDescription?: string },
   ) {
     const section = await this.assertSectionOwner(userId, sectionId);
 
@@ -302,7 +302,7 @@ export class CvService {
     const canUse = await this.aiUsage.canUseAi(userId);
     if (!canUse) {
       throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 
@@ -343,13 +343,13 @@ export class CvService {
 
   async aiGenerateFullCv(
     userId: string,
-    dto: { rawText: string; jobTitle?: string; jobDescription?: string }
+    dto: { rawText: string; jobTitle?: string; jobDescription?: string },
   ): Promise<AiFullCvResult> {
     // Enforce monthly AI limit
     const canUse = await this.aiUsage.canUseAi(userId);
     if (!canUse) {
       throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 

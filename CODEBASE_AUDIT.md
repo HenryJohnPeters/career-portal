@@ -25,6 +25,7 @@ libs/
 ### Module Boundaries
 
 **API Modules** (all under `apps/api/src/modules/`):
+
 - **auth** — Supabase JWT verification, user find-or-create, GET /auth/me
 - **ai** — OpenAI integration (CV, cover letter generation), premium.guard.ts, usage tracking
 - **cv** — CV version CRUD, section management, PDF generation, AI rewriting
@@ -52,6 +53,7 @@ PrismaService (data persistence)
 ```
 
 **Frontend Data Flow:**
+
 ```
 React Components
   ↓
@@ -97,6 +99,7 @@ All endpoints follow REST principles with consistent response format:
 
 All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` header.  
 **Guard Chain:**
+
 1. `AuthGuard` (verifies token, sets `request.userId`)
 2. Optional `PremiumGuard` (checks AI usage cap)
 3. Endpoint handler with `@CurrentUserId()` decorator
@@ -104,10 +107,12 @@ All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` he
 ### Endpoint Overview by Module
 
 #### **Auth** (`/auth`)
+
 - `GET /auth/me` — Current user profile
 - `GET /auth/ai-usage` — Monthly AI usage status
 
 #### **CV** (`/cv`)
+
 - `GET /cv/versions` — List all CV versions
 - `POST /cv/versions` — Create new CV (enforces `FREE_CV_LIMIT=1` for free users)
 - `PATCH /cv/versions/:id` — Update CV metadata + contact fields
@@ -123,6 +128,7 @@ All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` he
 - `GET /cv/pdf/:versionId` — Render PDF
 
 #### **Cover Letters** (`/cover-letters`)
+
 - `GET /` — List all cover letters
 - `POST /` — Create (enforces `FREE_COVER_LETTER_LIMIT=3` for free users)
 - `PATCH /:id` — Update
@@ -132,12 +138,14 @@ All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` he
 - `POST /:id/ai-generate` [PremiumGuard] — Generate from job description
 
 #### **Jobs Tracker** (`/jobs`)
+
 - `GET /` — All jobs for user
 - `POST /` — Create job entry
 - `PATCH /:id` — Update status (applied/rejected/offer)
 - `DELETE /:id`
 
 #### **Interview Prep** (`/interview-prep`)
+
 - `GET /options` — Available interviewer personas, difficulty levels, tech stacks
 - `GET /sessions` — All sessions for user
 - `POST /sessions` — Create session with filters
@@ -148,6 +156,7 @@ All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` he
 - `POST /admin/background-fill` [ADMIN_API_KEY] — Background task to pre-generate questions
 
 #### **Questions / Practice** (`/questions`)
+
 - `GET /` — All available practice questions (no auth needed, but checks daily limits on next)
 - `GET /answers` — User's answers
 - `PUT /:id/answer` — Save answer
@@ -156,6 +165,7 @@ All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` he
 - `POST /practice/check` [Throttle 2/s, 60/min] — Validate answer locally (no auth)
 
 #### **Technical Tests** (`/technical-tests`)
+
 - `GET /` — All tests for user
 - `POST /` [Premium only] — Create test (generates scenario)
 - `GET /:id` — Get test
@@ -164,6 +174,7 @@ All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` he
 - `DELETE /:id`
 
 #### **Billing** (`/billing`)
+
 - `POST /checkout` — Create Stripe checkout session
 - `POST /portal` — Create Stripe customer portal session
 - `GET /status` — Subscription status (isPremium, periodEnd)
@@ -172,6 +183,7 @@ All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` he
 ### Input Validation
 
 **DTOs use class-validator:**
+
 - [cv/cv.dto.ts](apps/api/src/modules/cv/cv.dto.ts) — `IsString`, `MaxLength`, `IsUrl` (HTTPS only for photoUrl)
 - [cover-letters/cover-letters.dto.ts](apps/api/src/modules/cover-letters/cover-letters.dto.ts) — Similar
 - Global `ValidationPipe` with `whitelist: true, forbidNonWhitelisted: true`
@@ -185,10 +197,12 @@ All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` he
 ### React Query Setup
 
 **Query Keys Factory** ([query-keys.ts](libs/web/data-access/src/query-keys.ts)):
+
 - Centralized query key definitions (prevents key mismatches)
 - Scoped keys (e.g., `cvSections: (versionId) => ["cv-sections", versionId]`)
 
 **Custom Hooks** ([hooks.ts](libs/web/data-access/src/hooks.ts)):
+
 - `useMe()` — Fetch current user (controlled by AuthProvider)
 - `useCvVersions()`, `useCreateCvVersion()`, `useUpdateCvVersion()`, etc.
 - `useInterviewSessions()`, `useCreateInterviewSession()`
@@ -197,6 +211,7 @@ All endpoints (except webhook) require `Authorization: Bearer <supabase_jwt>` he
 - Pattern: mutations invalidate related queries on success
 
 **API Client** ([api-client.ts](libs/web/data-access/src/api-client.ts)):
+
 ```typescript
 const api = {
   get: <T>(path: string) => request<T>(path),
@@ -204,12 +219,14 @@ const api = {
   patch, put, delete (same pattern)
 }
 ```
+
 - Always includes Bearer token from `supabase.auth.getSession()`
 - Throws on non-2xx status
 
 ### Auth Flow
 
 [AuthProvider](apps/web/src/lib/auth.tsx):
+
 1. On mount, wait for Supabase session restore
 2. If session exists, fetch user from `/auth/me`
 3. On auth state change (login/logout/session recovery):
@@ -229,6 +246,7 @@ const api = {
 ### Loading/Error/Empty States
 
 **Patterns Found:**
+
 - ❌ **Inconsistent:** Some components show Spinner, others show skeleton, some nothing
 - Example: [RawTextCvPanel.tsx](apps/web/src/features/cv-builder/components/RawTextCvPanel.tsx#L361) has `{/* Loading state */}` comment but minimal actual UX
 - Example: [BillingPage.tsx](apps/web/src/pages/BillingPage.tsx#L50) shows `<Spinner />` before content loads
@@ -243,6 +261,7 @@ const api = {
 ### Current Model: Freemium with AI-powered Premium
 
 **Free Tier Limits** ([constants.ts](apps/api/src/common/constants.ts)):
+
 - CV versions: `1` (free), unlimited (premium)
 - Cover letters: `3` (free), unlimited (premium)
 - Practice questions: `10` per day (free), unlimited (premium)
@@ -255,6 +274,7 @@ const api = {
 #### **1. AI Usage Gating (Monthly Cap)**
 
 [PremiumGuard](apps/api/src/modules/ai/premium.guard.ts):
+
 ```typescript
 async canActivate(context) {
   const allowed = await this.aiUsage.canUseAi(userId);
@@ -264,13 +284,15 @@ async canActivate(context) {
 ```
 
 Applied to:
-- `POST /cv/versions/:id/ai-generate-full` 
+
+- `POST /cv/versions/:id/ai-generate-full`
 - `POST /cover-letters/:id/suggest` (also checks within service)
 - `POST /cover-letters/:id/rewrite` (also checks within service)
 - `POST /cover-letters/:id/ai-generate`
 - `POST /sections/:id/ai-generate`
 
 **Tracking:** [AiUsageService.getMonthlyUsageCount()](apps/api/src/modules/ai/ai-usage.service.ts)
+
 - Counts records in `AiUsage` table with `createdAt >= monthStart`
 - Records usage only AFTER successful OpenAI response
 - Not reset monthly — manual reset needed or calendar-based logic
@@ -278,16 +300,19 @@ Applied to:
 #### **2. CV Version Limit (Hard Cap)**
 
 [CvService.createVersion()](apps/api/src/modules/cv/cv.service.ts#L35):
+
 ```typescript
 if (!user?.isPremium) {
   const count = await this.prisma.cvVersion.count({ where: { userId } });
-  if (count >= FREE_CV_LIMIT) throw ForbiddenException("Upgrade for unlimited CVs");
+  if (count >= FREE_CV_LIMIT)
+    throw ForbiddenException("Upgrade for unlimited CVs");
 }
 ```
 
 #### **3. Cover Letter Limit (Hard Cap)**
 
 [CoverLettersService.create()](apps/api/src/modules/cover-letters/cover-letters.service.ts#L32):
+
 ```typescript
 if (!user?.isPremium) {
   const count = await this.prisma.coverLetter.count({ where: { userId } });
@@ -298,6 +323,7 @@ if (!user?.isPremium) {
 #### **4. Practice Questions Daily Limit**
 
 [QuestionsService.getRandomPracticeQuestion()](apps/api/src/modules/questions/questions.service.ts#L109):
+
 ```typescript
 if (!isPremium) {
   const used = await this.getDailyUsageCount(userId);
@@ -308,6 +334,7 @@ if (!isPremium) {
 #### **5. Technical Tests (Premium-only)**
 
 [TechnicalTestsService.createTest()](apps/api/src/modules/technical-tests/technical-tests.service.ts#L41):
+
 ```typescript
 if (!user?.isPremium) {
   throw ForbiddenException("Technical tests are Premium-only");
@@ -317,9 +344,12 @@ if (!user?.isPremium) {
 #### **6. Template Restrictions (Free users)**
 
 [CvService.updateVersion()](apps/api/src/modules/cv/cv.service.ts#L92):
+
 ```typescript
 if (!user?.isPremium && !FREE_TEMPLATE_IDS.includes(data.templateId)) {
-  throw ForbiddenException("Free users can only use 5 templates. Upgrade for all.");
+  throw ForbiddenException(
+    "Free users can only use 5 templates. Upgrade for all.",
+  );
 }
 ```
 
@@ -336,6 +366,7 @@ if (!user?.isPremium && !FREE_TEMPLATE_IDS.includes(data.templateId)) {
 3. **Portal:** Creates customer portal link for self-service management
 
 **⚠️ Issues Found:**
+
 - No downgrade logic on failed payment or subscription cancellation
 - `isPremium` flag not automatically reset when subscription ends
 - Could allow users to retain Premium features after expiry
@@ -347,27 +378,29 @@ if (!user?.isPremium && !FREE_TEMPLATE_IDS.includes(data.templateId)) {
 ### OpenAI Integration
 
 [openai.provider.ts](apps/api/src/modules/ai/openai.provider.ts):
+
 ```typescript
 const openai = new OpenAI({ apiKey: config.get("OPENAI_API_KEY") });
 ```
+
 - Model: `gpt-4o` (hardcoded in all calls)
 - No fallback or error handling for rate limits
 
 ### AI Features List
 
-| Feature | Where | Triggered By | Free/Premium | Usage Logged | Model |
-|---------|-------|--------------|-------------|-------------|-------|
-| **CV Section Generation** | [ai.service.ts](apps/api/src/modules/ai/ai.service.ts) | UI: AiSectionAssist | Premium | Yes | gpt-4o |
-| **CV Section Rewrite (improve)** | → POST `/sections/:id/ai-generate` | UI button | Premium | Yes | gpt-4o |
-| **CV Section Tailor** | → POST `/sections/:id/ai-generate` | Tailor for role | Premium | Yes | gpt-4o |
-| **Full CV from Raw Text** | → POST `/versions/:id/ai-generate-full` | Paste brain-dump | Premium | Yes | gpt-4o |
-| **Cover Letter Generation** | [ai.service.ts](apps/api/src/modules/ai/ai.service.ts) | POST `/cover-letters/:id/ai-generate` | Premium | Yes | gpt-4o |
-| **Cover Letter Rewrite** | → POST `/cover-letters/:id/rewrite` | Improve existing | Premium | Yes | gpt-4o |
-| **Cover Letter Tailor** | → POST `/cover-letters/:id/ai-generate` | Tailor for job | Premium | Yes | gpt-4o |
-| **Cover Letter Suggestions** | → POST `/cover-letters/:id/suggest` | Smart tips | Free (5/mo limit) | Yes | gpt-4o |
-| **Question Generation (Interview)** | [ai-question-generator.service.ts](apps/api/src/modules/ai/ai-question-generator.service.ts) | On-demand + background | Premium | Yes | gpt-4o |
-| **Scenario Generation (Tech Tests)** | [ai-scenario-generator.service.ts](apps/api/src/modules/ai/ai-scenario-generator.service.ts) | POST `/technical-tests` | Premium | Yes | gpt-4o |
-| **Interview Scoring** | [interview-prep.service.ts](apps/api/src/modules/interview-prep/interview-prep.service.ts) | POST `/sessions/:id/questions/:qId/answer` | Free | No | (rule-based) |
+| Feature                              | Where                                                                                        | Triggered By                               | Free/Premium      | Usage Logged | Model        |
+| ------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------- | ------------ | ------------ |
+| **CV Section Generation**            | [ai.service.ts](apps/api/src/modules/ai/ai.service.ts)                                       | UI: AiSectionAssist                        | Premium           | Yes          | gpt-4o       |
+| **CV Section Rewrite (improve)**     | → POST `/sections/:id/ai-generate`                                                           | UI button                                  | Premium           | Yes          | gpt-4o       |
+| **CV Section Tailor**                | → POST `/sections/:id/ai-generate`                                                           | Tailor for role                            | Premium           | Yes          | gpt-4o       |
+| **Full CV from Raw Text**            | → POST `/versions/:id/ai-generate-full`                                                      | Paste brain-dump                           | Premium           | Yes          | gpt-4o       |
+| **Cover Letter Generation**          | [ai.service.ts](apps/api/src/modules/ai/ai.service.ts)                                       | POST `/cover-letters/:id/ai-generate`      | Premium           | Yes          | gpt-4o       |
+| **Cover Letter Rewrite**             | → POST `/cover-letters/:id/rewrite`                                                          | Improve existing                           | Premium           | Yes          | gpt-4o       |
+| **Cover Letter Tailor**              | → POST `/cover-letters/:id/ai-generate`                                                      | Tailor for job                             | Premium           | Yes          | gpt-4o       |
+| **Cover Letter Suggestions**         | → POST `/cover-letters/:id/suggest`                                                          | Smart tips                                 | Free (5/mo limit) | Yes          | gpt-4o       |
+| **Question Generation (Interview)**  | [ai-question-generator.service.ts](apps/api/src/modules/ai/ai-question-generator.service.ts) | On-demand + background                     | Premium           | Yes          | gpt-4o       |
+| **Scenario Generation (Tech Tests)** | [ai-scenario-generator.service.ts](apps/api/src/modules/ai/ai-scenario-generator.service.ts) | POST `/technical-tests`                    | Premium           | Yes          | gpt-4o       |
+| **Interview Scoring**                | [interview-prep.service.ts](apps/api/src/modules/interview-prep/interview-prep.service.ts)   | POST `/sessions/:id/questions/:qId/answer` | Free              | No           | (rule-based) |
 
 ### Detailed Feature Breakdown
 
@@ -376,6 +409,7 @@ const openai = new OpenAI({ apiKey: config.get("OPENAI_API_KEY") });
 [AiService.generateCvSectionContent()](apps/api/src/modules/ai/ai.service.ts):
 
 **Prompts:**
+
 - **Generate:** "Create professional CV content for section X. Include skills from notes AND job description, but don't invent."
 - **Improve:** "Rewrite section with stronger action verbs and quantification."
 - **Tailor:** "Rewrite for role Y, KEEP all user content, add relevant skills from job description."
@@ -387,6 +421,7 @@ const openai = new OpenAI({ apiKey: config.get("OPENAI_API_KEY") });
 #### **2. Full CV from Raw Text**
 
 [AiService.generateFullCvFromRawText()](apps/api/src/modules/ai/ai.service.ts):
+
 - Accepts `rawText` (brain-dump), optional `jobTitle`/`jobDescription`
 - Returns struct: `{ name, email, phone, location, sections: [...] }`
 - Action type: "cv-full"
@@ -394,6 +429,7 @@ const openai = new OpenAI({ apiKey: config.get("OPENAI_API_KEY") });
 #### **3. Cover Letter Suite**
 
 [AiService.generateCoverLetterContent()](apps/api/src/modules/ai/ai.service.ts):
+
 - Similar 3 modes: generate, improve, tailor
 - Accepts job context: `jobTitle`, `jobDescription`, `companyName`, `companyUrl`
 - Tone: "professional" or "friendly"
@@ -406,24 +442,28 @@ const openai = new OpenAI({ apiKey: config.get("OPENAI_API_KEY") });
 [AiQuestionGeneratorService](apps/api/src/modules/ai/ai-question-generator.service.ts):
 
 **Pool Management:**
+
 - For each (track, level, difficulty, tags) combo:
   - Check if pool has >= 5 questions
   - If < 5, generate 8 new questions
   - Log generation in `QuestionGenerationLog`
 
 **Cooldowns & Caps:**
+
 - 24-hour cooldown per filter hash (prevents bill-spiking)
 - 5-minute urgent cooldown for urgent refills
 - Max 2 user-triggered generations per day per user (prevents abuse)
 - Background fill: up to 30 questions in a batch (budget)
 
 **Generation Flow:**
+
 1. `POST /interview-prep/sessions` (user creates session)
 2. → `ensurePoolForFilters()` called for session filters
 3. → If pool size < 5, call OpenAI to generate questions
 4. → Store as `InterviewQuestion` with `source: "ai-generated"`
 
 **Logging:**
+
 - `QuestionGenerationLog`: filterHash, combo, count, userId, timestamp
 - Enables abuse detection & cost tracking
 
@@ -432,6 +472,7 @@ const openai = new OpenAI({ apiKey: config.get("OPENAI_API_KEY") });
 [AiScenarioGeneratorService](apps/api/src/modules/ai/ai-scenario-generator.service.ts):
 
 **Flow:**
+
 1. Try hardcoded template engine first (deterministic)
 2. If no tag match OR 25% chance: use AI
 3. Generate scenario with: `brief`, `requirements`, `criteria`, `estimatedTime`, `tags`
@@ -441,6 +482,7 @@ const openai = new OpenAI({ apiKey: config.get("OPENAI_API_KEY") });
 #### **6. Interview Session Scoring (Rule-based, not AI)**
 
 [RuleBasedEvaluator](apps/api/src/modules/interview-prep/engine):
+
 - Matches user answer against rubric (expected points, red flags)
 - Scores out of 10 per question
 - Returns feedback (points hit, missed, red flags, suggestions)
@@ -449,6 +491,7 @@ const openai = new OpenAI({ apiKey: config.get("OPENAI_API_KEY") });
 ### AI Feature Frontend Integration
 
 [AiSectionAssist.tsx](apps/web/src/features/cv-builder/components/AiSectionAssist.tsx):
+
 ```typescript
 const [action, setAction] = useState<AiAction>("generate" | "improve" | "tailor");
 const [result, setResult] = useState<string | null>(null);
@@ -465,6 +508,7 @@ Pattern: UI shows loading spinner, error message, result preview with apply/disc
 ### Usage Tracking
 
 [AiUsageService.recordUsage()](apps/api/src/modules/ai/ai-usage.service.ts):
+
 ```typescript
 await this.prisma.aiUsage.create({
   data: { userId, action: "cv-section" | "cover-letter" | ... }
@@ -480,12 +524,14 @@ await this.prisma.aiUsage.create({
 ### Free vs Premium Breakdown
 
 **TRULY FREE (no premium version):**
+
 - ✅ Job Tracker (Kanban board)
 - ✅ Basic Practice Questions (10/day limit)
 - ✅ Interview Prep (mock interviews with rule-based scoring)
 - ✅ Question Suggestions (cover letter only, 5/month limit)
 
 **PREMIUM-GATED:**
+
 - ❌ CV Builder: Can create 1 version; Premium = unlimited + AI rewriting + all templates
 - ❌ Cover Letters: Can create 3 letters; Premium = unlimited + AI generation + better context
 - ❌ Technical Tests: Premium-only ($$$)
@@ -526,6 +572,7 @@ await this.prisma.aiUsage.create({
 ### 1. Loose Typing (Multiple `any` casts)
 
 **Found:**
+
 - [questions.service.ts:181](apps/api/src/modules/questions/questions.service.ts#L181): `where as any` (4 instances)
 - [interview-prep.service.ts:155](apps/api/src/modules/interview-prep/interview-prep.service.ts#L155): `where as any`
 - [technical-tests.service.ts:88](apps/api/src/modules/technical-tests/technical-tests.service.ts#L88): `scenario as any`
@@ -539,6 +586,7 @@ await this.prisma.aiUsage.create({
 ### 2. Console.log in Production
 
 **Found:**
+
 - [cv.service.ts:86, 118](apps/api/src/modules/cv/cv.service.ts#L86)
 - [pdf.service.ts:134, 135, 147](apps/api/src/modules/pdf/pdf.service.ts#L134)
 
@@ -549,6 +597,7 @@ await this.prisma.aiUsage.create({
 ### 3. Error Handling Gaps
 
 **Issues:**
+
 - [BillingService.onInvoiceFailed()](apps/api/src/modules/billing/billing.service.ts): No-op (should set `isPremium=false`)
 - [BillingService.onSubscriptionDeleted()](apps/api/src/modules/billing/billing.service.ts): No-op (should set `isPremium=false`)
 - OpenAI API errors: No retry logic, no rate limit awareness
@@ -560,6 +609,7 @@ await this.prisma.aiUsage.create({
 **Result:** No .spec.ts or .test.ts files detected
 
 **Risk:**
+
 - Premium gating logic untested (could leak features)
 - AI prompt changes untested (could cause hallucinations)
 - Webhook handlers untested (could crash on unexpected Stripe events)
@@ -567,11 +617,13 @@ await this.prisma.aiUsage.create({
 ### 5. Commented-Out Code & TODOs
 
 **Not found extensively** (good), but:
+
 - [cv.service.ts](apps/api/src/modules/cv/cv.service.ts): Some state management logic could be cleaner
 
 ### 6. Hardcoded Values
 
 **Found:**
+
 - `gpt-4o` hardcoded in all AI service calls (no fallback, no config)
 - Stripe API version hardcoded: `apiVersion: "2026-01-28.clover"`
 - Interview persona names hardcoded in map (alex, riley, morgan, etc.)
@@ -582,6 +634,7 @@ await this.prisma.aiUsage.create({
 ### 7. Inconsistent Error Messages
 
 **Example:**
+
 - Some errors: "You've reached your free monthly limit..."
 - Others: "Free accounts are limited to..."
 - Others: "Upgrade to Premium for..."
@@ -595,11 +648,13 @@ await this.prisma.aiUsage.create({
 ### Strengths
 
 ✅ **Type Safety:**
+
 - Shared `@careerportal/shared/types` package with 39 exported interfaces
 - All API responses wrapped in `ApiResponse<T>`
 - DTOs with class-validator decorators
 
 ✅ **Validation:**
+
 - Global ValidationPipe with `whitelist: true, forbidNonWhitelisted: true`
 - URL validation: `@IsUrl({ protocols: ["https"] })` for photoUrl
 - Field length limits: `@MaxLength(200)` for name, email, etc.
@@ -607,16 +662,19 @@ await this.prisma.aiUsage.create({
 ### Gaps
 
 ❌ **Missing Validation:**
+
 - CV section content: No max length validation (could store 100MB string)
 - Cover letter body: No max length validation
 - Job description (when passed to AI): No max length validation
 - Tags on technical tests: No validation (could be SQL injection-like)
 
 ❌ **Loose Types:**
+
 - `AiQuestionGeneratorService.countTagOverlap(scenario: any)` — should type scenario
 - `ThemeConfig` stored as JSON, no schema validation on read
 
 ❌ **Client-side Only:**
+
 - React Hook Form validates form inputs, but no server-side re-validation
 - Example: File upload (not used currently), but if added, could bypass client validation
 
@@ -627,14 +685,17 @@ await this.prisma.aiUsage.create({
 ### Consistent Patterns
 
 ✅ **Color/Theme:**
+
 - Tailwind CSS with custom design tokens (primary-600, text-primary, bg-elevated, etc.)
 - Dark mode variables (e.g., `dark:border-emerald-800/60`)
 
 ✅ **Icons:**
+
 - lucide-react for all icons (Sparkles, Wand2, Crown, Zap, Loader2, etc.)
 - Consistent sizing (h-3.5 w-3.5 for small, h-5 w-5 for medium)
 
 ✅ **Button States:**
+
 - Active: `active:scale-95` (press feedback)
 - Disabled: opacity handled by @disabled attributes
 - Loading: Show Loader2 icon
@@ -642,22 +703,26 @@ await this.prisma.aiUsage.create({
 ### Inconsistent Patterns
 
 ❌ **Loading States:**
+
 - BillingPage: Shows full `<Spinner />` before loading status
 - CvBuilder: Some components don't show loading spinner
 - AiSectionAssist: Shows `Loader2` icon inline (good)
 - RawTextCvPanel: Comment says `{/* Loading state */}` but minimal UX
 
 ❌ **Error States:**
+
 - AiSectionAssist: Shows error string in red text
 - Some endpoints: Return 409 Conflict, others 403 Forbidden for premium checks
 - UX: Users see technical error messages ("You've reached your monthly limit...") instead of actions
 
 ❌ **Empty States:**
+
 - CV versions: Shows "No CV versions yet" with create button (good)
 - Practice questions: Unclear if "no questions match filters" vs "pool exhausted"
 - Interview sessions: Unclear state transitions
 
 ❌ **Form Feedback:**
+
 - CV section editor: No unsaved changes indicator
 - Job tracker: No success toast after adding job
 - Cover letters: "Suggestions" feature returns array of strings with no context
@@ -676,12 +741,14 @@ await this.prisma.aiUsage.create({
 ### Authentication & Tokens
 
 ✅ **Good:**
+
 - Supabase handles OAuth/email/password (offloaded from this codebase)
 - JWT verification via `jwksRsa` (Supabase JWKS endpoint)
 - Support for both HS256 (legacy) and ES256 (JWKS) algorithms
 - Token verified on every request via AuthGuard
 
 ❌ **Concerns:**
+
 - Token stored in browser's sessionStorage (Supabase default)
 - No CSRF protection (relies on SameSite=Strict cookies)
 - No rate limiting on `/auth/me` (but Throttle middleware defaults to 3/s)
@@ -689,11 +756,13 @@ await this.prisma.aiUsage.create({
 ### Authorization
 
 ✅ **Good:**
+
 - All endpoints (except public landing page) require AuthGuard
 - PremiumGuard checks `isPremium` flag for premium features
 - Webhook endpoint verified via Stripe signature (HMAC)
 
 ❌ **Concerns:**
+
 - `ADMIN_API_KEY` exists in env for `/admin/background-fill` but no validation in code (check needed)
 - No role-based access control (RBAC) — only binary premium check
 - No audit logging of sensitive actions (subscription purchase, data export)
@@ -701,11 +770,13 @@ await this.prisma.aiUsage.create({
 ### Data Protection
 
 ✅ **Good:**
+
 - CORS configured with allowlist (only specific origins)
 - Helmet.js for security headers
 - Input validation with `forbidNonWhitelisted: true`
 
 ❌ **Concerns:**
+
 - No encryption at rest (PostgreSQL default)
 - User data (CVs, cover letters) stored as plain text
 - AI prompts + responses not logged (good for privacy, bad for debugging)
@@ -714,12 +785,14 @@ await this.prisma.aiUsage.create({
 ### API Exposure
 
 ✅ **Good:**
+
 - Swagger docs disabled in production
 - `GET /questions/practice/check` is unauthenticated (stateless), but why?
   - Allows checking answers without logging in
   - Could be feature (share quiz links) or oversight
 
 ❌ **Concerns:**
+
 - `GET /questions` returns full question bank unauthenticated
   - Could be scraped for data
   - Daily limit only enforced on `POST /practice/next`, not on read
@@ -727,11 +800,13 @@ await this.prisma.aiUsage.create({
 ### Secret Management
 
 ✅ **Good:**
+
 - .env.example provided (no real secrets)
 - Railway/Docker configs don't embed secrets
 - Environment variables validated via Zod schema
 
 ❌ **Concerns:**
+
 - OpenAI API key never logged (good), but also no rate limiting locally
 - Stripe webhook secret never logged (good)
 - No secret rotation mechanism (would need manual env update + redeploy)
@@ -739,11 +814,13 @@ await this.prisma.aiUsage.create({
 ### XSS / Injection Risks
 
 ✅ **Good:**
+
 - React escapes JSX by default (XSS protected)
 - Prisma parameterized queries (SQL injection protected)
 - Input validation on DTOs
 
 ❌ **Concerns:**
+
 - CV section content rendered as HTML in preview (render-cv-html.ts)
   - Could allow user to inject `<script>` tags
   - Should use `dangerouslySetInnerHTML` with DOMPurify or similar
@@ -778,7 +855,6 @@ InterviewQuestion & InterviewSessionQuestion (1:many, reusable bank)
 1. **Unused Fields:**
    - `User.supabaseId` — Could be indexed uniquely (already is)
    - `CvVersion.themeConfig` — Stored as JSON, never queried (fine for schema flexibility)
-   
 2. **Denormalization Opportunities:**
    - `InterviewSession.totalScore` — Computed from session questions, stored for query perf (good)
    - `AiUsage.id` — Could be removed if userId+createdAt is compound key (but id allows easy deletion)
@@ -832,13 +908,15 @@ enum SectionType {
 Located in [apps/api/src/common/env.config.ts](apps/api/src/common/env.config.ts):
 
 **Required:**
+
 - `DATABASE_URL` — PostgreSQL connection string
 - `OPENAI_API_KEY` — OpenAI API access
-- `STRIPE_SECRET_KEY` — Stripe secret key (sk_live_*)
+- `STRIPE_SECRET_KEY` — Stripe secret key (sk*live*\*)
 - `STRIPE_PRICE_ID` — Stripe product price ID
 - `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing key
 
 **Optional (with defaults):**
+
 - `SUPABASE_URL` — Supabase project URL (optional for auth)
 - `SUPABASE_JWT_SECRET` — Local JWT secret (optional for HS256)
 - `CLIENT_URL` — Frontend base URL (default: http://localhost:4200)
@@ -849,22 +927,26 @@ Located in [apps/api/src/common/env.config.ts](apps/api/src/common/env.config.ts
 ### Validation
 
 ✅ **Good:**
+
 - Zod schema validation on startup
 - Helpful error messages if validation fails
 - Type inference from schema: `export type EnvConfig = z.infer<typeof envSchema>`
 
 ❌ **Concerns:**
+
 - No environment loading before schema validation (would crash if .env missing)
 - `ADMIN_API_KEY` optional but used in endpoint — should either require it or make endpoint scheduled task
 
 ### Secrets Exposure Risk
 
 ✅ **Good:**
+
 - Only .env.example committed (no real secrets in repo)
 - .env in .gitignore (likely)
 - Docker secrets not hardcoded (Railway passes via env)
 
 ❌ **Concerns:**
+
 - Node process env vars visible to any spawned child process
 - Playwright subprocess could expose OPENAI_API_KEY in error logs
 
@@ -877,6 +959,7 @@ Located in [apps/api/src/common/env.config.ts](apps/api/src/common/env.config.ts
 Search for `*.test.ts`, `*.spec.ts` returned no results.
 
 **Impact:**
+
 - Premium gating logic untested (could leak)
 - AI prompt changes untested (could hallucinate)
 - Webhook handlers untested (Stripe API changes could break)
@@ -884,6 +967,7 @@ Search for `*.test.ts`, `*.spec.ts` returned no results.
 - PrismaService untested (DB migrations not validated)
 
 **Recommendation:** Add at minimum:
+
 1. Unit tests for premium checks (PremiumGuard, AI usage counting)
 2. Integration tests for webhook handlers
 3. E2E tests for checkout flow
@@ -932,7 +1016,7 @@ Search for `*.test.ts`, `*.spec.ts` returned no results.
 ✅ **AI feature parity** across CV, cover letters, interview prep, and technical tests  
 ✅ **Proper auth flow** via Supabase + local user sync  
 ✅ **Type-safe data access** with React Query + Zod  
-✅ **Responsive UI** with consistent Tailwind styling  
+✅ **Responsive UI** with consistent Tailwind styling
 
 ### Critical Issues
 
@@ -940,7 +1024,7 @@ Search for `*.test.ts`, `*.spec.ts` returned no results.
 🔴 **No period-end validation** — Premium features not disabled when subscription expires  
 🔴 **No tests** — Premium logic and webhooks untested  
 🔴 **Hardcoded AI model** — No fallback if gpt-4o becomes unavailable  
-🔴 **Loose typing (`any` casts)** — Prisma queries not type-safe  
+🔴 **Loose typing (`any` casts)** — Prisma queries not type-safe
 
 ### Medium Issues
 
@@ -949,7 +1033,7 @@ Search for `*.test.ts`, `*.spec.ts` returned no results.
 🟡 **No XSS sanitization** in PDF rendering or AI-generated content rendering  
 🟡 **Weak validation** on large text fields (CV sections, cover letters)  
 🟡 **No rate limiting on data reads** (GET /questions could be scraped)  
-🟡 **No audit logging** for sensitive actions  
+🟡 **No audit logging** for sensitive actions
 
 ### Nice-to-Have Improvements
 
@@ -957,7 +1041,7 @@ Search for `*.test.ts`, `*.spec.ts` returned no results.
 🟢 **Skeleton loaders** while data loads  
 🟢 **Confirmation dialogs** for destructive actions  
 🟢 **Accessibility** (aria-labels, keyboard navigation)  
-🟢 **E2E tests** using Playwright or Cypress  
+🟢 **E2E tests** using Playwright or Cypress
 
 ---
 

@@ -27,7 +27,7 @@ export class PremiumGuard implements CanActivate {
     const allowed = await this.aiUsage.canUseAi(userId);
     if (!allowed) {
       throw new ForbiddenException(
-        `You've reached your free monthly limit of ${FREE_TIER_MONTHLY_AI_LIMIT} AI uses. Upgrade to Premium for unlimited AI-powered tools.`
+        `You've reached your free monthly limit of ${FREE_TIER_MONTHLY_AI_LIMIT} AI uses. Upgrade to Premium for unlimited AI-powered tools.`,
       );
     }
     return true;
