@@ -11,11 +11,11 @@ app.use((req, res, next) => {
   res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   res.setHeader(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=()"
+    "camera=(), microphone=(), geolocation=(), payment=()",
   );
   res.setHeader(
     "Strict-Transport-Security",
-    "max-age=63072000; includeSubDomains; preload"
+    "max-age=63072000; includeSubDomains; preload",
   );
   res.setHeader(
     "Content-Security-Policy",
@@ -29,7 +29,7 @@ app.use((req, res, next) => {
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-    ].join("; ")
+    ].join("; "),
   );
   next();
 });
@@ -40,7 +40,7 @@ app.use(
     maxAge: "1y",
     immutable: true,
     index: false, // let the SPA fallback below handle /
-  })
+  }),
 );
 
 // Handle client-side routing - return index.html for all routes that don't match static files

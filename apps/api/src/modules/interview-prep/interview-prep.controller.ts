@@ -28,7 +28,7 @@ export class InterviewPrepController {
   constructor(
     private readonly service: InterviewPrepService,
     private readonly aiQuestionGenerator: AiQuestionGeneratorService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
   ) {}
 
   @Get("options")
@@ -49,7 +49,7 @@ export class InterviewPrepController {
   @UseGuards(AuthGuard)
   async createSession(
     @CurrentUserId() userId: string,
-    @Body() dto: CreateInterviewSessionDto
+    @Body() dto: CreateInterviewSessionDto,
   ) {
     const data = await this.service.createSession(userId, dto);
     return { data };
@@ -66,7 +66,7 @@ export class InterviewPrepController {
   @UseGuards(AuthGuard)
   async getNextQuestion(
     @CurrentUserId() userId: string,
-    @Param("id") id: string
+    @Param("id") id: string,
   ) {
     const data = await this.service.getNextQuestion(userId, id);
     return { data };
@@ -78,13 +78,13 @@ export class InterviewPrepController {
     @CurrentUserId() userId: string,
     @Param("id") id: string,
     @Param("questionId") questionId: string,
-    @Body() dto: SubmitAnswerDto
+    @Body() dto: SubmitAnswerDto,
   ) {
     const data = await this.service.submitAnswer(
       userId,
       id,
       questionId,
-      dto.answer
+      dto.answer,
     );
     return { data };
   }
@@ -93,7 +93,7 @@ export class InterviewPrepController {
   @UseGuards(AuthGuard)
   async completeSession(
     @CurrentUserId() userId: string,
-    @Param("id") id: string
+    @Param("id") id: string,
   ) {
     const data = await this.service.completeSession(userId, id);
     return { data };
