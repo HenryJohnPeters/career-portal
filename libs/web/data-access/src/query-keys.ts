@@ -16,14 +16,6 @@ export const queryKeys = {
   cvHtmlPreview: (versionId: string | null) =>
     ["cv-html-preview", versionId] as const,
 
-  // Questions
-  questions: (category?: string) => ["questions", category] as const,
-  questionAnswers: ["question-answers"] as const,
-
-  // Practice
-  practiceUsage: ["practice-usage"] as const,
-  practiceOptions: ["practice-options"] as const,
-
   // Cover Letters
   coverLetters: ["cover-letters"] as const,
 

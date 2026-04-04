@@ -14,6 +14,7 @@
 
 import { useRef, useState, useCallback, useEffect } from "react";
 import type { InterviewerConfig } from "../interviewer-configs";
+import { humanizeSpeechText, playInterviewerSpeech } from "../voice-utils";
 
 export type MouthShape =
   | "closed" // Mouth closed (M, B, P)
@@ -33,39 +34,6 @@ export interface Use2DAvatarReturn {
   speakText: (text: string) => void;
   stopSpeaking: () => void;
 }
-
-// Phoneme to mouth shape mapping based on English pronunciation
-const PHONEME_TO_MOUTH: Record<string, MouthShape> = {
-  // Closed sounds
-  m: "closed",
-  b: "closed",
-  p: "closed",
-
-  // Wide open sounds
-  a: "wide",
-  ah: "wide",
-  aa: "wide",
-
-  // Smile sounds
-  e: "smile",
-  ee: "smile",
-  i: "smile",
-  y: "smile",
-
-  // Round sounds
-  o: "round",
-  oo: "round",
-  oh: "round",
-  w: "round",
-
-  // Small opening
-  u: "small",
-  uh: "small",
-  er: "small",
-
-  // Default
-  default: "open",
-};
 
 // Simple phoneme extraction from text
 function getPhonemeFromChar(char: string): MouthShape {
@@ -88,10 +56,10 @@ function getPhonemeFromChar(char: string): MouthShape {
 function animateMouthShapes(
   text: string,
   onShapeChange: (shape: MouthShape) => void,
-  speed: number = 1.0
+  speed: number = 1.0,
 ): () => void {
   let currentIndex = 0;
-  let intervalId: NodeJS.Timeout;
+  let intervalId: ReturnType<typeof setInterval>;
 
   // Calculate timing based on speech speed
   const baseDelay = 80; // ms per character
@@ -121,160 +89,92 @@ function animateMouthShapes(
 
 export function use2DAvatarLipSync(
   interviewer: InterviewerConfig | null,
-  enabled: boolean
+  options: { enabled: boolean; muted: boolean },
 ): Use2DAvatarReturn {
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const playbackRef = useRef<{ cancel: () => void } | null>(null);
+
+  const { enabled, muted } = options;
 
   const [status, setStatus] = useState<AvatarStatus>("idle");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [mouthShape, setMouthShape] = useState<MouthShape>("closed");
 
   useEffect(() => {
-    if (enabled && interviewer) {
-      console.log("[2D Avatar] Ready - interviewer:", interviewer.name);
+    if (enabled && interviewer && !muted) {
       setStatus("ready");
     } else {
-      console.log(
-        "[2D Avatar] Idle - enabled:",
-        enabled,
-        "interviewer:",
-        interviewer?.name
-      );
       setStatus("idle");
+      setIsSpeaking(false);
+      setMouthShape("closed");
     }
-  }, [enabled, interviewer]);
+  }, [enabled, interviewer, muted]);
 
   const speakText = useCallback(
     (text: string) => {
-      if (!interviewer || interviewer.id === "none") return;
+      if (!interviewer || interviewer.id === "none" || muted) return;
 
       // Cleanup any existing speech
-      window.speechSynthesis?.cancel();
+      playbackRef.current?.cancel();
       cleanupRef.current?.();
+      playbackRef.current = null;
 
       setIsSpeaking(true);
       setStatus("speaking");
 
       // Start mouth animation
+      const prepared = humanizeSpeechText(text);
       cleanupRef.current = animateMouthShapes(
-        text,
+        prepared,
         setMouthShape,
-        interviewer.voice.speed
+        interviewer.voice.speed,
       );
 
-      // Browser audio via Web Speech API
-      if (typeof window !== "undefined" && window.speechSynthesis) {
-        const utter = new SpeechSynthesisUtterance(text);
-        utter.lang = "en-US";
-        utter.rate = interviewer.voice.speed;
+      const finish = () => {
+        cleanupRef.current?.();
+        playbackRef.current = null;
+        setMouthShape("closed");
+        setIsSpeaking(false);
+        setStatus(enabled && interviewer && !muted ? "ready" : "idle");
+      };
 
-        // Voice selection (same logic as original)
-        const voices = window.speechSynthesis.getVoices();
-        let selectedVoice: SpeechSynthesisVoice | null = null;
+      const playback = playInterviewerSpeech({
+        interviewer,
+        text,
+        muted,
+        onComplete: finish,
+        onError: finish,
+      });
 
-        switch (interviewer.id) {
-          case "alex":
-            selectedVoice =
-              voices.find(
-                (v) =>
-                  v.lang.startsWith("en") &&
-                  (v.name.toLowerCase().includes("samantha") ||
-                    v.name.toLowerCase().includes("karen") ||
-                    v.name.toLowerCase().includes("victoria"))
-              ) ??
-              voices.find(
-                (v) =>
-                  v.lang.startsWith("en") &&
-                  v.name.toLowerCase().includes("female")
-              ) ??
-              null;
-            break;
-
-          case "morgan":
-            selectedVoice =
-              voices.find(
-                (v) =>
-                  v.lang.startsWith("en-US") &&
-                  v.name.toLowerCase().includes("google") &&
-                  v.name.toLowerCase().includes("female")
-              ) ??
-              voices.find(
-                (v) =>
-                  v.lang.startsWith("en") &&
-                  (v.name.toLowerCase().includes("zira") ||
-                    v.name.toLowerCase().includes("fiona"))
-              ) ??
-              null;
-            break;
-
-          case "jordan":
-            selectedVoice =
-              voices.find(
-                (v) =>
-                  v.lang.startsWith("en") &&
-                  (v.name.toLowerCase().includes("daniel") ||
-                    v.name.toLowerCase().includes("alex"))
-              ) ??
-              voices.find(
-                (v) =>
-                  v.lang.startsWith("en") &&
-                  v.name.toLowerCase().includes("male")
-              ) ??
-              null;
-            break;
-
-          default:
-            selectedVoice = voices.find((v) => v.lang.startsWith("en")) ?? null;
-        }
-
-        if (selectedVoice) utter.voice = selectedVoice;
-
-        const finish = () => {
-          cleanupRef.current?.();
-          setMouthShape("closed");
-          setIsSpeaking(false);
-          setStatus("ready");
-        };
-
-        utter.onend = finish;
-        utter.onerror = finish;
-        utteranceRef.current = utter;
-        window.speechSynthesis.speak(utter);
+      if (playback) {
+        playbackRef.current = playback;
       } else {
-        // No Web Speech API — animate silently
-        const words = text.split(/\s+/).length;
-        const ms = Math.max(2000, (words / 120) * 60 * 1000);
-        setTimeout(() => {
-          cleanupRef.current?.();
-          setMouthShape("closed");
-          setIsSpeaking(false);
-          setStatus("ready");
-        }, ms);
+        finish();
       }
     },
-    [interviewer]
+    [enabled, interviewer, muted],
   );
 
   const stopSpeaking = useCallback(() => {
-    window.speechSynthesis?.cancel();
+    playbackRef.current?.cancel();
+    playbackRef.current = null;
     cleanupRef.current?.();
-
-    if (utteranceRef.current) {
-      utteranceRef.current.onend = null;
-      utteranceRef.current.onerror = null;
-      utteranceRef.current = null;
-    }
 
     setMouthShape("closed");
     setIsSpeaking(false);
-    if (status === "speaking") setStatus("ready");
-  }, [status]);
+    setStatus(enabled && interviewer && !muted ? "ready" : "idle");
+  }, [enabled, interviewer, muted]);
+
+  useEffect(() => {
+    if (muted && isSpeaking) {
+      stopSpeaking();
+    }
+  }, [muted, isSpeaking, stopSpeaking]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      window.speechSynthesis?.cancel();
+      playbackRef.current?.cancel();
       cleanupRef.current?.();
     };
   }, []);

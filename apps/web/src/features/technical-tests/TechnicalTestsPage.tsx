@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { useMe } from "@careerportal/web/data-access";
+import { useAuth } from "../../lib/auth";
 import { Lock, Crown, Code2, CheckCircle2, Sparkles } from "lucide-react";
 import { useTechTestState } from "./hooks/useTechTestState";
 import { TechTestSetup } from "./components/TechTestSetup";
@@ -9,8 +9,8 @@ import { TechTestResults } from "./components/TechTestResults";
 import { TechTestHistory } from "./components/TechTestHistory";
 
 export function TechnicalTestsPage() {
-  const { data: meData, isLoading: meLoading } = useMe();
-  const isPremium = meData?.data?.isPremium ?? false;
+  const { user, isLoading: meLoading } = useAuth();
+  const isPremium = user?.isPremium ?? false;
   const state = useTechTestState();
 
   // Premium gate for free users

@@ -2,31 +2,39 @@
  * interviewer-configs.ts
  *
  * Single source-of-truth for all Mock Interview interviewers.
- * Each entry maps to a TalkingHead GLB avatar + HeadTTS voice preset.
+ * Each entry maps to a 2D avatar style + browser SpeechSynthesis profile.
  *
  * To add a new interviewer:
- *   1. Drop your .glb into /public/avatars/
- *   2. Add a new entry to INTERVIEWER_CONFIGS below.
+ *   1. Add a new entry to INTERVIEWER_CONFIGS below.
+ *   2. Add a matching SVG avatar renderer in Avatar2D if needed.
  *   3. That's it — the rest of the system picks it up automatically.
  */
 
 import type { InterviewerTraits } from "@careerportal/shared/types";
 
 export interface InterviewerVoiceConfig {
-  /** Kokoro voice ID (HeadTTS). Full list: https://huggingface.co/onnx-community/Kokoro-82M-v1.0-ONNX-timestamped#voicessamples */
+  /** Stable internal profile id for this interviewer voice */
   voice: string;
-  /** HeadTTS language tag */
+  /** Preferred browser language tag */
   language: string;
   /** Speaking speed multiplier [0.25 – 4] */
   speed: number;
+  /** Pitch tuning [0 – 2], where 1 is neutral */
+  pitch?: number;
+  /** Output volume [0 – 1] */
+  volume?: number;
+  /** Candidate substrings used to rank available system voices */
+  preferredVoiceNames?: string[];
+  /** Gender fallback hint when preferred names are unavailable */
+  fallbackGender?: "female" | "male" | "any";
 }
 
 export interface InterviewerAvatarConfig {
-  /** Path to the GLB model (relative to /public) */
+  /** Reserved avatar asset path (legacy compatibility) */
   url: string;
   /** Body form: "M" | "F" */
   body: "M" | "F";
-  /** TalkingHead mood for this persona */
+  /** Avatar mood for this persona */
   avatarMood:
     | "neutral"
     | "happy"
@@ -36,7 +44,7 @@ export interface InterviewerAvatarConfig {
     | "disgust"
     | "love"
     | "sleep";
-  /** TalkingHead camera view */
+  /** Camera framing hint for avatar components */
   cameraView: "full" | "mid" | "upper" | "head";
   /** CSS background for the canvas container — visually differentiates interviewers */
   background: string;
@@ -70,16 +78,10 @@ export interface InterviewerConfig {
 }
 
 /**
- * Kokoro voice reference (a subset):
- *
- * Female (af_*):  af_bella · af_nicole · af_nova · af_sarah · af_sky
- * Female (bf_*):  bf_emma  · bf_isabella
- * Male   (am_*):  am_adam  · am_echo   · am_eric · am_fenrir · am_liam · am_michael · am_onyx
- * Male   (bm_*):  bm_daniel · bm_fable  · bm_george · bm_lewis
- *
- * Avatar GLB files are served from /public/avatars/.
- * Free RPM-compatible avatars can be generated at https://avaturn.me
- * The brunette.glb demo model from TalkingHead's own repo is used as fallback.
+ * Voice behavior is intentionally free and local-only:
+ *  - Browser SpeechSynthesis audio
+ *  - Deterministic ranked fallback by language + preferred voice names
+ *  - Per-interviewer speed/pitch/volume tuning for distinct delivery
  */
 export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
   {
@@ -98,7 +100,15 @@ export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
       lightAmbientColor: "#888888",
       lightDirectColor: "#666666",
     },
-    voice: { voice: "af_bella", language: "en-us", speed: 1.0 },
+    voice: {
+      voice: "practice-muted",
+      language: "en-US",
+      speed: 1,
+      pitch: 1,
+      volume: 1,
+      preferredVoiceNames: ["samantha", "victoria", "google us english"],
+      fallbackGender: "female",
+    },
     tags: ["Solo", "Focused", "Minimal"],
   },
   {
@@ -117,7 +127,15 @@ export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
       lightAmbientColor: "#a8e6cf",
       lightDirectColor: "#56c596",
     },
-    voice: { voice: "af_bella", language: "en-us", speed: 1.0 },
+    voice: {
+      voice: "warm-coach",
+      language: "en-US",
+      speed: 0.98,
+      pitch: 1.08,
+      volume: 1,
+      preferredVoiceNames: ["samantha", "karen", "victoria", "zira"],
+      fallbackGender: "female",
+    },
     tags: ["Encouraging", "Patient", "Wholesome"],
     traits: { questionCount: 5, adviceLevel: "detailed", fiftyFifty: true },
   },
@@ -137,7 +155,15 @@ export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
       lightAmbientColor: "#a8e0ff",
       lightDirectColor: "#56b9ff",
     },
-    voice: { voice: "af_sarah", language: "en-us", speed: 1.05 },
+    voice: {
+      voice: "creative-fast",
+      language: "en-US",
+      speed: 1.04,
+      pitch: 1.12,
+      volume: 1,
+      preferredVoiceNames: ["moira", "samantha", "google uk english female"],
+      fallbackGender: "female",
+    },
     tags: ["Creative", "Artsy", "Vibey"],
     traits: { questionCount: 7, adviceLevel: "detailed", fiftyFifty: false },
   },
@@ -157,7 +183,15 @@ export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
       lightAmbientColor: "#a8c8ff",
       lightDirectColor: "#5b9fff",
     },
-    voice: { voice: "af_nova", language: "en-us", speed: 0.95 },
+    voice: {
+      voice: "balanced-pro",
+      language: "en-US",
+      speed: 0.94,
+      pitch: 0.98,
+      volume: 1,
+      preferredVoiceNames: ["zira", "fiona", "google us english"],
+      fallbackGender: "female",
+    },
     tags: ["Professional", "Balanced", "Corporate"],
     traits: { questionCount: 10, adviceLevel: "standard", fiftyFifty: false },
   },
@@ -177,7 +211,15 @@ export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
       lightAmbientColor: "#d8a8ff",
       lightDirectColor: "#a056ff",
     },
-    voice: { voice: "am_adam", language: "en-us", speed: 0.92 },
+    voice: {
+      voice: "strategic-lead",
+      language: "en-US",
+      speed: 0.9,
+      pitch: 0.9,
+      volume: 1,
+      preferredVoiceNames: ["daniel", "alex", "google uk english male"],
+      fallbackGender: "male",
+    },
     tags: ["Strategic", "Wise", "Big Brain"],
     traits: { questionCount: 12, adviceLevel: "standard", fiftyFifty: false },
   },
@@ -197,7 +239,15 @@ export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
       lightAmbientColor: "#ffe4a8",
       lightDirectColor: "#ffb856",
     },
-    voice: { voice: "am_eric", language: "en-us", speed: 0.88 },
+    voice: {
+      voice: "pragmatic-systems",
+      language: "en-US",
+      speed: 0.96,
+      pitch: 0.94,
+      volume: 1,
+      preferredVoiceNames: ["aaron", "nathan", "daniel", "siri"],
+      fallbackGender: "male",
+    },
     tags: ["Pragmatic", "Chill", "Speedrunner"],
     traits: { questionCount: 15, adviceLevel: "minimal", fiftyFifty: false },
   },
@@ -217,7 +267,15 @@ export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
       lightAmbientColor: "#ffcba8",
       lightDirectColor: "#ff7043",
     },
-    voice: { voice: "am_fenrir", language: "en-us", speed: 0.9 },
+    voice: {
+      voice: "bar-raiser",
+      language: "en-US",
+      speed: 0.94,
+      pitch: 0.9,
+      volume: 1,
+      preferredVoiceNames: ["aaron", "arthur", "daniel", "siri"],
+      fallbackGender: "male",
+    },
     tags: ["Intense", "Direct", "No-Nonsense"],
     traits: { questionCount: 15, adviceLevel: "minimal", fiftyFifty: false },
   },
@@ -237,7 +295,15 @@ export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
       lightAmbientColor: "#ffa8c0",
       lightDirectColor: "#ff5680",
     },
-    voice: { voice: "am_michael", language: "en-us", speed: 0.87 },
+    voice: {
+      voice: "security-rigorous",
+      language: "en-US",
+      speed: 0.92,
+      pitch: 0.88,
+      volume: 1,
+      preferredVoiceNames: ["aaron", "nathan", "daniel", "siri"],
+      fallbackGender: "male",
+    },
     tags: ["Serious", "Vigilant", "Hardcore"],
     traits: { questionCount: 18, adviceLevel: "minimal", fiftyFifty: false },
   },
@@ -257,7 +323,15 @@ export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
       lightAmbientColor: "#c8d0e0",
       lightDirectColor: "#8090a8",
     },
-    voice: { voice: "af_nicole", language: "en-us", speed: 0.93 },
+    voice: {
+      voice: "methodical-ops",
+      language: "en-US",
+      speed: 0.92,
+      pitch: 0.95,
+      volume: 1,
+      preferredVoiceNames: ["fiona", "victoria", "google uk english female"],
+      fallbackGender: "female",
+    },
     tags: ["Methodical", "Precise", "Calculated"],
     traits: { questionCount: 20, adviceLevel: "minimal", fiftyFifty: false },
   },
@@ -269,4 +343,15 @@ export function getInterviewerById(id: string): InterviewerConfig | undefined {
 }
 
 /** The default interviewer used when none has been selected */
-export const DEFAULT_INTERVIEWER_ID = INTERVIEWER_CONFIGS[0].id;
+const PREFERRED_DEFAULT_INTERVIEWER_ID = "none";
+
+export const DEFAULT_INTERVIEWER_ID =
+  INTERVIEWER_CONFIGS.find((c) => c.id === PREFERRED_DEFAULT_INTERVIEWER_ID)
+    ?.id ??
+  INTERVIEWER_CONFIGS[0]?.id ??
+  PREFERRED_DEFAULT_INTERVIEWER_ID;
+
+export function resolveInterviewerId(id: string | null | undefined): string {
+  if (id && getInterviewerById(id)) return id;
+  return DEFAULT_INTERVIEWER_ID;
+}

@@ -6,6 +6,9 @@ import {
 } from "@nestjs/common";
 import OpenAI from "openai";
 import { OPENAI_CLIENT } from "./openai.provider";
+import type { AiFullCvResult } from "./ai.types";
+
+export type { AiFullCvResult, AiFullCvSection } from "./ai.types";
 
 export type AiCvAction = "generate" | "improve" | "tailor";
 
@@ -14,23 +17,6 @@ export interface AiFullCvFromTextRequest {
   jobTitle?: string;
   jobDescription?: string;
   userName?: string;
-}
-
-export interface AiFullCvSection {
-  title: string;
-  sectionType: string;
-  content: string;
-}
-
-export interface AiFullCvResult {
-  name: string;
-  email: string;
-  phone: string;
-  location: string;
-  website: string;
-  linkedin: string;
-  github: string;
-  sections: AiFullCvSection[];
 }
 
 export interface AiCvSectionRequest {
@@ -83,7 +69,7 @@ export class AiService {
     } catch (error) {
       this.logger.error("OpenAI CV section generation failed", error);
       throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error)
+        this.extractOpenAiErrorMessage(error),
       );
     }
   }
@@ -143,7 +129,7 @@ CRITICAL: You MUST keep ALL of the user's existing content — every skill, qual
   /* ──────────── Full CV from Raw Text ──────────── */
 
   async generateFullCvFromRawText(
-    req: AiFullCvFromTextRequest
+    req: AiFullCvFromTextRequest,
   ): Promise<AiFullCvResult> {
     const systemPrompt = `You are a developer writing your own CV from a brain-dump. First-person implied. Direct, technical, no fluff.
 
@@ -216,21 +202,21 @@ Return ONLY the JSON. No preamble, no code fences.`;
                   title: s.title || "Untitled",
                   sectionType: s.sectionType || "custom",
                   content: s.content || "",
-                })
+                }),
               )
             : [],
         };
       } catch {
         this.logger.error("Failed to parse AI full CV JSON response", raw);
         throw new InternalServerErrorException(
-          "AI returned an invalid response. Please try again."
+          "AI returned an invalid response. Please try again.",
         );
       }
     } catch (error) {
       if (error instanceof InternalServerErrorException) throw error;
       this.logger.error("OpenAI full CV generation failed", error);
       throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error)
+        this.extractOpenAiErrorMessage(error),
       );
     }
   }
@@ -256,7 +242,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
     } catch (error) {
       this.logger.error("OpenAI cover letter generation failed", error);
       throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error)
+        this.extractOpenAiErrorMessage(error),
       );
     }
   }
@@ -265,7 +251,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
     body: string,
     jobTitle?: string,
     companyName?: string,
-    jobDescription?: string
+    jobDescription?: string,
   ): Promise<string[]> {
     try {
       const response = await this.openai.chat.completions.create({
@@ -298,7 +284,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
     } catch (error) {
       this.logger.error("OpenAI suggest improvements failed", error);
       throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error)
+        this.extractOpenAiErrorMessage(error),
       );
     }
   }
@@ -307,7 +293,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
     body: string,
     tone: "professional" | "friendly",
     jobTitle?: string,
-    companyName?: string
+    companyName?: string,
   ): Promise<string> {
     const toneInstruction =
       tone === "professional"
@@ -341,7 +327,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
     } catch (error) {
       this.logger.error("OpenAI rewrite cover letter failed", error);
       throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error)
+        this.extractOpenAiErrorMessage(error),
       );
     }
   }

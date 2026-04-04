@@ -18,22 +18,74 @@ interface InterviewerTraits {
   questionCount: number;
   adviceLevel: "minimal" | "standard" | "detailed";
   fiftyFifty: boolean;
+  /** The persona template this interviewer uses for answer responses */
+  persona: "friendly" | "neutral" | "tough";
 }
 
-// Interviewer traits lookup map (synced with frontend configs)
+// Interviewer traits lookup map (synced with frontend configs).
+// persona drives PersonaResponder template selection; adviceLevel controls verbosity.
 const INTERVIEWER_TRAITS: Record<string, InterviewerTraits> = {
-  alex: { questionCount: 5, adviceLevel: "detailed", fiftyFifty: true },
-  riley: { questionCount: 7, adviceLevel: "detailed", fiftyFifty: false },
-  morgan: { questionCount: 10, adviceLevel: "standard", fiftyFifty: false },
-  sam: { questionCount: 12, adviceLevel: "standard", fiftyFifty: false },
-  kai: { questionCount: 15, adviceLevel: "minimal", fiftyFifty: false },
-  jordan: { questionCount: 15, adviceLevel: "minimal", fiftyFifty: false },
-  phoenix: { questionCount: 18, adviceLevel: "minimal", fiftyFifty: false },
-  nova: { questionCount: 20, adviceLevel: "minimal", fiftyFifty: false },
+  none: {
+    questionCount: 25,
+    adviceLevel: "standard",
+    fiftyFifty: false,
+    persona: "neutral",
+  },
+  alex: {
+    questionCount: 5,
+    adviceLevel: "detailed",
+    fiftyFifty: true,
+    persona: "friendly",
+  },
+  riley: {
+    questionCount: 7,
+    adviceLevel: "detailed",
+    fiftyFifty: false,
+    persona: "friendly",
+  },
+  morgan: {
+    questionCount: 10,
+    adviceLevel: "standard",
+    fiftyFifty: false,
+    persona: "neutral",
+  },
+  sam: {
+    questionCount: 12,
+    adviceLevel: "standard",
+    fiftyFifty: false,
+    persona: "neutral",
+  },
+  kai: {
+    questionCount: 15,
+    adviceLevel: "minimal",
+    fiftyFifty: false,
+    persona: "neutral",
+  },
+  jordan: {
+    questionCount: 15,
+    adviceLevel: "minimal",
+    fiftyFifty: false,
+    persona: "tough",
+  },
+  phoenix: {
+    questionCount: 18,
+    adviceLevel: "minimal",
+    fiftyFifty: false,
+    persona: "tough",
+  },
+  nova: {
+    questionCount: 20,
+    adviceLevel: "minimal",
+    fiftyFifty: false,
+    persona: "neutral",
+  },
 };
 
-// Feedback interface — exported so the controller return type is resolvable
-export interface AnswerFeedback {
+function clampQuestionCount(value: number): number {
+  return Math.max(3, Math.min(25, value));
+}
+
+interface AnswerFeedback {
   pointsHit: string[];
   pointsMissed: string[];
   redFlagsTriggered: string[];
@@ -90,14 +142,25 @@ export class InterviewPrepService {
 
   /** Create a new interview session: select questions from the bank */
   async createSession(userId: string, dto: CreateInterviewSessionDto) {
-    const questionCount = dto.questionCount ?? 10;
-    const persona = dto.persona ?? "neutral";
+    const interviewerId = dto.interviewerId;
+    const interviewerTraits = interviewerId
+      ? INTERVIEWER_TRAITS[interviewerId]
+      : undefined;
+    const questionCount = clampQuestionCount(
+      interviewerTraits?.questionCount ?? dto.questionCount ?? 10,
+    );
+
+    // Persona: interviewer config takes precedence over explicit DTO value.
+    // This ensures Jordan (tough) gives tough feedback, Alex (friendly) gives friendly feedback.
+    const persona = interviewerTraits?.persona ?? dto.persona ?? "neutral";
     const roleFocus = dto.roleFocus ?? "fullstack";
+    // Valid values: "codings" | "system-design" | "behavioral".
+    // UI does not expose this picker so it always arrives as undefined — default to "coding".
     const interviewType = dto.interviewType ?? "coding";
     const duration = dto.duration ?? 60;
     const difficulty = dto.difficulty ?? "medium";
     const companyStyle = dto.companyStyle ?? "startup";
-    const interviewerId = dto.interviewerId;
+    const safeInterviewerId = interviewerTraits ? interviewerId : undefined;
 
     // Normalize tags to lowercase — the DB stores lowercase tags
     const tags = (dto.tags ?? []).map((t) => t.toLowerCase());
@@ -117,7 +180,7 @@ export class InterviewPrepService {
 
     if (poolSize < questionCount) {
       try {
-        // Pass userId so the per-user daily generation cap is enforced (fix #3)
+        // Pass userId so the per-user daily generation cap is enforced
         await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(
           poolFilters,
           userId,
@@ -125,42 +188,67 @@ export class InterviewPrepService {
       } catch {
         // Non-critical — proceed with whatever we have
       }
-
-      // If the pool is STILL empty after urgent generation, try without
-      // tags so the selector at least has *something* to work with.
-      const poolSizeAfter =
-        await this.aiQuestionGenerator.getPoolSize(poolFilters);
-      if (poolSizeAfter === 0 && tags.length > 0) {
-        try {
-          await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(
-            { ...poolFilters, tags: [] },
-            userId,
-          );
-        } catch {
-          // Non-critical
-        }
-      }
     }
 
-    // Fix #9: Scope pool query to track/level/difficulty — avoids loading the entire table
+    // ── Build the primary pool query ──────────────────────────────────
     const poolWhere: Record<string, unknown> = {
       track: dto.track,
       level: dto.level,
     };
     const difficultyRange = DIFFICULTY_RANGES[difficulty];
     if (difficultyRange) poolWhere.difficulty = difficultyRange;
+    // Enforce tag filter — questions must share at least one selected tag
+    if (tags.length > 0) {
+      poolWhere.tags = { hasSome: tags };
+    }
 
-    // Load entire question pool from the bank
-    const pool = await this.prisma.interviewQuestion.findMany({
+    // Load the question pool scoped to all user-selected filters
+    let pool = await this.prisma.interviewQuestion.findMany({
       where: poolWhere as any,
     });
+
+    // ── Fallback: if tag-filtered pool is still empty, broaden to tag-free ──
+    // The urgent generation above creates questions tagged only with the track
+    // name (e.g. ["frontend"]) which won\'t match a hasSome:["react","typescript"]
+    // filter. When that happens we fall back to the track+level+difficulty pool
+    // so the user always gets *something* to answer.
+    if (pool.length === 0 && tags.length > 0) {
+      try {
+        await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(
+          { ...poolFilters, tags: [] },
+          userId,
+        );
+      } catch {
+        // Non-critical
+      }
+      const fallbackWhere: Record<string, unknown> = {
+        track: dto.track,
+        level: dto.level,
+      };
+      if (difficultyRange) fallbackWhere.difficulty = difficultyRange;
+      pool = await this.prisma.interviewQuestion.findMany({
+        where: fallbackWhere as any,
+      });
+    }
+
     const poolRecords: QuestionRecord[] = pool.map((q) => ({
       ...q,
       options: (q.options as unknown as string[]) ?? undefined,
       rubric: q.rubric as unknown as QuestionRecord["rubric"],
     }));
 
-    // Select questions using the adaptive algorithm
+    // Gather recent question IDs answered by this user as anti-repeat input
+    const recentSessions = await this.prisma.interviewSession.findMany({
+      where: { userId, status: "completed" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: { questions: { select: { questionId: true } } },
+    });
+    const recentlyAnsweredIds = recentSessions.flatMap((s) =>
+      s.questions.map((q) => q.questionId),
+    );
+
+    // Select questions using the adaptive algorithm with anti-repeat ids
     const selected = this.questionSelector.select(
       poolRecords,
       {
@@ -175,7 +263,7 @@ export class InterviewPrepService {
         difficulty,
         companyStyle,
       },
-      [],
+      recentlyAnsweredIds,
       [],
     );
 
@@ -193,7 +281,7 @@ export class InterviewPrepService {
         companyStyle,
         questionCount: selected.length,
         persona,
-        interviewerId,
+        interviewerId: safeInterviewerId,
         status: "in_progress",
         questions: {
           create: selected.map((q, idx) => ({
@@ -228,11 +316,73 @@ export class InterviewPrepService {
     }
 
     const next = session.questions.find((sq) => sq.userAnswer === null);
+    if (!next) {
+      return {
+        sessionQuestion: null,
+        sessionStatus: "completed",
+        progress: this.getProgress(session.questions),
+      };
+    }
+
+    // ── 50/50 hint: pre-compute eliminated wrong-option indices server-side ──
+    // The correct option index is stripped before sending to the client, so
+    // the client cannot compute this itself. We calculate it here where the
+    // answer key is still available, then include it as a safe hint.
+    const hasFiftyFifty = session.interviewerId
+      ? (INTERVIEWER_TRAITS[session.interviewerId]?.fiftyFifty ?? false)
+      : false;
+
+    let fiftyFiftyEliminated: number[] | null = null;
+    if (hasFiftyFifty) {
+      const q = next.question as any;
+      const correctIdx: number = q.correctOptionIndex ?? 0;
+      const optionCount: number = Array.isArray(q.options)
+        ? (q.options as unknown[]).length
+        : 0;
+      if (optionCount >= 4) {
+        // Collect all wrong indices, then pick 2 to eliminate using a
+        // Fisher-Yates shuffle seeded conceptually by order (Math.random
+        // is fine: the client memoizes by question ID, so this only runs once).
+        const wrongIndices = Array.from(
+          { length: optionCount },
+          (_, i) => i,
+        ).filter((i) => i !== correctIdx);
+        for (let i = wrongIndices.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [wrongIndices[i], wrongIndices[j]] = [
+            wrongIndices[j],
+            wrongIndices[i],
+          ];
+        }
+        fiftyFiftyEliminated = wrongIndices.slice(0, 2);
+      }
+    }
+
+    const sanitised = this.sanitiseSessionQuestion(next);
     return {
-      sessionQuestion: next ?? null,
-      sessionStatus: next ? "in_progress" : "completed",
+      sessionQuestion:
+        fiftyFiftyEliminated !== null
+          ? { ...sanitised, fiftyFiftyEliminated }
+          : sanitised,
+      sessionStatus: "in_progress",
       progress: this.getProgress(session.questions),
     };
+  }
+
+  /** Strip answer-key fields before sending a question to the client. */
+  private sanitiseSessionQuestion(sq: any) {
+    const { question, ...rest } = sq;
+    const {
+      correctOptionIndex: _c,
+      correctOptionIndices: _ci,
+      modelAnswer: _m,
+      rubric: _r,
+      expectedPoints: _ep,
+      redFlags: _rf,
+      followUpIds: _fu,
+      ...safeQuestion
+    } = question;
+    return { ...rest, question: safeQuestion };
   }
 
   /** Submit an answer, evaluate it, possibly inject a follow-up */
@@ -255,17 +405,21 @@ export class InterviewPrepService {
     // Evaluate the answer
     const evaluation = this.evaluator.evaluate(questionRecord, answer);
 
-    // Get interviewer traits to determine advice level
-    const sessionWithInterviewer = session as any;
-    const adviceLevel =
-      sessionWithInterviewer.interviewerId &&
-      INTERVIEWER_TRAITS[sessionWithInterviewer.interviewerId]
-        ? INTERVIEWER_TRAITS[sessionWithInterviewer.interviewerId].adviceLevel
-        : "standard";
+    // Resolve interviewer traits — persona and adviceLevel both come from the
+    // interviewer config so the response style is always consistent with the
+    // avatar / voice the user selected during setup.
+    const interviewerTraits = session.interviewerId
+      ? INTERVIEWER_TRAITS[session.interviewerId]
+      : undefined;
+    const adviceLevel = interviewerTraits?.adviceLevel ?? "standard";
+    // session.persona was already stored with the interviewer-derived value
+    // at session creation time, but we resolve it again here as a safety net.
+    const effectivePersona =
+      interviewerTraits?.persona ?? session.persona ?? "neutral";
 
     // Generate persona response with advice level
     const personaResponse = this.personaResponder.respond(
-      session.persona,
+      effectivePersona,
       evaluation.score,
       evaluation.maxScore,
       evaluation.pointsMissed,
@@ -300,8 +454,20 @@ export class InterviewPrepService {
     // Check if follow-up is needed
     let followUp = null;
     if (this.followUpStrategy.shouldFollowUp(evaluation)) {
-      const pool = await this.prisma.interviewQuestion.findMany();
-      const poolRecords: QuestionRecord[] = pool.map((q) => ({
+      // Scope follow-up pool to the same session filters — prevents escaping user constraints
+      const followUpWhere: Record<string, unknown> = {
+        track: session.track,
+        level: session.level,
+      };
+      const sessionDiffRange = DIFFICULTY_RANGES[session.difficulty];
+      if (sessionDiffRange) followUpWhere.difficulty = sessionDiffRange;
+      if (session.tags && session.tags.length > 0) {
+        followUpWhere.tags = { hasSome: session.tags };
+      }
+      const followUpPool = await this.prisma.interviewQuestion.findMany({
+        where: followUpWhere as any,
+      });
+      const poolRecords: QuestionRecord[] = followUpPool.map((q) => ({
         ...q,
         options: (q.options as unknown as string[]) ?? undefined,
         rubric: q.rubric as unknown as QuestionRecord["rubric"],

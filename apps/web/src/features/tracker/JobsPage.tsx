@@ -6,10 +6,16 @@ import {
   useDeleteJob,
   useCvVersions,
   useCoverLetters,
+  queryKeys,
 } from "@careerportal/web/data-access";
 import { Spinner, ErrorState, Button } from "@careerportal/web/ui";
 import { PageHero } from "../shared";
-import type { Job, CvVersion, CoverLetter } from "@careerportal/shared/types";
+import type {
+  ApiResponse,
+  Job,
+  CvVersion,
+  CoverLetter,
+} from "@careerportal/shared/types";
 import { Briefcase, Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -63,7 +69,7 @@ export function JobsPage() {
       result = result.filter(
         (j) =>
           j.company.toLowerCase().includes(q) ||
-          j.role.toLowerCase().includes(q)
+          j.role.toLowerCase().includes(q),
       );
     }
     if (filters.status) {
@@ -86,13 +92,15 @@ export function JobsPage() {
 
   const handleStatusChange = useCallback(
     (jobId: string, newStatus: PipelineStatus) => {
-      const previousJobs = queryClient.getQueryData(["jobs"]);
-      queryClient.setQueryData(["jobs"], (old: any) => {
+      const previousJobs = queryClient.getQueryData<ApiResponse<Job[]>>(
+        queryKeys.jobs,
+      );
+      queryClient.setQueryData<ApiResponse<Job[]>>(queryKeys.jobs, (old) => {
         if (!old?.data) return old;
         return {
           ...old,
           data: old.data.map((j: Job) =>
-            j.id === jobId ? { ...j, status: newStatus } : j
+            j.id === jobId ? { ...j, status: newStatus } : j,
           ),
         };
       });
@@ -100,16 +108,16 @@ export function JobsPage() {
         { id: jobId, status: newStatus },
         {
           onError: () => {
-            queryClient.setQueryData(["jobs"], previousJobs);
+            queryClient.setQueryData(queryKeys.jobs, previousJobs);
             toast("error", "Failed to update status. Reverted.");
           },
           onSuccess: () => {
             toast("success", "Status updated");
           },
-        }
+        },
       );
     },
-    [queryClient, updateMut, toast]
+    [queryClient, updateMut, toast],
   );
 
   const handleCardClick = useCallback((job: Job) => {
@@ -122,7 +130,8 @@ export function JobsPage() {
       await updateMut.mutateAsync({ id, ...patch } as any);
       toast("success", "Application saved");
       const freshJobs: Job[] =
-        queryClient.getQueryData<any>(["jobs"])?.data || [];
+        queryClient.getQueryData<ApiResponse<Job[]>>(queryKeys.jobs)?.data ||
+        [];
       const updated = freshJobs.find((j) => j.id === id);
       if (updated) setDrawerJob(updated);
     } catch {

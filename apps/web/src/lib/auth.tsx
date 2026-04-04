@@ -38,15 +38,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Wait for Supabase to restore session from storage
+  // Single effect: onAuthStateChange always fires INITIAL_SESSION on attach,
+  // which gives us the initial session state without a separate getSession()
+  // call. Using getSession() + onAuthStateChange together causes two concurrent
+  // GET /auth/me requests on every page load (race condition).
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setHasSession(!!data.session);
-      setSupabaseReady(true);
-    });
-
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // INITIAL_SESSION fires once synchronously when the listener is
+        // registered. It's the canonical way to read the initial auth state.
+        if (event === "INITIAL_SESSION") {
+          setSupabaseReady(true);
+        }
+
         setHasSession(!!session);
 
         // On password recovery, Supabase establishes a session but we
@@ -65,13 +69,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => listener.subscription.unsubscribe();
   }, [fetchUser]);
-
-  // Fetch user when supabase session is ready
-  useEffect(() => {
-    if (supabaseReady && hasSession) {
-      fetchUser();
-    }
-  }, [supabaseReady, hasSession, fetchUser]);
 
   const logout = useCallback(async () => {
     await supabase.auth.signOut();

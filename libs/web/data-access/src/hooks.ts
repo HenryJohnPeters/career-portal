@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api-client";
-import { supabase } from "./supabase";
 import { queryKeys } from "./query-keys";
 import type {
   ApiResponse,
@@ -9,23 +8,18 @@ import type {
   CvVersion,
   CvSection,
   ThemeConfig,
-  Question,
-  QuestionAnswer,
   CoverLetter,
   Job,
   InterviewSession,
   NextQuestionResponse,
   CreateInterviewSessionRequest,
   InterviewOptionsCatalog,
-  PracticeQuestion,
-  PracticeCheckResult,
-  PracticeQuizFilters,
-  PracticeUsageStatus,
   TechnicalTest,
   CreateTechnicalTestRequest,
   SubscriptionStatus,
   AiUsageStatus,
   AiFullCvResult,
+  SubmitInterviewAnswerResponse,
 } from "@careerportal/shared/types";
 
 // === Auth ===
@@ -87,7 +81,7 @@ export function useUpdateCvVersion() {
     }) => api.patch<ApiResponse<CvVersion>>(`/cv/versions/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.cvVersions });
-      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
+      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
     },
   });
 }
@@ -132,11 +126,11 @@ export function useCreateCvSection() {
     }) =>
       api.post<ApiResponse<CvSection>>(
         `/cv/versions/${versionId}/sections`,
-        data
+        data,
       ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cv-sections"] });
-      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
+      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
+      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
     },
   });
 }
@@ -154,8 +148,8 @@ export function useUpdateCvSection() {
       sectionType?: string;
     }) => api.patch<ApiResponse<CvSection>>(`/cv/sections/${id}`, data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cv-sections"] });
-      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
+      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
+      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
     },
   });
 }
@@ -165,8 +159,8 @@ export function useDeleteCvSection() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/cv/sections/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cv-sections"] });
-      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
+      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
+      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
     },
   });
 }
@@ -179,8 +173,8 @@ export function useMoveCvSection() {
         direction,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cv-sections"] });
-      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
+      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
+      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
     },
   });
 }
@@ -197,11 +191,11 @@ export function useReorderCvSections() {
     }) =>
       api.post<ApiResponse<CvSection[]>>(
         `/cv/versions/${versionId}/sections/reorder`,
-        { sectionIds }
+        { sectionIds },
       ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cv-sections"] });
-      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
+      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
+      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
     },
   });
 }
@@ -209,21 +203,7 @@ export function useReorderCvSections() {
 export function useCvHtmlPreview(versionId: string | null) {
   return useQuery({
     queryKey: queryKeys.cvHtmlPreview(versionId),
-    queryFn: async () => {
-      const API_URL =
-        (typeof import.meta !== "undefined" &&
-          (import.meta as any).env?.VITE_API_URL) ||
-        "http://localhost:3000";
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`${API_URL}/pdf/cv/${versionId}/html`, {
-        headers,
-      });
-      if (!res.ok) throw new Error("Failed to load preview");
-      return res.text();
-    },
+    queryFn: () => api.getText(`/pdf/cv/${versionId}/html`),
     enabled: !!versionId,
     staleTime: 0,
   });
@@ -243,7 +223,7 @@ export function useAiGenerateCvSection() {
     }) =>
       api.post<ApiResponse<{ content: string }>>(
         `/cv/sections/${sectionId}/ai-generate`,
-        data
+        data,
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.aiUsage });
@@ -265,95 +245,14 @@ export function useAiGenerateFullCv() {
     }) =>
       api.post<ApiResponse<AiFullCvResult>>(
         `/cv/versions/${versionId}/ai-generate-full`,
-        data
+        data,
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.cvVersions });
-      qc.invalidateQueries({ queryKey: ["cv-sections"] });
-      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
+      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
+      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
       qc.invalidateQueries({ queryKey: queryKeys.aiUsage });
     },
-  });
-}
-
-// === Questions ===
-export function useQuestions(category?: string) {
-  return useQuery({
-    queryKey: queryKeys.questions(category),
-    queryFn: () =>
-      api.get<ApiResponse<Question[]>>(
-        `/questions${category ? `?category=${category}` : ""}`
-      ),
-  });
-}
-
-export function useQuestionAnswers() {
-  return useQuery({
-    queryKey: queryKeys.questionAnswers,
-    queryFn: () => api.get<ApiResponse<QuestionAnswer[]>>("/questions/answers"),
-  });
-}
-
-export function useAnswerQuestion() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({
-      id,
-      ...data
-    }: {
-      id: string;
-      answerText?: string;
-      selectedOptionId?: string;
-      skipped?: boolean;
-    }) => api.put<ApiResponse<QuestionAnswer>>(`/questions/${id}/answer`, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.questionAnswers });
-      qc.invalidateQueries({ queryKey: queryKeys.dashboardSummary });
-    },
-  });
-}
-
-export function usePracticeUsage() {
-  return useQuery({
-    queryKey: queryKeys.practiceUsage,
-    queryFn: () =>
-      api.get<ApiResponse<PracticeUsageStatus>>("/questions/practice/usage"),
-  });
-}
-
-export function usePracticeNext() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (filters: PracticeQuizFilters) =>
-      api.post<ApiResponse<PracticeQuestion | null>>(
-        "/questions/practice/next",
-        filters
-      ),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.practiceUsage });
-    },
-  });
-}
-
-export function usePracticeCheck() {
-  return useMutation({
-    mutationFn: (data: {
-      questionId: string;
-      selectedOptionIndex?: number;
-      selectedOptionIndices?: number[];
-    }) =>
-      api.post<ApiResponse<PracticeCheckResult>>(
-        "/questions/practice/check",
-        data
-      ),
-  });
-}
-
-export function usePracticeOptions() {
-  return useQuery({
-    queryKey: queryKeys.practiceOptions,
-    queryFn: () =>
-      api.get<ApiResponse<InterviewOptionsCatalog>>("/interview-prep/options"),
   });
 }
 
@@ -443,7 +342,7 @@ export function useAiGenerateCoverLetter() {
     }) =>
       api.post<ApiResponse<{ content: string }>>(
         `/cover-letters/${id}/ai-generate`,
-        data
+        data,
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.aiUsage });
@@ -513,20 +412,12 @@ export function useInterviewOptions() {
   });
 }
 
-export function useInterviewSessions() {
-  return useQuery({
-    queryKey: queryKeys.interviewSessions,
-    queryFn: () =>
-      api.get<ApiResponse<InterviewSession[]>>("/interview-prep/sessions"),
-  });
-}
-
 export function useInterviewSession(sessionId: string | null) {
   return useQuery({
     queryKey: queryKeys.interviewSession(sessionId),
     queryFn: () =>
       api.get<ApiResponse<InterviewSession>>(
-        `/interview-prep/sessions/${sessionId}`
+        `/interview-prep/sessions/${sessionId}`,
       ),
     enabled: !!sessionId,
   });
@@ -547,7 +438,7 @@ export function useNextInterviewQuestion(sessionId: string | null) {
     queryKey: queryKeys.interviewNextQuestion(sessionId),
     queryFn: () =>
       api.get<ApiResponse<NextQuestionResponse>>(
-        `/interview-prep/sessions/${sessionId}/next`
+        `/interview-prep/sessions/${sessionId}/next`,
       ),
     enabled: !!sessionId,
   });
@@ -565,9 +456,9 @@ export function useSubmitInterviewAnswer() {
       questionId: string;
       answer: string;
     }) =>
-      api.post<ApiResponse<any>>(
+      api.post<ApiResponse<SubmitInterviewAnswerResponse>>(
         `/interview-prep/sessions/${sessionId}/questions/${questionId}/answer`,
-        { answer }
+        { answer },
       ),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({
@@ -581,34 +472,11 @@ export function useSubmitInterviewAnswer() {
   });
 }
 
-export function useCompleteInterviewSession() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (sessionId: string) =>
-      api.post<ApiResponse<InterviewSession>>(
-        `/interview-prep/sessions/${sessionId}/complete`
-      ),
-    onSuccess: (_, sessionId) => {
-      qc.invalidateQueries({ queryKey: queryKeys.interviewSession(sessionId) });
-      qc.invalidateQueries({ queryKey: queryKeys.interviewSessions });
-    },
-  });
-}
-
 // === Technical Tests ===
 export function useTechnicalTests() {
   return useQuery({
     queryKey: queryKeys.technicalTests,
     queryFn: () => api.get<ApiResponse<TechnicalTest[]>>("/technical-tests"),
-  });
-}
-
-export function useTechnicalTest(testId: string | null) {
-  return useQuery({
-    queryKey: queryKeys.technicalTest(testId),
-    queryFn: () =>
-      api.get<ApiResponse<TechnicalTest>>(`/technical-tests/${testId}`),
-    enabled: !!testId,
   });
 }
 
@@ -648,7 +516,7 @@ export function useSubmitTechnicalTest() {
         `/technical-tests/${testId}/submit`,
         {
           submission,
-        }
+        },
       ),
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: queryKeys.technicalTest(vars.testId) });

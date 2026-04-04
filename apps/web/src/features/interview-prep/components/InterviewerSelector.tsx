@@ -69,7 +69,7 @@ export function InterviewerSelector({
         {canScrollLeft && (
           <button
             onClick={() => scroll("left")}
-            className="absolute -left-2 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-bg-elevated/90 backdrop-blur-sm border border-border shadow-md flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-glow-sm transition-all duration-300 hidden md:flex"
+            className="absolute -left-2 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-bg-elevated/90 backdrop-blur-sm border border-border shadow-md items-center justify-center opacity-0 group-hover/carousel:opacity-100 hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-glow-sm transition-all duration-300 hidden md:flex"
             aria-label="Scroll left"
           >
             <ChevronLeft className="h-3.5 w-3.5 text-text-secondary" />
@@ -79,7 +79,7 @@ export function InterviewerSelector({
         {canScrollRight && (
           <button
             onClick={() => scroll("right")}
-            className="absolute -right-2 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-bg-elevated/90 backdrop-blur-sm border border-border shadow-md flex items-center justify-center opacity-0 group-hover/carousel:opacity-100 hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-glow-sm transition-all duration-300 hidden md:flex"
+            className="absolute -right-2 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-bg-elevated/90 backdrop-blur-sm border border-border shadow-md items-center justify-center opacity-0 group-hover/carousel:opacity-100 hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-glow-sm transition-all duration-300 hidden md:flex"
             aria-label="Scroll right"
           >
             <ChevronRight className="h-3.5 w-3.5 text-text-secondary" />

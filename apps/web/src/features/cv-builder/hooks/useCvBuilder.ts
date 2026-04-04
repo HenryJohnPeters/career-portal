@@ -12,8 +12,8 @@ import {
   useMoveCvSection,
   useReorderCvSections,
   useCvHtmlPreview,
+  api,
 } from "@careerportal/web/data-access";
-import { supabase } from "@careerportal/web/data-access";
 import type {
   CvVersion,
   CvSection,
@@ -27,8 +27,6 @@ import {
 import type { SectionTemplate } from "../sectionTemplates";
 
 export type { SectionTemplate };
-
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 /* ── Auto-save debounce helper ────────────────────── */
 function useDebounce<T>(value: T, delay: number): T {
@@ -44,11 +42,11 @@ function useDebounce<T>(value: T, delay: number): T {
 export function useCvBuilder() {
   // ── Version state ──
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(
-    null
+    null,
   );
   const [newVersionTitle, setNewVersionTitle] = useState("");
   const [renamingVersionId, setRenamingVersionId] = useState<string | null>(
-    null
+    null,
   );
   const [renameTitle, setRenameTitle] = useState("");
   const [showCreateVersion, setShowCreateVersion] = useState(false);
@@ -61,7 +59,7 @@ export function useCvBuilder() {
   }>({ title: "", content: "" });
   const [newSectionTitle, setNewSectionTitle] = useState("");
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
-    new Set()
+    new Set(),
   );
   const [showTemplates, setShowTemplates] = useState(false);
 
@@ -154,7 +152,7 @@ export function useCvBuilder() {
         width: 100%;
         overflow-x: hidden;
       }
-      </style>`
+      </style>`,
     );
   }, [previewHtml]);
 
@@ -235,7 +233,7 @@ export function useCvBuilder() {
       if (!selectedVersionIdRef.current) return;
       updateVersion.mutate({ id: selectedVersionIdRef.current, templateId });
     },
-    [updateVersion]
+    [updateVersion],
   );
 
   const handleUpdateTheme = useCallback(
@@ -247,7 +245,7 @@ export function useCvBuilder() {
         themeConfig: merged,
       });
     },
-    [resolvedThemeConfig, updateVersion]
+    [resolvedThemeConfig, updateVersion],
   );
 
   const handleUpdateContact = useCallback(
@@ -255,7 +253,7 @@ export function useCvBuilder() {
       if (!selectedVersionIdRef.current) return;
       updateVersion.mutate({ id: selectedVersionIdRef.current, ...fields });
     },
-    [updateVersion]
+    [updateVersion],
   );
 
   // ── Section handlers ──
@@ -344,13 +342,7 @@ export function useCvBuilder() {
   const handlePreviewPdf = async () => {
     if (!selectedVersionId) return;
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const res = await fetch(`${API_BASE_URL}/pdf/cv/${selectedVersionId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
-      if (!res.ok) throw new Error("Failed to load PDF");
-      const blob = await res.blob();
+      const blob = await api.getBlob(`/pdf/cv/${selectedVersionId}`);
       const url = URL.createObjectURL(blob);
       const win = window.open(url, "_blank");
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -363,16 +355,7 @@ export function useCvBuilder() {
   const handleDownloadPdf = async () => {
     if (!selectedVersionId) return;
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      const res = await fetch(
-        `${API_BASE_URL}/pdf/cv/${selectedVersionId}?download=1`,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        }
-      );
-      if (!res.ok) throw new Error("Failed to download PDF");
-      const blob = await res.blob();
+      const blob = await api.getBlob(`/pdf/cv/${selectedVersionId}?download=1`);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

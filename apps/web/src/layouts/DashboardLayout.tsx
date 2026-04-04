@@ -91,7 +91,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/app/cover-letters": "Cover Letters",
   "/app/jobs": "Job Tracker",
   "/app/billing": "Billing & Plans",
-  "/app/qualifications": "Qualifications",
   "/app/practice": "Practice",
   "/app/technical-tests": "Technical Tests",
 };

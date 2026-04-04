@@ -5,15 +5,15 @@ import {
 } from "./interfaces";
 
 /**
- * Selects questions using a difficulty curve and adaptive progression.
+ * Selects questions using weighted random sampling with anti-repeat protection.
  *
  * Algorithm:
  * 1. Filter pool by track, level, tag overlap, interview type, and difficulty target
- * 2. Exclude already-answered questions
- * 3. Sort by difficulty curve: start easy, ramp up, then plateau
- * 4. Adapt: if recent scores are low, keep difficulty steady; if high, ramp faster
- * 5. Diversify question types
- * 6. Adjust count based on session duration
+ * 2. Assign a relevance weight to each candidate (tag overlap + type affinity + role boost)
+ * 3. Apply a strong anti-repeat penalty for questions seen in recent sessions
+ * 4. Apply a difficulty-curve weight so the distribution matches the target level
+ * 5. Weighted-random sample without replacement for high entropy across sessions
+ * 6. Diversify question types as a post-pass
  */
 export class QuestionSelector implements IQuestionSelector {
   /** Maps difficulty label → numeric range centre */
@@ -36,59 +36,83 @@ export class QuestionSelector implements IQuestionSelector {
     answeredIds: string[],
     scores: number[]
   ): QuestionRecord[] {
-    const answeredSet = new Set(answeredIds);
+    const recentSet = new Set(answeredIds);
 
     // Step 1: Filter by track and level
-    let candidates = pool.filter(
-      (q) =>
-        q.track === settings.track &&
-        q.level === settings.level &&
-        !answeredSet.has(q.id)
+    const candidates = pool.filter(
+      (q) => q.track === settings.track && q.level === settings.level
     );
 
-    // Step 1b: If roleFocus narrows the track further, boost matching types
-    // e.g. "platform" focus boosts ops/system-design questions
-    const roleFocusTypeBoost = this.getRoleFocusBoost(settings.roleFocus);
+    if (candidates.length === 0) return [];
 
-    // Step 2: Boost questions that share tags
+    const roleFocusTypeBoost = this.getRoleFocusBoost(settings.roleFocus);
     const tagSet = new Set(settings.tags.map((t) => t.toLowerCase()));
     const preferredTypes = new Set(
       QuestionSelector.TYPE_AFFINITY[settings.interviewType] ?? []
     );
 
-    const scored = candidates.map((q) => {
-      const tagOverlap = q.tags.filter((t) =>
-        tagSet.has(t.toLowerCase())
-      ).length;
-      const typeBoost = preferredTypes.has(q.type) ? 2 : 0;
-      const roleBoost = roleFocusTypeBoost.has(q.type) ? 1 : 0;
-      return { question: q, relevance: tagOverlap + typeBoost + roleBoost };
-    });
-
-    // Sort by relevance descending, then difficulty ascending
-    scored.sort((a, b) => {
-      if (b.relevance !== a.relevance) return b.relevance - a.relevance;
-      return a.question.difficulty - b.question.difficulty;
-    });
-
-    candidates = scored.map((s) => s.question);
-
-    // Step 3: Determine target difficulty based on adaptive progression + difficulty setting
     const targetDifficulty = this.computeTargetDifficulty(
       settings.level,
       settings.difficulty,
       scores
     );
 
-    // Step 4: Apply difficulty curve
-    const selected = this.applyDifficultyCurve(
-      candidates,
-      settings.questionCount,
-      targetDifficulty
+    // Step 2: Assign composite weights
+    const weighted = candidates.map((q) => {
+      const tagOverlap =
+        tagSet.size > 0
+          ? q.tags.filter((t) => tagSet.has(t.toLowerCase())).length
+          : 1; // no tags selected → treat all as equally relevant
+      const typeBoost = preferredTypes.has(q.type) ? 2 : 0;
+      const roleBoost = roleFocusTypeBoost.has(q.type) ? 1 : 0;
+      const diffDistance = Math.abs(q.difficulty - targetDifficulty);
+      const diffScore = Math.max(0, 5 - diffDistance * 1.5);
+      // Heavy anti-repeat: reduce weight to near-zero if recently answered
+      const repeatPenalty = recentSet.has(q.id) ? 0.05 : 1;
+      const weight =
+        (tagOverlap + typeBoost + roleBoost + diffScore + 1) * repeatPenalty;
+      return { question: q, weight };
+    });
+
+    // Step 3: Weighted-random sample without replacement
+    const selected = this.weightedSampleWithoutReplacement(
+      weighted,
+      settings.questionCount
     );
 
-    // Step 5: Diversify question types
+    // Step 4: Diversify question types
     return this.diversifyTypes(selected, candidates, settings.questionCount);
+  }
+
+  /**
+   * Weighted random sample without replacement using the alias / linear scan method.
+   * O(n * k) — fine for pool sizes < 500.
+   */
+  private weightedSampleWithoutReplacement(
+    items: { question: QuestionRecord; weight: number }[],
+    k: number
+  ): QuestionRecord[] {
+    const result: QuestionRecord[] = [];
+    const pool = [...items];
+
+    while (result.length < k && pool.length > 0) {
+      const totalWeight = pool.reduce((s, i) => s + i.weight, 0);
+      if (totalWeight === 0) break;
+
+      let r = Math.random() * totalWeight;
+      let pickedIdx = pool.length - 1;
+      for (let i = 0; i < pool.length; i++) {
+        r -= pool[i].weight;
+        if (r <= 0) {
+          pickedIdx = i;
+          break;
+        }
+      }
+      result.push(pool[pickedIdx].question);
+      pool.splice(pickedIdx, 1);
+    }
+
+    return result;
   }
 
   /** Returns question types to boost for a given role focus */
@@ -118,77 +142,19 @@ export class QuestionSelector implements IQuestionSelector {
     };
     let target = baseDifficulty[level] ?? 2;
 
-    // Shift target based on the user-chosen difficulty
     const difficultyShift =
-      (QuestionSelector.DIFFICULTY_MAP[difficultyLabel] ?? 3) - 3; // easy=-2, medium=0, hard=+2
+      (QuestionSelector.DIFFICULTY_MAP[difficultyLabel] ?? 3) - 3;
     target = Math.max(1, Math.min(5, target + difficultyShift));
 
     if (scores.length > 0) {
       const recentScores = scores.slice(-3);
       const avgRecent =
         recentScores.reduce((a, b) => a + b, 0) / recentScores.length;
-
-      // If doing well (>70%), increase difficulty
-      if (avgRecent > 0.7) {
-        target = Math.min(5, target + 1);
-      }
-      // If struggling (<40%), decrease difficulty
-      else if (avgRecent < 0.4) {
-        target = Math.max(1, target - 1);
-      }
+      if (avgRecent > 0.7) target = Math.min(5, target + 1);
+      else if (avgRecent < 0.4) target = Math.max(1, target - 1);
     }
 
     return target;
-  }
-
-  private applyDifficultyCurve(
-    candidates: QuestionRecord[],
-    count: number,
-    targetDifficulty: number
-  ): QuestionRecord[] {
-    // Sort by distance from target difficulty
-    const sorted = [...candidates].sort(
-      (a, b) =>
-        Math.abs(a.difficulty - targetDifficulty) -
-        Math.abs(b.difficulty - targetDifficulty)
-    );
-
-    // Build a curve: first 30% easier, middle 40% on target, last 30% harder
-    const easyCount = Math.ceil(count * 0.3);
-    const midCount = Math.ceil(count * 0.4);
-    const hardCount = count - easyCount - midCount;
-
-    const easy = sorted
-      .filter((q) => q.difficulty <= targetDifficulty)
-      .slice(0, easyCount);
-    const mid = sorted
-      .filter(
-        (q) =>
-          q.difficulty >= targetDifficulty - 1 &&
-          q.difficulty <= targetDifficulty + 1
-      )
-      .filter((q) => !easy.includes(q))
-      .slice(0, midCount);
-    const hard = sorted
-      .filter((q) => q.difficulty >= targetDifficulty)
-      .filter((q) => !easy.includes(q) && !mid.includes(q))
-      .slice(0, hardCount);
-
-    const result = [...easy, ...mid, ...hard];
-
-    // Fill remaining slots if curve didn't produce enough
-    if (result.length < count) {
-      const resultSet = new Set(result.map((q) => q.id));
-      for (const q of sorted) {
-        if (result.length >= count) break;
-        if (!resultSet.has(q.id)) {
-          result.push(q);
-          resultSet.add(q.id);
-        }
-      }
-    }
-
-    return result.slice(0, count);
   }
 
   private diversifyTypes(
@@ -201,17 +167,14 @@ export class QuestionSelector implements IQuestionSelector {
       typeCount.set(q.type, (typeCount.get(q.type) || 0) + 1);
     }
 
-    // If any single type is >60% of selection, try to swap some out
     const maxPerType = Math.ceil(count * 0.6);
     const selectedIds = new Set(selected.map((q) => q.id));
     const result = [...selected];
 
     for (const [type, cnt] of typeCount) {
       if (cnt <= maxPerType) continue;
-
       const excess = cnt - maxPerType;
       const toRemove = result.filter((q) => q.type === type).slice(maxPerType);
-
       for (let i = 0; i < Math.min(excess, toRemove.length); i++) {
         const replacement = pool.find(
           (q) => q.type !== type && !selectedIds.has(q.id)

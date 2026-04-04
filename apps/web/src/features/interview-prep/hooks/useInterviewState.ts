@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useInterviewOptions,
   useInterviewSession,
@@ -11,8 +11,6 @@ import type {
   InterviewTrack,
   InterviewLevel,
   InterviewPersona,
-  InterviewType,
-  InterviewDifficulty,
   InterviewCompanyStyle,
 } from "@careerportal/shared/types";
 import type { View } from "../types";
@@ -20,14 +18,16 @@ import { deriveRoleFocusFromTags } from "../constants";
 import { LEVEL_TO_DIFFICULTY } from "../../shared";
 import {
   DEFAULT_INTERVIEWER_ID,
-  INTERVIEWER_CONFIGS,
+  resolveInterviewerId,
 } from "../interviewer-configs";
 
 export function useInterviewState() {
+  const VOICE_MUTE_STORAGE_KEY = "interview.voiceMuted";
+
   const [view, setView] = useState<View>("setup");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [selectedOptionIndex, setSelectedOptionIndex] = useState<number | null>(
-    null
+    null,
   );
   const [lastFeedback, setLastFeedback] = useState<AnswerFeedback | null>(null);
 
@@ -35,29 +35,30 @@ export function useInterviewState() {
   const [track, setTrack] = useState<InterviewTrack>("frontend");
   const [level, setLevel] = useState<InterviewLevel>("mid");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [questionCount] = useState(100); // Endless mode - set high number
   const [persona, setPersona] = useState<InterviewPersona>("neutral");
-  const [interviewType, setInterviewType] = useState<InterviewType>("coding");
   const [companyStyle, setCompanyStyle] =
     useState<InterviewCompanyStyle>("startup");
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set()
-  );
 
   // ── NEW: selected mock interviewer ──────────────────────────────────────
   const [selectedInterviewerId, setSelectedInterviewerId] = useState<string>(
-    DEFAULT_INTERVIEWER_ID
+    () => resolveInterviewerId(DEFAULT_INTERVIEWER_ID),
   );
+  const [voiceMuted, setVoiceMuted] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(VOICE_MUTE_STORAGE_KEY) === "1";
+  });
 
-  // Derive roleFocus automatically from selected tags
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(VOICE_MUTE_STORAGE_KEY, voiceMuted ? "1" : "0");
+  }, [voiceMuted]);
+
+  // Derive roleFocus automatically from selected tags, using the current
+  // track as a tiebreaker so "devops" track always maps to "platform".
   const roleFocus = useMemo(
-    () => deriveRoleFocusFromTags(selectedTags),
-    [selectedTags]
+    () => deriveRoleFocusFromTags(selectedTags, track),
+    [selectedTags, track],
   );
-
-  // Derive difficulty from level
-  const difficulty: InterviewDifficulty =
-    LEVEL_TO_DIFFICULTY[level] ?? "medium";
 
   const {
     data: optionsData,
@@ -68,7 +69,7 @@ export function useInterviewState() {
   } = useInterviewOptions();
   const { data: sessionData } = useInterviewSession(activeSessionId);
   const { data: nextData, isLoading: nextLoading } = useNextInterviewQuestion(
-    activeSessionId && view === "session" ? activeSessionId : null
+    activeSessionId && view === "session" ? activeSessionId : null,
   );
   const createSession = useCreateInterviewSession();
   const submitAnswer = useSubmitInterviewAnswer();
@@ -78,25 +79,16 @@ export function useInterviewState() {
   const nextQuestion = nextData?.data;
 
   const handleCreateSession = () => {
-    const selectedInterviewer = INTERVIEWER_CONFIGS.find(
-      (i) => i.id === selectedInterviewerId
-    );
-    const questionCountToUse =
-      selectedInterviewer?.id === "none"
-        ? 25
-        : Math.min(selectedInterviewer?.traits?.questionCount ?? 10, 25);
-
     createSession.mutate(
       {
         track,
         level,
         tags: selectedTags.map((t) => t.toLowerCase()),
-        questionCount: questionCountToUse,
         persona,
         roleFocus,
-        interviewType,
-        difficulty,
+        difficulty: LEVEL_TO_DIFFICULTY[level] ?? "medium",
         companyStyle,
+        interviewerId: selectedInterviewerId,
       },
       {
         onSuccess: (res) => {
@@ -105,7 +97,7 @@ export function useInterviewState() {
           setSelectedOptionIndex(null);
           setView("session");
         },
-      }
+      },
     );
   };
 
@@ -127,7 +119,7 @@ export function useInterviewState() {
           setLastFeedback(res.data.feedback);
           setSelectedOptionIndex(null);
         },
-      }
+      },
     );
   };
 
@@ -146,19 +138,15 @@ export function useInterviewState() {
     setSelectedOptionIndex(null);
   };
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
+  const handleTrackChange = (newTrack: InterviewTrack) => {
+    setTrack(newTrack);
+    setSelectedTags([]);
   };
 
-  const toggleCategory = (key: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  const toggleTag = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
   };
 
   return {
@@ -178,16 +166,11 @@ export function useInterviewState() {
     track,
     level,
     selectedTags,
-    questionCount,
     persona,
     roleFocus,
-    interviewType,
-    difficulty,
     companyStyle,
-    expandedCategories,
-    setTrack,
+    setTrack: handleTrackChange,
     setLevel,
-    setInterviewType,
     setCompanyStyle,
     setPersona,
     setSelectedOptionIndex,
@@ -197,8 +180,9 @@ export function useInterviewState() {
     handleViewReport,
     handleBackToSetup,
     toggleTag,
-    toggleCategory,
     selectedInterviewerId,
     setSelectedInterviewerId,
+    voiceMuted,
+    setVoiceMuted,
   };
 }

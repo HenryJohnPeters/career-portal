@@ -1,7 +1,6 @@
 /** Free-tier resource limits */
 export const FREE_CV_LIMIT = 1;
 export const FREE_COVER_LETTER_LIMIT = 3;
-export const FREE_DAILY_QUESTION_LIMIT = 10;
 export const FREE_TIER_MONTHLY_AI_LIMIT = 5;
 
 /** Templates available to free users */

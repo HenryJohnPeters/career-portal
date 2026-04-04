@@ -85,6 +85,7 @@ export interface IPersonaResponder {
     persona: string,
     score: number,
     maxScore: number,
-    pointsMissed: string[]
+    pointsMissed: string[],
+    adviceLevel?: "minimal" | "standard" | "detailed"
   ): string;
 }

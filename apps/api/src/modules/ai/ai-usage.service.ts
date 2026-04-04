@@ -2,14 +2,7 @@ import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import { FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
 import { isActivePremium } from "../../common/subscription.util";
-
-export interface AiUsageStatus {
-  used: number;
-  limit: number | null; // null = unlimited (premium)
-  remaining: number | null; // null = unlimited
-  isPremium: boolean;
-  resetsAt: string; // ISO date of next month start
-}
+import type { AiUsageStatus } from "./ai.types";
 
 @Injectable()
 export class AiUsageService {

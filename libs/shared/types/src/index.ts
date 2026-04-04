@@ -7,6 +7,10 @@ export interface User {
   stripeCurrentPeriodEnd?: string | null;
 }
 
+// === Shared Limits ===
+export const FREE_CV_LIMIT = 1;
+export const FREE_COVER_LETTER_LIMIT = 3;
+
 // === Interviewer Traits ===
 export interface InterviewerTraits {
   questionCount: number;
@@ -130,36 +134,6 @@ export interface CvSection {
   content: string;
   sectionType: string;
   order: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// === Questions ===
-export type QuestionType = "TEXT" | "MULTIPLE_CHOICE";
-
-export interface Question {
-  id: string;
-  text: string;
-  type: QuestionType;
-  category: string;
-  options: QuestionOption[];
-}
-
-export interface QuestionOption {
-  id: string;
-  questionId: string;
-  text: string;
-}
-
-export interface QuestionAnswer {
-  id: string;
-  userId: string;
-  questionId: string;
-  answerText?: string | null;
-  selectedOptionId?: string | null;
-  skipped: boolean;
-  question: Question;
-  selectedOption?: QuestionOption | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -307,6 +281,8 @@ export interface InterviewSessionQuestion {
   answeredAt: string | null;
   createdAt: string;
   question: InterviewQuestion;
+  /** Indices of eliminated wrong options for the 50/50 interviewer hint. Present only when the session\'s interviewer has fiftyFifty:true AND the question has ≥4 options and is unanswered. */
+  fiftyFiftyEliminated?: number[] | null;
 }
 
 export interface AnswerFeedback {
@@ -335,6 +311,7 @@ export interface InterviewSession {
   companyStyle: string;
   questionCount: number;
   persona: string;
+  interviewerId?: string | null;
   status: string;
   totalScore: number | null;
   report: InterviewReport | null;
@@ -424,6 +401,12 @@ export interface PracticeCheckResult {
 
 export interface SubmitAnswerRequest {
   answer: string;
+}
+
+export interface SubmitInterviewAnswerResponse {
+  answered: InterviewSessionQuestion;
+  followUp: InterviewSessionQuestion | null;
+  feedback: AnswerFeedback;
 }
 
 export interface NextQuestionResponse {

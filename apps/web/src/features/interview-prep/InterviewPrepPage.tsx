@@ -5,15 +5,37 @@ import { InterviewSession } from "./components/InterviewSession";
 import { InterviewReport } from "./components/InterviewReport";
 import { getInterviewerById } from "./interviewer-configs";
 import { useAuth } from "../../lib/auth";
+import {
+  getInterviewerPreviewText,
+  playInterviewerSpeech,
+} from "./voice-utils";
+import { useEffect, useRef } from "react";
 
 export function InterviewPrepPage() {
   const state = useInterviewState();
   const { user } = useAuth();
   const isPremium = user?.isPremium ?? false;
+  const previewPlaybackRef = useRef<{ cancel: () => void } | null>(null);
 
   // Resolve the full interviewer config object from the selected ID
   const selectedInterviewer =
     getInterviewerById(state.selectedInterviewerId) ?? null;
+
+  const handlePreviewInterviewerVoice = () => {
+    if (!selectedInterviewer || selectedInterviewer.id === "none") return;
+    previewPlaybackRef.current?.cancel();
+    previewPlaybackRef.current = playInterviewerSpeech({
+      interviewer: selectedInterviewer,
+      text: getInterviewerPreviewText(selectedInterviewer),
+      muted: state.voiceMuted,
+    });
+  };
+
+  useEffect(() => {
+    return () => {
+      previewPlaybackRef.current?.cancel();
+    };
+  }, []);
 
   if (state.optionsLoading) return <Spinner />;
   if (state.isError)
@@ -27,21 +49,19 @@ export function InterviewPrepPage() {
   if (state.view === "setup") {
     return (
       <InterviewSetup
-        options={state.options}
         track={state.track}
         level={state.level}
         selectedTags={state.selectedTags}
-        interviewType={state.interviewType}
-        expandedCategories={state.expandedCategories}
         isCreating={state.isCreating}
         onTrackChange={state.setTrack}
         onLevelChange={state.setLevel}
-        onInterviewTypeChange={state.setInterviewType}
         onToggleTag={state.toggleTag}
-        onToggleCategory={state.toggleCategory}
         onCreateSession={state.handleCreateSession}
         selectedInterviewerId={state.selectedInterviewerId}
         onInterviewerChange={state.setSelectedInterviewerId}
+        voiceMuted={state.voiceMuted}
+        onToggleVoiceMute={() => state.setVoiceMuted((prev: boolean) => !prev)}
+        onPreviewInterviewerVoice={handlePreviewInterviewerVoice}
         isPremium={isPremium}
       />
     );
@@ -62,6 +82,8 @@ export function InterviewPrepPage() {
         onViewReport={state.handleViewReport}
         onBackToSetup={state.handleBackToSetup}
         selectedInterviewer={selectedInterviewer}
+        voiceMuted={state.voiceMuted}
+        onToggleVoiceMute={() => state.setVoiceMuted((prev: boolean) => !prev)}
       />
     );
   }

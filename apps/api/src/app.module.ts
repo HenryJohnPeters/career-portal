@@ -8,7 +8,6 @@ import { HttpExceptionFilter } from "./common/http-exception.filter";
 import { AuthModule } from "./modules/auth/auth.module";
 import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { CvModule } from "./modules/cv/cv.module";
-import { QuestionsModule } from "./modules/questions/questions.module";
 import { CoverLettersModule } from "./modules/cover-letters/cover-letters.module";
 import { JobsModule } from "./modules/jobs/jobs.module";
 import { InterviewPrepModule } from "./modules/interview-prep/interview-prep.module";
@@ -44,7 +43,6 @@ import { BillingModule } from "./modules/billing/billing.module";
     AuthModule,
     DashboardModule,
     CvModule,
-    QuestionsModule,
     CoverLettersModule,
     JobsModule,
     InterviewPrepModule,

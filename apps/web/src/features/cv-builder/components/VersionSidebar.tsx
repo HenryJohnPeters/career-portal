@@ -8,10 +8,8 @@ import {
   Copy,
 } from "lucide-react";
 import { Button } from "@careerportal/web/ui";
-import type { CvVersion } from "@careerportal/shared/types";
+import { FREE_CV_LIMIT, type CvVersion } from "@careerportal/shared/types";
 import { ItemCard, PremiumUpgradeBanner } from "../../shared";
-
-const FREE_CV_LIMIT = 1;
 
 interface VersionSidebarProps {
   versions: CvVersion[];

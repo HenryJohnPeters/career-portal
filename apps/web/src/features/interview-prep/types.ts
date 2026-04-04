@@ -5,29 +5,26 @@ import type {
   NextQuestionResponse,
   InterviewTrack,
   InterviewLevel,
-  InterviewType,
 } from "@careerportal/shared/types";
 import type { InterviewerConfig } from "./interviewer-configs";
 
 export type View = "setup" | "session" | "report";
 
 export interface InterviewSetupProps {
-  options: InterviewOptionsCatalog | undefined;
   track: InterviewTrack;
   level: InterviewLevel;
   selectedTags: string[];
-  interviewType: InterviewType;
-  expandedCategories: Set<string>;
   isCreating: boolean;
   onTrackChange: (track: InterviewTrack) => void;
   onLevelChange: (level: InterviewLevel) => void;
-  onInterviewTypeChange: (type: InterviewType) => void;
   onToggleTag: (tag: string) => void;
-  onToggleCategory: (key: string) => void;
   onCreateSession: () => void;
   /** ID of the currently selected mock interviewer */
   selectedInterviewerId: string;
   onInterviewerChange: (id: string) => void;
+  voiceMuted: boolean;
+  onToggleVoiceMute: () => void;
+  onPreviewInterviewerVoice: () => void;
   isPremium?: boolean;
 }
 
@@ -45,6 +42,8 @@ export interface InterviewSessionProps {
   onBackToSetup: () => void;
   /** The resolved interviewer config for avatar + TTS */
   selectedInterviewer: InterviewerConfig | null;
+  voiceMuted: boolean;
+  onToggleVoiceMute: () => void;
 }
 
 export interface InterviewReportProps {
@@ -52,9 +51,4 @@ export interface InterviewReportProps {
   onStartNew: () => void;
 }
 
-export interface InterviewHomeProps {
-  sessions: InterviewSession[];
-  onStartSetup: () => void;
-  onResumeSession: (session: InterviewSession) => void;
-  onViewReport: (session: InterviewSession) => void;
-}
+

@@ -28,7 +28,7 @@ import {
 import type { InterviewSessionProps } from "../types";
 import { InterviewerAvatar } from "./InterviewerAvatar";
 import { use2DAvatarLipSync } from "../hooks/use2DAvatarLipSync";
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useCallback } from "react";
 
 export function InterviewSession({
   nextQuestion,
@@ -43,10 +43,15 @@ export function InterviewSession({
   onViewReport,
   onBackToSetup,
   selectedInterviewer,
+  voiceMuted,
+  onToggleVoiceMute,
 }: InterviewSessionProps) {
   // ── 2D Avatar + Lip-Sync ───────────────────────────────────────────────
   const { status, mouthShape, isSpeaking, speakText, stopSpeaking } =
-    use2DAvatarLipSync(selectedInterviewer, true);
+    use2DAvatarLipSync(selectedInterviewer, {
+      enabled: true,
+      muted: voiceMuted,
+    });
 
   // Track which question has been spoken so we never double-fire
   const lastSpokenQuestionIdRef = useRef<string | null>(null);
@@ -70,53 +75,32 @@ export function InterviewSession({
     !nextQuestion?.sessionQuestion;
 
   // ── 50/50 Hint: Must be called before any conditional returns ──
+  // The server pre-computes which two wrong options to eliminate (it has
+  // access to the correct-option index before stripping answer keys).
+  // We just read `fiftyFiftyEliminated` directly from the session question.
   const displayOptions = useMemo(() => {
     if (!sq?.question.options || !Array.isArray(sq.question.options)) return [];
 
-    const hasFiftyFifty = selectedInterviewer?.traits?.fiftyFifty;
-    if (!hasFiftyFifty) {
-      return sq.question.options.map((opt, idx) => ({
-        text: opt,
-        index: idx,
-        eliminated: false,
-      }));
-    }
-
-    // Find correct answer index from the rubric
-    const rubric = (sq.question as any).rubric;
-    const correctAnswer = rubric?.correctAnswer || "";
-    const correctIdx = sq.question.options.findIndex(
-      (opt) => opt === correctAnswer
-    );
-
-    if (correctIdx === -1 || sq.question.options.length < 4) {
-      return sq.question.options.map((opt, idx) => ({
-        text: opt,
-        index: idx,
-        eliminated: false,
-      }));
-    }
-
-    // Get all incorrect indices
-    const incorrectIndices = sq.question.options
-      .map((_, idx) => idx)
-      .filter((idx) => idx !== correctIdx);
-
-    // Randomly select 2 to eliminate
-    const shuffled = incorrectIndices.sort(() => Math.random() - 0.5);
-    const eliminatedIndices = shuffled.slice(0, 2);
+    // fiftyFiftyEliminated is injected by the server when the interviewer
+    // has fiftyFifty:true. It is null/undefined otherwise.
+    const eliminated: number[] = sq.fiftyFiftyEliminated ?? [];
 
     return sq.question.options.map((opt, idx) => ({
       text: opt,
       index: idx,
-      eliminated: eliminatedIndices.includes(idx),
+      eliminated: eliminated.includes(idx),
     }));
-  }, [sq?.question, selectedInterviewer]);
+  }, [sq?.id, sq?.question.options, sq?.fiftyFiftyEliminated]);
+
+  const handleReplayQuestion = useCallback(() => {
+    if (!sq || voiceMuted) return;
+    speakText(sq.question.prompt);
+  }, [sq, voiceMuted, speakText]);
 
   // When a new question arrives — speak immediately if ready, else queue it
   useEffect(() => {
     const sq = nextQuestion?.sessionQuestion;
-    if (!sq || lastFeedback) return;
+    if (!sq || lastFeedback || voiceMuted) return;
     if (lastSpokenQuestionIdRef.current === sq.id) return;
     lastSpokenQuestionIdRef.current = sq.id;
 
@@ -127,16 +111,28 @@ export function InterviewSession({
       // Avatar still loading — queue it; the effect below will fire it
       pendingSpeakRef.current = sq.question.prompt;
     }
-  }, [nextQuestion?.sessionQuestion?.id, lastFeedback, status, speakText]);
+  }, [
+    nextQuestion?.sessionQuestion?.id,
+    lastFeedback,
+    status,
+    speakText,
+    voiceMuted,
+  ]);
+
+  useEffect(() => {
+    if (!voiceMuted) return;
+    pendingSpeakRef.current = null;
+    stopSpeaking();
+  }, [voiceMuted, stopSpeaking]);
 
   // Once the avatar becomes ready, flush any queued question
   useEffect(() => {
-    if (status === "ready" && pendingSpeakRef.current) {
+    if (!voiceMuted && status === "ready" && pendingSpeakRef.current) {
       const text = pendingSpeakRef.current;
       pendingSpeakRef.current = null;
       speakText(text);
     }
-  }, [status, speakText]);
+  }, [status, speakText, voiceMuted]);
 
   // ── NOW it's safe to do early returns ──────────────────────────────────
   if (nextLoading) return <Spinner />;
@@ -244,7 +240,7 @@ export function InterviewSession({
               <ResultBanner
                 isCorrect={lastFeedback.isCorrect}
                 incorrectHint={`Correct: ${String.fromCharCode(
-                  65 + lastFeedback.correctOptionIndex
+                  65 + lastFeedback.correctOptionIndex,
                 )}. ${lastFeedback.correctAnswer}`}
               />
 
@@ -278,8 +274,8 @@ export function InterviewSession({
                             pct >= 70
                               ? "bg-emerald-500"
                               : pct >= 40
-                              ? "bg-amber-500"
-                              : "bg-red-400"
+                                ? "bg-amber-500"
+                                : "bg-red-400"
                           }`}
                           style={{ width: `${pct}%` }}
                         />
@@ -373,7 +369,7 @@ export function InterviewSession({
                         <Zap className="h-3 w-3" /> Follow-up
                       </span>
                     )}
-                    {selectedInterviewer?.traits?.fiftyFifty && (
+                    {((sq as any)?.fiftyFiftyEliminated?.length ?? 0) > 0 && (
                       <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
                         <Zap className="h-3 w-3" /> 50/50 Hint
                       </span>
@@ -386,6 +382,27 @@ export function InterviewSession({
                         {tag}
                       </span>
                     ))}
+                    {selectedInterviewer &&
+                      selectedInterviewer.id !== "none" && (
+                        <button
+                          type="button"
+                          onClick={onToggleVoiceMute}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300"
+                        >
+                          {voiceMuted ? "Unmute Voice" : "Mute Voice"}
+                        </button>
+                      )}
+                    {!voiceMuted &&
+                      selectedInterviewer &&
+                      selectedInterviewer.id !== "none" && (
+                        <button
+                          type="button"
+                          onClick={handleReplayQuestion}
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300"
+                        >
+                          Replay Voice
+                        </button>
+                      )}
                   </div>
                   <p className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-relaxed">
                     {sq.question.prompt}

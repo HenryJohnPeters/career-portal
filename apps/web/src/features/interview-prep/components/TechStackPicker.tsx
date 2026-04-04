@@ -1,12 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, ChevronDown, Layers, Sparkles, X } from "lucide-react";
 import * as Icons from "lucide-react";
+import type { InterviewRoleFocus } from "@careerportal/shared/types";
 import { ROLE_TECH_PATHWAYS, type TechPathway } from "../constants";
 
 interface TechStackPickerProps {
   selectedTags: string[];
   onToggleTag: (tag: string) => void;
   isPremium?: boolean;
+  roleFocus?: InterviewRoleFocus;
 }
 
 // Helper to get icon component from string name
@@ -18,11 +20,19 @@ function getIconComponent(iconName: string) {
 export function TechStackPicker({
   selectedTags,
   onToggleTag,
+  roleFocus,
 }: TechStackPickerProps) {
-  const pathways = ROLE_TECH_PATHWAYS["fullstack"];
+  const pathways: TechPathway[] =
+    ROLE_TECH_PATHWAYS[roleFocus ?? "fullstack"] ??
+    ROLE_TECH_PATHWAYS["fullstack"];
   const [expandedPathway, setExpandedPathway] = useState<string | null>(
-    pathways[0]?.key ?? null
+    pathways[0]?.key ?? null,
   );
+
+  // Reset expanded pathway when role changes so stale pathway key isn't highlighted
+  useEffect(() => {
+    setExpandedPathway(pathways[0]?.key ?? null);
+  }, [roleFocus]);
 
   const totalSelected = selectedTags.length;
 
@@ -106,7 +116,7 @@ export function TechStackPicker({
             isExpanded={expandedPathway === pathway.key}
             onToggle={() =>
               setExpandedPathway(
-                expandedPathway === pathway.key ? null : pathway.key
+                expandedPathway === pathway.key ? null : pathway.key,
               )
             }
             onToggleTag={onToggleTag}
@@ -133,7 +143,7 @@ function PathwayCard({
   onToggleTag: (tag: string) => void;
 }) {
   const selectedInPathway = pathway.items.filter((item) =>
-    selectedTags.includes(item)
+    selectedTags.includes(item),
   );
   const count = selectedInPathway.length;
   const allSelected = count === pathway.items.length && count > 0;

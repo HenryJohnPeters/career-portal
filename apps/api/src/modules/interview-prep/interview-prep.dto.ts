@@ -33,6 +33,7 @@ export class CreateInterviewSessionDto {
   })
   @IsOptional()
   @IsString()
+  @IsIn(["frontend", "backend", "fullstack", "platform"])
   roleFocus?: string;
 
   @ApiPropertyOptional({
@@ -41,16 +42,19 @@ export class CreateInterviewSessionDto {
   })
   @IsOptional()
   @IsString()
+  @IsIn(["coding", "system-design", "behavioral"])
   interviewType?: string;
 
   @ApiPropertyOptional({ enum: [30, 60, 90], default: 60 })
   @IsOptional()
   @IsInt()
+  @IsIn([30, 60, 90])
   duration?: number;
 
   @ApiPropertyOptional({ enum: ["easy", "medium", "hard"], default: "medium" })
   @IsOptional()
   @IsString()
+  @IsIn(["easy", "medium", "hard"])
   difficulty?: string;
 
   @ApiPropertyOptional({
@@ -59,6 +63,7 @@ export class CreateInterviewSessionDto {
   })
   @IsOptional()
   @IsString()
+  @IsIn(["faang", "startup", "enterprise"])
   companyStyle?: string;
 
   @ApiPropertyOptional({ default: 10 })

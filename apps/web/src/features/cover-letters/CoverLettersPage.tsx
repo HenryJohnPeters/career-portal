@@ -12,7 +12,10 @@ import { Button, Spinner, ErrorState } from "@careerportal/web/ui";
 import { PageHero, PremiumUpgradeBanner, ItemCard } from "../shared";
 import { useAuth } from "../../lib/auth";
 import { AiCoverLetterAssist } from "./AiCoverLetterAssist";
-import type { CoverLetter } from "@careerportal/shared/types";
+import {
+  FREE_COVER_LETTER_LIMIT,
+  type CoverLetter,
+} from "@careerportal/shared/types";
 import {
   Mail,
   Plus,
@@ -29,8 +32,6 @@ import {
   RefreshCw,
   Crown,
 } from "lucide-react";
-
-const FREE_COVER_LETTER_LIMIT = 3;
 
 export function CoverLettersPage() {
   const { user } = useAuth();

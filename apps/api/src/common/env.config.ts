@@ -9,6 +9,8 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
 
   // ── Supabase ──
+  // At least one of SUPABASE_URL (ES256/JWKS) or SUPABASE_JWT_SECRET (HS256)
+  // must be present. If neither is set, every authenticated request will fail.
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_JWT_SECRET: z.string().optional(),
 
@@ -45,5 +47,13 @@ export function validateEnv(): EnvConfig {
       .join("\n");
     throw new Error(`❌ Invalid environment variables:\n${formatted}`);
   }
+
+  const { SUPABASE_URL, SUPABASE_JWT_SECRET } = parsed.data;
+  if (!SUPABASE_URL && !SUPABASE_JWT_SECRET) {
+    throw new Error(
+      "❌ Invalid environment variables:\n  At least one of SUPABASE_URL (ES256) or SUPABASE_JWT_SECRET (HS256) must be set for JWT verification.",
+    );
+  }
+
   return parsed.data;
 }

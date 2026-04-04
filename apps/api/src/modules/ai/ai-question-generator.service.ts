@@ -282,10 +282,25 @@ export class AiQuestionGeneratorService {
     count: number
   ): Promise<GeneratedQuestion[]> {
     const difficultyNum = DIFFICULTY_MAP[filters.difficulty] ?? 3;
-    const tagsStr =
-      filters.tags.length > 0
-        ? filters.tags.join(", ")
-        : `general ${filters.track} topics`;
+    const hasTags = filters.tags.length > 0;
+    const tagsStr = hasTags
+      ? filters.tags.join(", ")
+      : `general ${filters.track} topics`;
+
+    // When concrete tech tags are provided, restrict question types to ones
+    // that actually test that technology. Generic system-design / behavioral
+    // questions do not test TypeScript, React, etc. and must not be returned.
+    const allowedTypes = hasTags
+      ? `"theory", "coding", "debugging"`
+      : `"theory", "coding", "debugging", "system-design", "behavioral", "ops"`;
+
+    const topicInstruction = hasTags
+      ? `Every single question MUST directly test the candidate's knowledge of: ${tagsStr}.
+- The question prompt must explicitly reference or require knowledge of these specific technologies.
+- Do NOT generate generic software-engineering questions (e.g. "Design a REST API", "Explain OOP") that could apply to any stack.
+- A question about TypeScript must test TypeScript-specific concepts (type system, generics, utility types, decorators, tsconfig, etc.).
+- A question about React must test React-specific concepts (hooks, reconciliation, lifecycle, JSX, context, etc.).`
+      : `Generate questions covering general ${filters.track} topics.`;
 
     const systemPrompt = `You are an expert technical interviewer who creates high-quality multiple-choice interview questions for software developers.
 
@@ -296,7 +311,7 @@ You MUST return a valid JSON array of question objects. Each object has this EXA
   "correctOptionIndex": number (0-3),
   "multiSelect": false,
   "correctOptionIndices": [number] — array with just the correct index for single-select,
-  "type": "theory" | "coding" | "debugging" | "system-design" | "behavioral" | "ops",
+  "type": ${allowedTypes},
   "expectedPoints": ["string"] — 3-5 key points a good answer covers,
   "redFlags": ["string"] — 2-3 common misconceptions,
   "rubric": { "criteria": [{ "name": "string", "weight": number (1-5), "keywords": ["string"] }] } — 2-4 criteria,
@@ -308,8 +323,7 @@ RULES:
 - Track: ${filters.track}
 - Level: ${filters.level} (junior = straightforward fundamentals, mid = applied knowledge + trade-offs, senior = architecture + deep expertise)
 - Difficulty: ${difficultyNum}/5
-- Topics: ${tagsStr}
-- Make questions diverse — mix theory, practical, debugging, and scenario-based
+- ${topicInstruction}
 - Questions should feel like real interview questions from top tech companies
 - Options should be plausible — avoid obviously wrong answers
 - Each question must be unique and not a trivial variation of another
@@ -358,6 +372,15 @@ RULES:
             typeof (q as any).correctOptionIndex === "number" &&
             typeof (q as any).modelAnswer === "string"
         )
+        .filter((q) => {
+          // When specific tech tags were requested, reject any question whose
+          // prompt or model answer doesn't mention at least one of those tags.
+          // This catches hallucinated generic questions that slipped through.
+          if (!hasTags) return true;
+          const text =
+            `${(q.prompt as string)} ${(q.modelAnswer as string)}`.toLowerCase();
+          return filters.tags.some((tag) => text.includes(tag.toLowerCase()));
+        })
         .map((q) => ({
           track: filters.track,
           tags:

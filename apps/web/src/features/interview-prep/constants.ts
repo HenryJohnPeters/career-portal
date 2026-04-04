@@ -676,15 +676,35 @@ export function getTagsForRole(role: InterviewRoleFocus): Set<string> {
   return tags;
 }
 
+/** Maps an InterviewTrack value to the corresponding InterviewRoleFocus. */
+const TRACK_TO_ROLE_FOCUS: Record<string, InterviewRoleFocus> = {
+  frontend: "frontend",
+  backend: "backend",
+  fullstack: "fullstack",
+  devops: "platform",
+};
+
 /**
  * Derive the best-matching role focus from the currently selected tags.
  * Counts how many selected tags fall into each role's pathways and
- * returns the role with the highest overlap. Defaults to "fullstack".
+ * returns the role with the highest overlap.
+ *
+ * @param selectedTags Tags selected in the TechStackPicker.
+ * @param track        The current InterviewTrack — used as a tiebreaker and
+ *                     as the default when no tags are selected or when the
+ *                     scores are equal. This ensures that a user on the
+ *                     "devops" track always gets "platform" as their role focus
+ *                     even when shared tags (e.g. "Docker") tie with "fullstack".
  */
 export function deriveRoleFocusFromTags(
-  selectedTags: string[]
+  selectedTags: string[],
+  track?: string,
 ): InterviewRoleFocus {
-  if (selectedTags.length === 0) return "fullstack";
+  // Map the track to its canonical role focus so it acts as a tiebreaker.
+  const trackDefault: InterviewRoleFocus =
+    (track ? TRACK_TO_ROLE_FOCUS[track] : undefined) ?? "fullstack";
+
+  if (selectedTags.length === 0) return trackDefault;
 
   const roles: InterviewRoleFocus[] = [
     "frontend",
@@ -693,12 +713,14 @@ export function deriveRoleFocusFromTags(
     "platform",
   ];
 
-  let bestRole: InterviewRoleFocus = "fullstack";
-  let bestScore = -1;
+  let bestRole: InterviewRoleFocus = trackDefault;
+  let bestScore = 0;
 
   for (const role of roles) {
     const roleTags = getTagsForRole(role);
     const overlap = selectedTags.filter((t) => roleTags.has(t)).length;
+    // Use strict > so the trackDefault wins ties (it is always initialized
+    // with bestScore = 0, meaning it is treated as having that baseline).
     if (overlap > bestScore) {
       bestScore = overlap;
       bestRole = role;
@@ -707,3 +729,4 @@ export function deriveRoleFocusFromTags(
 
   return bestRole;
 }
+
