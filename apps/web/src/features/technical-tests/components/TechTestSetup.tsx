@@ -10,10 +10,9 @@ import {
 import { PageHero, OptionGrid, SectionHeading, LEVEL_META } from "../../shared";
 import type { OptionItem } from "../../shared";
 import { TechStackPicker } from "../../interview-prep/components/TechStackPicker";
-import type { InterviewLevel } from "@careerportal/shared/types";
-import { isActivePremium } from "@careerportal/shared/types";
+import type { InterviewLevel, AiUsageStatus } from "@careerportal/shared/types";
 import type { useTechTestState } from "../hooks/useTechTestState";
-import { useAuth } from "../../../lib/auth";
+import { PremiumUpgradeBanner } from "../../shared/components/PremiumUpgradeBanner";
 
 const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
   ([key, m]) => ({
@@ -34,11 +33,11 @@ const TIME_LIMIT_ITEMS: OptionItem[] = [
 
 interface TechTestSetupProps {
   state: ReturnType<typeof useTechTestState>;
+  isPremium: boolean;
+  usage?: AiUsageStatus;
 }
 
-export function TechTestSetup({ state }: TechTestSetupProps) {
-  const { user } = useAuth();
-  const isPremium = isActivePremium(user);
+export function TechTestSetup({ state, isPremium, usage }: TechTestSetupProps) {
   const levelMeta = LEVEL_META[state.level] ?? LEVEL_META.mid;
   const timeMeta = TIME_LIMIT_ITEMS.find(
     (t) => t.key === String(state.timeLimit),
@@ -59,6 +58,17 @@ export function TechTestSetup({ state }: TechTestSetupProps) {
           ) : undefined
         }
       />
+
+      {/* PREMIUM UPSELL BANNER FOR FREE USERS */}
+      {!isPremium && (
+        <PremiumUpgradeBanner
+          message={
+            usage
+              ? `${usage.techTestsRemaining ?? 0} free tests remaining this month — Upgrade for unlimited`
+              : "2 free tests per month — Upgrade for unlimited"
+          }
+        />
+      )}
 
       {state.tests.length > 0 && (
         <div className="sm:hidden">

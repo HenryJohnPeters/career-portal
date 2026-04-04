@@ -7,7 +7,7 @@ import { PrismaService } from "../../common/prisma.service";
 import { CreateTechnicalTestDto } from "./technical-tests.dto";
 import { generateScenario } from "./engine/scenario-generator";
 import { AiScenarioGeneratorService } from "../ai/ai-scenario-generator.service";
-import { ROLE_TO_TRACK } from "../../common/constants";
+import { ROLE_TO_TRACK, FREE_TIER } from "../../common/constants";
 import { computeGrade } from "../../common/grade.util";
 import { isActivePremium } from "../../common/subscription.util";
 
@@ -35,14 +35,24 @@ export class TechnicalTestsService {
     return test;
   }
 
-  /** Generate a new technical test scenario (premium only) */
+  /** Generate a new technical test scenario */
   async createTest(userId: string, dto: CreateTechnicalTestDto) {
-    // Enforce premium-only
+    // Enforce monthly limit for free users
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !isActivePremium(user)) {
-      throw new ForbiddenException(
-        "Technical tests are a Premium feature. Upgrade to access take-home test scenarios.",
-      );
+    if (!user) throw new ForbiddenException("User not found");
+
+    if (!isActivePremium(user)) {
+      const monthStart = new Date();
+      monthStart.setUTCDate(1);
+      monthStart.setUTCHours(0, 0, 0, 0);
+      const testCount = await this.prisma.technicalTest.count({
+        where: { userId, createdAt: { gte: monthStart } },
+      });
+      if (testCount >= FREE_TIER.monthlyTechTests) {
+        throw new ForbiddenException(
+          `Free users are limited to ${FREE_TIER.monthlyTechTests} technical tests per month. Upgrade to Premium for unlimited tests.`,
+        );
+      }
     }
 
     // Normalize tags to lowercase — the DB and generators store lowercase tags

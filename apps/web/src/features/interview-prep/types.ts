@@ -5,6 +5,7 @@ import type {
   NextQuestionResponse,
   InterviewTrack,
   InterviewLevel,
+  AiUsageStatus,
 } from "@careerportal/shared/types";
 import type { InterviewerConfig } from "./interviewer-configs";
 
@@ -26,6 +27,8 @@ export interface InterviewSetupProps {
   onToggleVoiceMute: () => void;
   onPreviewInterviewerVoice: () => void;
   isPremium: boolean;
+  /** AI usage stats for showing free-tier limits */
+  usage?: AiUsageStatus;
 }
 
 export interface InterviewSessionProps {

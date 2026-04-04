@@ -34,8 +34,8 @@ export class AiUsageService {
       ? null
       : Math.max(0, FREE_TIER_MONTHLY_AI_LIMIT - used);
 
-    // Interview session + question usage
-    const [mockSessionsUsed, questionsUsed] = await Promise.all([
+    // Interview session + question + tech test usage
+    const [mockSessionsUsed, questionsUsed, techTestsUsed] = await Promise.all([
       this.prisma.interviewSession.count({
         where: { userId, createdAt: { gte: start } },
       }),
@@ -44,6 +44,9 @@ export class AiUsageService {
           session: { userId },
           answeredAt: { gte: start },
         },
+      }),
+      this.prisma.technicalTest.count({
+        where: { userId, createdAt: { gte: start } },
       }),
     ]);
 
@@ -63,6 +66,11 @@ export class AiUsageService {
       questionsRemaining: isPremium
         ? null
         : Math.max(0, FREE_TIER.monthlyQuestions - questionsUsed),
+      techTestsUsed,
+      techTestsLimit: isPremium ? null : FREE_TIER.monthlyTechTests,
+      techTestsRemaining: isPremium
+        ? null
+        : Math.max(0, FREE_TIER.monthlyTechTests - techTestsUsed),
     };
   }
 

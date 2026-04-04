@@ -25,6 +25,7 @@ export const FREE_TIER = {
   monthlyAiActions: 5,
   monthlyMockSessions: 3,
   monthlyQuestions: 50,
+  monthlyTechTests: 2,
   interviewerCount: 3,
   templateIds: [
     "classic",
@@ -70,6 +71,10 @@ export interface AiUsageStatus {
   questionsUsed: number;
   questionsLimit: number | null;
   questionsRemaining: number | null;
+  /** Monthly technical test usage */
+  techTestsUsed: number;
+  techTestsLimit: number | null;
+  techTestsRemaining: number | null;
 }
 
 // === API Response ===

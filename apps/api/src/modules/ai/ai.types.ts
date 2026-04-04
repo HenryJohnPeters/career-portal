@@ -29,4 +29,8 @@ export interface AiUsageStatus {
   questionsUsed: number;
   questionsLimit: number | null;
   questionsRemaining: number | null;
+  /** Monthly technical test usage */
+  techTestsUsed: number;
+  techTestsLimit: number | null;
+  techTestsRemaining: number | null;
 }

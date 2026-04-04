@@ -23,6 +23,7 @@ import type { InterviewSetupProps } from "../types";
 import { TechStackPicker } from "./TechStackPicker";
 import { InterviewerSelector } from "./InterviewerSelector";
 import { getInterviewerById } from "../interviewer-configs";
+import { PremiumUpgradeBanner } from "../../shared/components/PremiumUpgradeBanner";
 
 const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
   ([key, m]) => ({
@@ -57,6 +58,7 @@ export function InterviewSetup({
   onToggleVoiceMute,
   onPreviewInterviewerVoice,
   isPremium,
+  usage,
 }: InterviewSetupProps) {
   const selectedInterviewer = getInterviewerById(selectedInterviewerId) ?? null;
   const canPreview = !!selectedInterviewer && selectedInterviewer.id !== "none";
@@ -69,6 +71,17 @@ export function InterviewSetup({
         title="Practice"
         subtitle="Configure your practice session · Questions adapt to your selections"
       />
+
+      {/* PREMIUM UPSELL BANNER FOR FREE USERS */}
+      {!isPremium && (
+        <PremiumUpgradeBanner
+          message={
+            usage
+              ? `${usage.mockSessionsRemaining ?? 0} free sessions · ${usage.questionsRemaining ?? 0} questions remaining this month`
+              : "3 free sessions · 50 questions per month — Upgrade for unlimited"
+          }
+        />
+      )}
 
       {/* INTERVIEWER SELECTOR - FULL WIDTH AT TOP */}
       <div className="w-full">

@@ -9,7 +9,6 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { AuthGuard } from "../auth/auth.guard";
-import { PremiumGuard } from "../ai/premium.guard";
 import { TechnicalTestsService } from "./technical-tests.service";
 import {
   CreateTechnicalTestDto,
@@ -32,7 +31,6 @@ export class TechnicalTestsController {
   }
 
   @Post()
-  @UseGuards(PremiumGuard)
   async createTest(
     @CurrentUserId() userId: string,
     @Body() dto: CreateTechnicalTestDto,

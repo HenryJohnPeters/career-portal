@@ -13,6 +13,8 @@ export const FREE_TIER = {
   monthlyMockSessions: 3,
   /** Monthly interview questions a free user can answer */
   monthlyQuestions: 50,
+  /** Monthly technical tests a free user can create */
+  monthlyTechTests: 2,
   /** Number of interviewers available to free users (first N in the list) */
   interviewerCount: 3,
   /** CV template IDs available to free users */

@@ -6,6 +6,7 @@ import { InterviewReport } from "./components/InterviewReport";
 import { getInterviewerById } from "./interviewer-configs";
 import { useAuth } from "../../lib/auth";
 import { isActivePremium } from "@careerportal/shared/types";
+import { useAiUsage } from "@careerportal/web/data-access";
 import {
   getInterviewerPreviewText,
   playInterviewerSpeech,
@@ -15,7 +16,9 @@ import { useEffect, useRef } from "react";
 export function InterviewPrepPage() {
   const state = useInterviewState();
   const { user } = useAuth();
-  const isPremium = isActivePremium(user);
+  const { data: usageData } = useAiUsage();
+  const usage = usageData?.data;
+  const isPremium = usage?.isPremium ?? isActivePremium(user);
   const previewPlaybackRef = useRef<{ cancel: () => void } | null>(null);
 
   // Resolve the full interviewer config object from the selected ID
@@ -64,6 +67,7 @@ export function InterviewPrepPage() {
         onToggleVoiceMute={() => state.setVoiceMuted((prev: boolean) => !prev)}
         onPreviewInterviewerVoice={handlePreviewInterviewerVoice}
         isPremium={isPremium}
+        usage={usage}
       />
     );
   }
