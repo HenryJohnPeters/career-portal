@@ -298,29 +298,17 @@ export class CvService {
   ) {
     const section = await this.assertSectionOwner(userId, sectionId);
 
-    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
-    const { reserved, usageId } = await this.aiUsage.reserveUsage(
-      userId,
-      "cv-section",
-    );
-    if (!reserved) {
-      throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
-      );
-    }
-
-    try {
-      // Fetch all sibling sections for context
-      const allSections = await this.prisma.cvSection.findMany({
-        where: { cvVersionId: section.cvVersionId },
-        orderBy: { order: "asc" },
-      });
-
-      // Fetch user name for personalisation
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true },
-      });
+    return this.aiUsage.withReservation(userId, "cv-section", async () => {
+      const [allSections, user] = await Promise.all([
+        this.prisma.cvSection.findMany({
+          where: { cvVersionId: section.cvVersionId },
+          orderBy: { order: "asc" },
+        }),
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true },
+        }),
+      ]);
 
       const content = await this.aiService.generateCvSectionContent({
         action: dto.action,
@@ -340,47 +328,26 @@ export class CvService {
       });
 
       return { content };
-    } catch (error) {
-      // Roll back the reserved usage slot so the user can retry
-      if (usageId) await this.aiUsage.rollbackUsage(usageId);
-      throw error;
-    }
+    });
   }
 
   async aiGenerateFullCv(
     userId: string,
     dto: { rawText: string; jobTitle?: string; jobDescription?: string },
   ): Promise<AiFullCvResult> {
-    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
-    const { reserved, usageId } = await this.aiUsage.reserveUsage(
-      userId,
-      "cv-full",
-    );
-    if (!reserved) {
-      throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
-      );
-    }
-
-    try {
+    return this.aiUsage.withReservation(userId, "cv-full", async () => {
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
         select: { name: true },
       });
 
-      const result = await this.aiService.generateFullCvFromRawText({
+      return this.aiService.generateFullCvFromRawText({
         rawText: dto.rawText,
         jobTitle: dto.jobTitle,
         jobDescription: dto.jobDescription,
         userName: user?.name,
       });
-
-      return result;
-    } catch (error) {
-      // Roll back the reserved usage slot so the user can retry
-      if (usageId) await this.aiUsage.rollbackUsage(usageId);
-      throw error;
-    }
+    });
   }
 
   private async assertVersionOwner(userId: string, versionId: string) {

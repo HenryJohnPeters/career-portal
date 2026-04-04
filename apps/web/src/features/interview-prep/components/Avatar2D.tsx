@@ -1053,15 +1053,6 @@ export function Avatar2D({
   mouthShape,
   isSpeaking,
 }: Avatar2DProps) {
-  console.log(
-    "[Avatar2D] Rendering:",
-    interviewer.name,
-    "mouthShape:",
-    mouthShape,
-    "isSpeaking:",
-    isSpeaking
-  );
-
   return (
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
       {/* Ambient glow behind avatar */}

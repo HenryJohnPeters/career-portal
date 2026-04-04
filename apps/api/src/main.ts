@@ -20,19 +20,22 @@ async function bootstrap() {
     // Security headers
     app.use(helmet());
 
-    // Allow multiple origins for CORS
+    // Allow multiple origins for CORS — driven by env only
     const allowedOrigins = [
       config.get("CLIENT_URL"),
-      "https://web-production-aac8a.up.railway.app",
-      "http://localhost:4200",
+      ...(config.get("NODE_ENV") !== "production" ? ["http://localhost:4200"] : []),
     ].filter(Boolean);
 
     logger.log(`Allowed CORS origins: ${allowedOrigins.join(", ")}`);
 
     app.enableCors({
       origin: (origin, callback) => {
-        // Allow requests with no origin (mobile apps, Postman, etc.)
-        if (!origin) return callback(null, true);
+        // In production, reject requests with no origin (CSRF protection).
+        // In dev, allow tools like Postman/curl that don't send an origin.
+        if (!origin) {
+          const isDev = config.get("NODE_ENV") !== "production";
+          return callback(isDev ? null : new Error("Origin required"), isDev);
+        }
 
         if (allowedOrigins.includes(origin)) {
           callback(null, true);

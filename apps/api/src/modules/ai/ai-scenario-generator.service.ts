@@ -3,6 +3,8 @@ import OpenAI from "openai";
 import { AiUsageService } from "./ai-usage.service";
 import { OPENAI_CLIENT } from "./openai.provider";
 
+
+
 export interface ScenarioGenerationInput {
   roleFocus: string;
   level: string;
@@ -27,17 +29,6 @@ export class AiScenarioGeneratorService {
     input: ScenarioGenerationInput,
     userId: string,
   ): Promise<any | null> {
-    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
-    const { reserved, usageId } = await this.aiUsage.reserveUsage(
-      userId,
-      "scenario-generation",
-    );
-    if (!reserved) {
-      throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
-      );
-    }
-
     const tagsStr =
       input.tags.length > 0
         ? input.tags.join(", ")
@@ -55,50 +46,37 @@ Role: ${input.roleFocus} | Level: ${input.level} (junior=3-5 reqs, mid=5-7, seni
     const userPrompt = `Create a ${input.difficulty} ${input.level}-level take-home technical test for a ${input.roleFocus} developer using ${tagsStr}.`;
 
     try {
-      const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
-        temperature: 0.85,
-        max_tokens: 3000,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      });
+      return await this.aiUsage.withReservation(userId, "scenario-generation", async () => {
+        const response = await this.openai.chat.completions.create({
+          model: "gpt-4o",
+          temperature: 0.85,
+          max_tokens: 3000,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+        });
 
-      const raw = response.choices[0]?.message?.content?.trim() || "{}";
-      const cleaned = raw
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/\s*```$/i, "")
-        .trim();
+        const raw = response.choices[0]?.message?.content?.trim() || "{}";
+        const cleaned = raw
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```$/i, "")
+          .trim();
 
-      try {
         const parsed = JSON.parse(cleaned);
-        // Validate required fields
         if (
           !parsed.title ||
           !parsed.brief ||
           !Array.isArray(parsed.requirements)
         ) {
-          this.logger.error("AI scenario missing required fields");
-          // Roll back — user gets nothing usable
-          if (usageId) await this.aiUsage.rollbackUsage(usageId);
-          return null;
+          throw new Error("AI scenario missing required fields");
         }
 
         return parsed;
-      } catch {
-        this.logger.error(
-          "Failed to parse AI scenario JSON",
-          cleaned.slice(0, 200),
-        );
-        // Roll back — AI returned garbage, don't charge the user
-        if (usageId) await this.aiUsage.rollbackUsage(usageId);
-        return null;
-      }
+      });
     } catch (error) {
-      this.logger.error("OpenAI scenario generation failed", error);
-      // Roll back — API call failed, don't charge the user
-      if (usageId) await this.aiUsage.rollbackUsage(usageId);
+      if (error instanceof ForbiddenException) throw error;
+      this.logger.error("Scenario generation failed", error);
       return null;
     }
   }

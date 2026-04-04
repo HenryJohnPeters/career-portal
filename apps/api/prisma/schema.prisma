@@ -63,7 +63,11 @@ model CvSection {
   updatedAt   DateTime  @updatedAt
   cvVersion   CvVersion @relation(fields: [cvVersionId], references: [id], onDelete: Cascade)
 }
-
+//delete dont keep legacy remove these 
+// LEGACY: Question/QuestionOption/QuestionAnswer are unused by current code.
+// The interview system uses InterviewQuestion instead. These tables are retained
+// only because dropping them requires a migration against production data.
+// Safe to remove in a future cleanup migration.
 model Question {
   id        String           @id @default(uuid())
   text      String
@@ -250,6 +254,8 @@ model QuestionGenerationLog {
 
 // === Practice Question Daily Usage ===
 
+// LEGACY: PracticeQuestionUsage is defined but never queried by any service.
+// Safe to remove in a future cleanup migration.
 model PracticeQuestionUsage {
   id        String   @id @default(uuid())
   userId    String

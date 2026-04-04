@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, ForbiddenException } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import { FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
 import { isActivePremium } from "../../common/subscription.util";
@@ -111,12 +111,26 @@ export class AiUsageService {
   }
 
   /**
-   * Record an AI usage event.
+   * Reserve a usage slot, run the AI work, and auto-rollback on failure.
+   * Eliminates the repeated reserve/try/catch/rollback pattern across services.
    */
-  async recordUsage(userId: string, action: string): Promise<void> {
-    await this.prisma.aiUsage.create({
-      data: { userId, action },
-    });
+  async withReservation<T>(
+    userId: string,
+    action: string,
+    work: () => Promise<T>,
+  ): Promise<T> {
+    const { reserved, usageId } = await this.reserveUsage(userId, action);
+    if (!reserved) {
+      throw new ForbiddenException(
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
+      );
+    }
+    try {
+      return await work();
+    } catch (error) {
+      if (usageId) await this.rollbackUsage(usageId);
+      throw error;
+    }
   }
 
   /** Start of the current calendar month (UTC). */

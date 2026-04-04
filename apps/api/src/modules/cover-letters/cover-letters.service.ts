@@ -78,33 +78,17 @@ export class CoverLettersService {
       ];
     }
 
-    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
-    const { reserved, usageId } = await this.aiUsage.reserveUsage(
-      userId,
-      "cover-letter-suggest",
-    );
-    if (!reserved) {
-      throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
-      );
-    }
-
-    try {
+    return this.aiUsage.withReservation(userId, "cover-letter-suggest", async () => {
       const { jobTitle, companyName, jobDescription } =
         await this.resolveJobContext(letter.jobId);
 
-      const result = await this.aiService.suggestCoverLetterImprovements(
+      return this.aiService.suggestCoverLetterImprovements(
         letter.body.slice(0, 3000),
         jobTitle,
         companyName,
         jobDescription,
       );
-
-      return result;
-    } catch (error) {
-      if (usageId) await this.aiUsage.rollbackUsage(usageId);
-      throw error;
-    }
+    });
   }
 
   async rewrite(
@@ -122,34 +106,18 @@ export class CoverLettersService {
         : "Hi there!\n\nI'm really excited about this opportunity and would love to be part of your team. I think my skills and enthusiasm would be a great fit.\n\nLooking forward to chatting more about how I can contribute!\n\nBest,\n[Your Name]";
     }
 
-    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
-    const { reserved, usageId } = await this.aiUsage.reserveUsage(
-      userId,
-      "cover-letter-rewrite",
-    );
-    if (!reserved) {
-      throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
-      );
-    }
-
-    try {
+    return this.aiUsage.withReservation(userId, "cover-letter-rewrite", async () => {
       const { jobTitle, companyName } = await this.resolveJobContext(
         letter.jobId,
       );
 
-      const result = await this.aiService.rewriteCoverLetter(
+      return this.aiService.rewriteCoverLetter(
         body.slice(0, 3000),
         selectedTone,
         jobTitle,
         companyName,
       );
-
-      return result;
-    } catch (error) {
-      if (usageId) await this.aiUsage.rollbackUsage(usageId);
-      throw error;
-    }
+    });
   }
 
   async aiGenerate(
@@ -166,24 +134,14 @@ export class CoverLettersService {
   ) {
     const letter = await this.assertOwner(userId, id);
 
-    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
-    const { reserved, usageId } = await this.aiUsage.reserveUsage(
-      userId,
-      "cover-letter",
-    );
-    if (!reserved) {
-      throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
-      );
-    }
-
-    try {
-      const cvVersion = await this.resolveActiveCv(userId);
-
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true },
-      });
+    return this.aiUsage.withReservation(userId, "cover-letter", async () => {
+      const [cvVersion, user] = await Promise.all([
+        this.resolveActiveCv(userId),
+        this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true },
+        }),
+      ]);
 
       let { jobTitle, companyName, companyUrl, jobDescription } = dto;
       if (letter.jobId && (!jobTitle || !companyName)) {
@@ -214,10 +172,7 @@ export class CoverLettersService {
       });
 
       return { content };
-    } catch (error) {
-      if (usageId) await this.aiUsage.rollbackUsage(usageId);
-      throw error;
-    }
+    });
   }
 
   // ── Private helpers ────────────────────────────────────────

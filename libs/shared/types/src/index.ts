@@ -353,56 +353,6 @@ export interface CreateInterviewSessionRequest {
   interviewerId?: string;
 }
 
-// === Practice Quiz (Endless Questions) ===
-
-export interface PracticeUsageStatus {
-  used: number;
-  limit: number | null;
-  remaining: number | null;
-  isPremium: boolean;
-  resetsAt: string;
-}
-
-export interface PracticeQuizFilters {
-  track?: InterviewTrack;
-  level?: InterviewLevel;
-  difficulty?: InterviewDifficulty;
-  tags?: string[];
-  excludeIds?: string[];
-}
-
-export interface PracticeQuestion {
-  id: string;
-  prompt: string;
-  options: string[];
-  tags: string[];
-  difficulty: number;
-  type: string;
-  track: string;
-  level: string;
-  multiSelect: boolean;
-}
-
-export interface PracticeCheckRequest {
-  questionId: string;
-  selectedOptionIndex?: number;
-  selectedOptionIndices?: number[];
-}
-
-export interface PracticeCheckResult {
-  isCorrect: boolean;
-  correctOptionIndex: number;
-  correctOptionIndices: number[];
-  correctAnswer: string;
-  explanation: string;
-  questionId: string;
-  multiSelect: boolean;
-}
-
-export interface SubmitAnswerRequest {
-  answer: string;
-}
-
 export interface SubmitInterviewAnswerResponse {
   answered: InterviewSessionQuestion;
   followUp: InterviewSessionQuestion | null;

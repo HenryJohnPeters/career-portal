@@ -230,7 +230,7 @@ export class TechnicalTestsService {
     const percentage =
       maxPossible > 0 ? Math.round((overallScore / maxPossible) * 100) : 0;
 
-    const grade = this.computeGrade(percentage);
+    const grade = computeGrade(percentage);
 
     // Generate feedback
     const strengths: string[] = [];
@@ -296,7 +296,4 @@ export class TechnicalTestsService {
     };
   }
 
-  private computeGrade(percentage: number): string {
-    return computeGrade(percentage);
-  }
 }
