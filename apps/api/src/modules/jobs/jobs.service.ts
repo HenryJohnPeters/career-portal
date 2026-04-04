@@ -29,7 +29,7 @@ export class JobsService {
       notes?: string;
       cvVersionId?: string;
       coverLetterId?: string;
-    }
+    },
   ) {
     return this.prisma.job.create({
       data: {
@@ -58,7 +58,7 @@ export class JobsService {
       cvVersionId?: string;
       coverLetterId?: string;
       followUpDate?: string;
-    }
+    },
   ) {
     await this.assertOwner(userId, jobId);
 

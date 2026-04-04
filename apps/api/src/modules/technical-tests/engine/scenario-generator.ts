@@ -47,7 +47,7 @@ interface ScenarioTemplate {
   generate: (
     tags: string[],
     level: string,
-    difficulty: string
+    difficulty: string,
   ) => TechTestScenario;
 }
 
@@ -82,17 +82,17 @@ function extraRequirements(level: string, difficulty: string): string[] {
   const extras: string[] = [];
   if (level !== "junior")
     extras.push(
-      "Include proper error handling and input validation throughout."
+      "Include proper error handling and input validation throughout.",
     );
   if (level === "senior" || difficulty === "hard") {
     extras.push("Write unit and/or integration tests for critical paths.");
     extras.push(
-      "Document your architectural decisions and trade-offs in a short README."
+      "Document your architectural decisions and trade-offs in a short README.",
     );
   }
   if (difficulty === "hard") {
     extras.push(
-      "Consider scalability — your solution should handle at least 10,000 concurrent users."
+      "Consider scalability — your solution should handle at least 10,000 concurrent users.",
     );
     extras.push("Implement proper logging and observability hooks.");
   }
@@ -139,9 +139,9 @@ const TEMPLATES: ScenarioTemplate[] = [
       return {
         title: `${framework} Design System — Reusable Component Library`,
         companyContext: `${companyName} is a fast-growing SaaS company building a unified design system. The frontend team needs a ${levelLabel(
-          level
+          level,
         )} engineer to build a set of ${diffAdj(
-          difficulty
+          difficulty,
         )} reusable UI components that will be shared across multiple product teams.`,
         brief: `Build a small design system library containing a set of composable, accessible UI components using **${framework}** and **${styling}**. The library should demonstrate your understanding of component architecture, API design, accessibility, and styling best practices.`,
         background: `The existing codebase has inconsistent component patterns across 4 product squads. Your task is to create a foundational component library that establishes patterns the rest of the team will follow. Think of this as the "seed" of the company's design system.`,
@@ -250,8 +250,8 @@ const TEMPLATES: ScenarioTemplate[] = [
           difficulty === "easy"
             ? "1–2 hours"
             : difficulty === "hard"
-            ? "4–6 hours"
-            : "2–4 hours",
+              ? "4–6 hours"
+              : "2–4 hours",
         deliverables: [
           "Source code in a Git repository (or zip).",
           "A demo page / Storybook showing all components in action.",
@@ -360,9 +360,9 @@ const TEMPLATES: ScenarioTemplate[] = [
         companyContext: `${companyName} is building ${
           domain.desc
         }. The backend team needs a ${levelLabel(
-          level
+          level,
         )} engineer to design and implement a ${diffAdj(
-          difficulty
+          difficulty,
         )} RESTful API that will serve as the backbone for their web and mobile applications.`,
         brief: `Design and build a REST API for managing **${
           domain.entities
@@ -491,8 +491,8 @@ const TEMPLATES: ScenarioTemplate[] = [
           difficulty === "easy"
             ? "2–3 hours"
             : difficulty === "hard"
-            ? "5–8 hours"
-            : "3–5 hours",
+              ? "5–8 hours"
+              : "3–5 hours",
         deliverables: [
           "Source code in a Git repository.",
           "Database migration files.",
@@ -576,9 +576,9 @@ const TEMPLATES: ScenarioTemplate[] = [
         companyContext: `${companyName} is an early-stage startup building ${
           app.desc
         }. They need a ${levelLabel(
-          level
+          level,
         )} fullstack engineer to build a ${diffAdj(
-          difficulty
+          difficulty,
         )} working prototype that demonstrates the core user flow end-to-end.`,
         brief: `Build a working **${
           app.name
@@ -700,8 +700,8 @@ const TEMPLATES: ScenarioTemplate[] = [
           difficulty === "easy"
             ? "2–4 hours"
             : difficulty === "hard"
-            ? "6–10 hours"
-            : "4–6 hours",
+              ? "6–10 hours"
+              : "4–6 hours",
         deliverables: [
           "Source code in a Git repository.",
           "A README with setup instructions and a description of your approach.",
@@ -759,9 +759,9 @@ const TEMPLATES: ScenarioTemplate[] = [
       return {
         title: `${companyName} — Production Deployment Pipeline & Infrastructure`,
         companyContext: `${companyName} is migrating from a manual deployment process to a fully automated, infrastructure-as-code approach. They need a ${levelLabel(
-          level
+          level,
         )} platform engineer to design a ${diffAdj(
-          difficulty
+          difficulty,
         )} CI/CD pipeline and cloud infrastructure setup.`,
         brief: `Design and implement a deployment pipeline using **${ci}** and infrastructure definitions using **${iac}** targeting **${cloud}**. The pipeline should take a simple web application from code push to production deployment with proper staging, testing, and rollback capabilities.`,
         background: `Currently, deployments are done manually via SSH. The team deploys roughly 5 times per week, and each deployment takes 30+ minutes with frequent human errors. Your solution should reduce deployment time to under 5 minutes with zero manual steps after code merge.`,
@@ -875,8 +875,8 @@ const TEMPLATES: ScenarioTemplate[] = [
           difficulty === "easy"
             ? "2–3 hours"
             : difficulty === "hard"
-            ? "6–8 hours"
-            : "3–5 hours",
+              ? "6–8 hours"
+              : "3–5 hours",
         deliverables: [
           "CI/CD pipeline configuration files.",
           `${iac} infrastructure definitions.`,
@@ -922,9 +922,9 @@ const TEMPLATES: ScenarioTemplate[] = [
       return {
         title: `${companyName} — Real-Time Dashboard with Complex State`,
         companyContext: `${companyName} builds analytics tools for SaaS companies. They need a ${levelLabel(
-          level
+          level,
         )} frontend engineer to build a ${diffAdj(
-          difficulty
+          difficulty,
         )} real-time dashboard that handles complex data flows, caching, and optimistic updates.`,
         brief: `Build a **real-time analytics dashboard** using **${framework}** with **${stateLib}** that displays live-updating metrics, supports filtering and drill-downs, and handles complex state synchronization between multiple views.`,
         background: `The current dashboard is slow and buggy — state is scattered across 40+ useState calls with no clear data flow. Your task is to rebuild the dashboard with a proper state architecture that's maintainable and performant.`,
@@ -1077,9 +1077,9 @@ const TEMPLATES: ScenarioTemplate[] = [
       return {
         title: `${companyName} — Scalable Notification Service`,
         companyContext: `${companyName} is building a multi-channel notification platform. They need a ${levelLabel(
-          level
+          level,
         )} backend engineer to design and implement a ${diffAdj(
-          difficulty
+          difficulty,
         )} notification service that handles email, SMS, and push notifications at scale.`,
         brief: `Design and implement a **notification service** in **${language}** that accepts notification requests via an API, queues them using **${messaging}**, and delivers them through multiple channels (email, SMS, push). The system should be resilient, scalable, and observable.`,
         background: `The company currently sends notifications synchronously inside the main API — this causes timeouts, lost notifications, and makes it impossible to add new channels. Your service will decouple notification delivery from the main app.`,
@@ -1209,7 +1209,7 @@ export function generateScenario(input: GenerateInput): TechTestScenario {
     if (tpl.tagMatch) {
       // Case-insensitive tag matching
       const matches = tpl.tagMatch.filter((t) =>
-        tagsLower.has(t.toLowerCase())
+        tagsLower.has(t.toLowerCase()),
       ).length;
       score += matches * 2;
     }

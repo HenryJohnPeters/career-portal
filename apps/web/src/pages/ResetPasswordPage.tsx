@@ -62,7 +62,7 @@ export function ResetPasswordPage() {
       if (updateError) {
         if (updateError.message.includes("same password")) {
           setError(
-            "New password must be different from your current password."
+            "New password must be different from your current password.",
           );
         } else {
           setError(updateError.message);
@@ -206,7 +206,12 @@ export function ResetPasswordPage() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full" loading={loading} disabled={hasSession === false}>
+              <Button
+                type="submit"
+                className="w-full"
+                loading={loading}
+                disabled={hasSession === false}
+              >
                 {!loading && "Update Password"}
               </Button>
               {hasSession === false && (

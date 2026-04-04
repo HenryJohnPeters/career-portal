@@ -230,10 +230,7 @@ export class AiQuestionGeneratorService {
       );
       return true;
     } catch (error) {
-      this.logger.error(
-        `doGenerate failed for hash=${filterHash}`,
-        error,
-      );
+      this.logger.error(`doGenerate failed for hash=${filterHash}`, error);
       return false;
     }
   }

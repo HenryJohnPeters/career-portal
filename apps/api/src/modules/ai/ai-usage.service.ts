@@ -142,7 +142,10 @@ export class AiUsageService {
     await this.prisma.aiUsage
       .delete({ where: { id: usageId } })
       .catch((err) =>
-        this.logger.warn(`Rollback for usage ${usageId} failed (non-critical)`, err),
+        this.logger.warn(
+          `Rollback for usage ${usageId} failed (non-critical)`,
+          err,
+        ),
       );
   }
 

@@ -435,13 +435,12 @@ export class InterviewPrepService {
             monthStart.setUTCDate(1);
             monthStart.setUTCHours(0, 0, 0, 0);
 
-            const answeredThisMonth =
-              await tx.interviewSessionQuestion.count({
-                where: {
-                  session: { userId },
-                  answeredAt: { gte: monthStart },
-                },
-              });
+            const answeredThisMonth = await tx.interviewSessionQuestion.count({
+              where: {
+                session: { userId },
+                answeredAt: { gte: monthStart },
+              },
+            });
 
             if (answeredThisMonth >= FREE_TIER.monthlyQuestions) {
               throw new ForbiddenException(
@@ -574,7 +573,10 @@ export class InterviewPrepService {
           userId,
         )
         .catch((err) =>
-          this.logger.warn('Piggyback question generation failed (non-critical)', err),
+          this.logger.warn(
+            "Piggyback question generation failed (non-critical)",
+            err,
+          ),
         );
     }
 

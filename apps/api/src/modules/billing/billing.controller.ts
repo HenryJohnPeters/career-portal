@@ -75,7 +75,7 @@ export class BillingController {
   async handleWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers("stripe-signature") signature: string,
-    @Res() res: Response
+    @Res() res: Response,
   ) {
     if (!signature) {
       throw new BadRequestException("Missing stripe-signature header");
@@ -84,7 +84,7 @@ export class BillingController {
     const rawBody = req.rawBody;
     if (!rawBody) {
       throw new BadRequestException(
-        "Missing raw body — ensure rawBody is enabled on the NestJS app"
+        "Missing raw body — ensure rawBody is enabled on the NestJS app",
       );
     }
 

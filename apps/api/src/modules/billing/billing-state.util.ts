@@ -15,10 +15,12 @@ export function isPremiumEntitled(params: {
   return !!params.priceId && params.priceId === params.expectedPriceId;
 }
 
-export function pickMostRelevantSubscription<T extends {
-  created: number;
-  status: Stripe.Subscription.Status;
-}>(subscriptions: T[]): T | null {
+export function pickMostRelevantSubscription<
+  T extends {
+    created: number;
+    status: Stripe.Subscription.Status;
+  },
+>(subscriptions: T[]): T | null {
   if (subscriptions.length === 0) return null;
 
   const sorted = [...subscriptions].sort((a, b) => b.created - a.created);

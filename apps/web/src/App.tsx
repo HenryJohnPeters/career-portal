@@ -17,7 +17,8 @@ import { BillingPage } from "./pages/BillingPage";
 import { Spinner, Button } from "@careerportal/web/ui";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isAuthenticated, authError, refreshUser } = useAuth();
+  const { user, isLoading, isAuthenticated, authError, refreshUser } =
+    useAuth();
   if (isLoading) return <Spinner />;
   if (authError) {
     return (

@@ -87,7 +87,9 @@ export function BillingPage() {
         }
         attempts++;
         await refreshUser();
-        queryClient.invalidateQueries({ queryKey: queryKeys.subscriptionStatus });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.subscriptionStatus,
+        });
         if (attempts >= 5) clearInterval(poll);
       }, 3000);
 

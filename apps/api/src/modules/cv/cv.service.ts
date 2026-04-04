@@ -236,7 +236,8 @@ export class CvService {
       include: { sections: true },
     });
     if (!original) throw new NotFoundException("CV version not found");
-    if (original.userId !== userId) throw new ForbiddenException("Access denied");
+    if (original.userId !== userId)
+      throw new ForbiddenException("Access denied");
 
     if (!user || !isActivePremium(user)) {
       return this.prisma.$transaction(
@@ -419,7 +420,8 @@ export class CvService {
       where: { id: versionId },
     });
     if (!version) throw new NotFoundException("CV version not found");
-    if (version.userId !== userId) throw new ForbiddenException("Access denied");
+    if (version.userId !== userId)
+      throw new ForbiddenException("Access denied");
     return version;
   }
 
@@ -429,7 +431,8 @@ export class CvService {
       include: { cvVersion: true },
     });
     if (!section) throw new NotFoundException("Section not found");
-    if (section.cvVersion.userId !== userId) throw new ForbiddenException("Access denied");
+    if (section.cvVersion.userId !== userId)
+      throw new ForbiddenException("Access denied");
     return section;
   }
 }

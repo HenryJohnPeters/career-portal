@@ -121,7 +121,7 @@ export class BillingService {
   ): string | null {
     return typeof subscription.customer === "string"
       ? subscription.customer
-      : subscription.customer?.id ?? null;
+      : (subscription.customer?.id ?? null);
   }
 
   private getSubscriptionPriceId(
@@ -229,7 +229,9 @@ export class BillingService {
   ): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      this.logger.warn(`Cannot apply subscription state, user missing: ${userId}`);
+      this.logger.warn(
+        `Cannot apply subscription state, user missing: ${userId}`,
+      );
       return;
     }
 
@@ -338,7 +340,9 @@ export class BillingService {
     const now = Date.now();
     const lastSync = this.recentStatusSync.get(userId) ?? 0;
     if (!force && now - lastSync < STATUS_SYNC_COOLDOWN_MS) {
-      const cached = await this.prisma.user.findUnique({ where: { id: userId } });
+      const cached = await this.prisma.user.findUnique({
+        where: { id: userId },
+      });
       if (!cached) throw new BadRequestException("User not found");
       return cached;
     }
@@ -381,7 +385,9 @@ export class BillingService {
       );
     }
 
-    const refreshed = await this.prisma.user.findUnique({ where: { id: userId } });
+    const refreshed = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
     if (!refreshed) throw new BadRequestException("User not found");
     return refreshed;
   }
@@ -482,7 +488,11 @@ export class BillingService {
 
   async createCheckoutSession(userId: string): Promise<{ url: string }> {
     const customerId = await this.ensureStripeCustomer(userId);
-    const user = await this.syncUserSubscriptionState(userId, "checkout_create", true);
+    const user = await this.syncUserSubscriptionState(
+      userId,
+      "checkout_create",
+      true,
+    );
 
     if (isActivePremium(user)) {
       throw new BadRequestException("You already have an active subscription.");
@@ -523,12 +533,17 @@ export class BillingService {
   /* ──────────────── Customer Portal ──────────────────────── */
 
   async createPortalSession(userId: string): Promise<{ url: string }> {
-    const user = await this.syncUserSubscriptionState(userId, "portal_create", true);
+    const user = await this.syncUserSubscriptionState(
+      userId,
+      "portal_create",
+      true,
+    );
     if (!user.stripeCustomerId && !user.stripeSubscriptionId) {
       throw new BadRequestException("No billing account found for this user.");
     }
 
-    const customerId = user.stripeCustomerId ?? (await this.ensureStripeCustomer(userId));
+    const customerId =
+      user.stripeCustomerId ?? (await this.ensureStripeCustomer(userId));
     const clientUrl = this.config.get("CLIENT_URL");
 
     const session = await this.stripe.billingPortal.sessions.create({
@@ -556,16 +571,18 @@ export class BillingService {
     });
 
     if (session.mode !== "subscription") {
-      throw new BadRequestException("Checkout session is not a subscription session.");
+      throw new BadRequestException(
+        "Checkout session is not a subscription session.",
+      );
     }
 
     const claimedUserId =
-      session.metadata?.userId ||
-      session.client_reference_id ||
-      undefined;
+      session.metadata?.userId || session.client_reference_id || undefined;
 
     if (claimedUserId && claimedUserId !== userId) {
-      throw new BadRequestException("Checkout session does not belong to the current user.");
+      throw new BadRequestException(
+        "Checkout session does not belong to the current user.",
+      );
     }
 
     const customerId =
@@ -599,10 +616,18 @@ export class BillingService {
         : rawSubscription;
 
     if (subscription) {
-      await this.applySubscriptionState(userId, subscription, "checkout_verified");
+      await this.applySubscriptionState(
+        userId,
+        subscription,
+        "checkout_verified",
+      );
     }
 
-    const user = await this.syncUserSubscriptionState(userId, "checkout_verify", true);
+    const user = await this.syncUserSubscriptionState(
+      userId,
+      "checkout_verify",
+      true,
+    );
     return this.mapUserStatus(user);
   }
 
@@ -670,7 +695,9 @@ export class BillingService {
 
   private async onCheckoutCompleted(session: Stripe.Checkout.Session) {
     if (session.mode !== "subscription") {
-      this.logger.warn("checkout.session.completed: non-subscription session received");
+      this.logger.warn(
+        "checkout.session.completed: non-subscription session received",
+      );
       return;
     }
 
@@ -714,7 +741,11 @@ export class BillingService {
       }
     }
 
-    await this.applySubscriptionState(userId, subscription, "checkout_completed");
+    await this.applySubscriptionState(
+      userId,
+      subscription,
+      "checkout_completed",
+    );
 
     if (isEntitledSubscriptionStatus(subscription.status)) {
       this.logger.log(
@@ -729,11 +760,16 @@ export class BillingService {
 
     const subscription = await this.retrieveSubscriptionOrNull(subscriptionId);
     if (!subscription) {
-      this.logger.warn(`invoice.paid: subscription ${subscriptionId} not found`);
+      this.logger.warn(
+        `invoice.paid: subscription ${subscriptionId} not found`,
+      );
       return;
     }
 
-    const user = await this.findUserBySubscription(subscriptionId, subscription);
+    const user = await this.findUserBySubscription(
+      subscriptionId,
+      subscription,
+    );
     if (!user) return;
 
     await this.applySubscriptionState(user.id, subscription, "invoice_paid");
@@ -755,11 +791,16 @@ export class BillingService {
 
     const subscription = await this.retrieveSubscriptionOrNull(subscriptionId);
     if (!subscription) {
-      this.logger.warn(`invoice.payment_failed: subscription ${subscriptionId} not found`);
+      this.logger.warn(
+        `invoice.payment_failed: subscription ${subscriptionId} not found`,
+      );
       return;
     }
 
-    const user = await this.findUserBySubscription(subscriptionId, subscription);
+    const user = await this.findUserBySubscription(
+      subscriptionId,
+      subscription,
+    );
     if (!user) return;
 
     await this.writeAuditLog(
@@ -798,7 +839,10 @@ export class BillingService {
   }
 
   private async onSubscriptionDeleted(subscription: Stripe.Subscription) {
-    const user = await this.findUserBySubscription(subscription.id, subscription);
+    const user = await this.findUserBySubscription(
+      subscription.id,
+      subscription,
+    );
     if (!user) return;
 
     const synced = await this.syncUserSubscriptionState(
@@ -808,9 +852,14 @@ export class BillingService {
     );
 
     if (!isActivePremium(synced)) {
-      await this.writeAuditLog(user.id, "premium.cancelled", "subscription_deleted", {
-        subscriptionId: subscription.id,
-      });
+      await this.writeAuditLog(
+        user.id,
+        "premium.cancelled",
+        "subscription_deleted",
+        {
+          subscriptionId: subscription.id,
+        },
+      );
       this.logger.log(`Subscription cancelled — user ${user.id} downgraded`);
     } else {
       this.logger.log(

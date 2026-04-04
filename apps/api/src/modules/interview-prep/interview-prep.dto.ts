@@ -83,11 +83,31 @@ export class CreateInterviewSessionDto {
   persona?: string;
 
   @ApiPropertyOptional({
-    enum: ["none", "alex", "riley", "morgan", "sam", "kai", "jordan", "phoenix", "nova"],
+    enum: [
+      "none",
+      "alex",
+      "riley",
+      "morgan",
+      "sam",
+      "kai",
+      "jordan",
+      "phoenix",
+      "nova",
+    ],
   })
   @IsOptional()
   @IsString()
-  @IsIn(["none", "alex", "riley", "morgan", "sam", "kai", "jordan", "phoenix", "nova"])
+  @IsIn([
+    "none",
+    "alex",
+    "riley",
+    "morgan",
+    "sam",
+    "kai",
+    "jordan",
+    "phoenix",
+    "nova",
+  ])
   interviewerId?: string;
 }
 
