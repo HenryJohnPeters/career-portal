@@ -13,9 +13,12 @@ import {
   Lightbulb,
   MessageCircle,
   Infinity,
+  Lock,
+  Crown,
 } from "lucide-react";
 import { INTERVIEWER_CONFIGS } from "../interviewer-configs";
 import type { InterviewerConfig } from "../interviewer-configs";
+import { FREE_TIER } from "@careerportal/shared/types";
 import { SectionHeading } from "../../shared";
 import { UserCircle2 } from "lucide-react";
 import { Avatar2D } from "./Avatar2D";
@@ -24,11 +27,13 @@ import { useRef, useState, useEffect, useCallback } from "react";
 interface InterviewerSelectorProps {
   selectedId: string;
   onSelect: (id: string) => void;
+  isPremium: boolean;
 }
 
 export function InterviewerSelector({
   selectedId,
   onSelect,
+  isPremium,
 }: InterviewerSelectorProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -105,7 +110,11 @@ export function InterviewerSelector({
               key={cfg.id}
               config={cfg}
               selected={selectedId === cfg.id}
-              onSelect={() => onSelect(cfg.id)}
+              locked={!isPremium && i >= FREE_TIER.interviewerCount}
+              onSelect={() => {
+                if (!isPremium && i >= FREE_TIER.interviewerCount) return;
+                onSelect(cfg.id);
+              }}
               index={i}
             />
           ))}
@@ -136,11 +145,13 @@ export function InterviewerSelector({
 function InterviewerCard({
   config,
   selected,
+  locked,
   onSelect,
   index,
 }: {
   config: InterviewerConfig;
   selected: boolean;
+  locked: boolean;
   onSelect: () => void;
   index: number;
 }) {
@@ -150,15 +161,24 @@ function InterviewerCard({
     <button
       type="button"
       onClick={onSelect}
+      disabled={locked}
       style={{ animationDelay: `${index * 40}ms` }}
       className={[
         "group relative flex-shrink-0 w-[152px] snap-center rounded-xl overflow-hidden transition-all duration-300 animate-fade-in-up",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary",
-        selected
-          ? "ring-[1.5px] ring-primary-500 dark:ring-primary-400 bg-bg-elevated shadow-lg shadow-primary-500/8 dark:shadow-primary-500/5"
-          : "ring-1 ring-transparent bg-bg-secondary/60 hover:bg-bg-secondary hover:ring-border hover:shadow-md",
+        locked
+          ? "opacity-60 cursor-not-allowed ring-1 ring-transparent bg-bg-secondary/40"
+          : selected
+            ? "ring-[1.5px] ring-primary-500 dark:ring-primary-400 bg-bg-elevated shadow-lg shadow-primary-500/8 dark:shadow-primary-500/5"
+            : "ring-1 ring-transparent bg-bg-secondary/60 hover:bg-bg-secondary hover:ring-border hover:shadow-md",
       ].join(" ")}
     >
+      {/* Premium lock badge */}
+      {locked && (
+        <span className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-accent-500/90 shadow-sm">
+          <Crown className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+        </span>
+      )}
       {/* Selection check */}
       {selected && (
         <span className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 shadow-sm animate-scale-in">

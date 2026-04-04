@@ -21,4 +21,12 @@ export interface AiUsageStatus {
   remaining: number | null;
   isPremium: boolean;
   resetsAt: string;
+  /** Monthly mock session usage (interview prep) */
+  mockSessionsUsed: number;
+  mockSessionsLimit: number | null;
+  mockSessionsRemaining: number | null;
+  /** Monthly question answer usage (interview prep) */
+  questionsUsed: number;
+  questionsLimit: number | null;
+  questionsRemaining: number | null;
 }

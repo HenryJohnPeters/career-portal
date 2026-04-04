@@ -23,7 +23,9 @@ async function bootstrap() {
     // Allow multiple origins for CORS — driven by env only
     const allowedOrigins = [
       config.get("CLIENT_URL"),
-      ...(config.get("NODE_ENV") !== "production" ? ["http://localhost:4200"] : []),
+      ...(config.get("NODE_ENV") !== "production"
+        ? ["http://localhost:4200"]
+        : []),
     ].filter(Boolean);
 
     logger.log(`Allowed CORS origins: ${allowedOrigins.join(", ")}`);
@@ -54,7 +56,7 @@ async function bootstrap() {
         whitelist: true,
         transform: true,
         forbidNonWhitelisted: true,
-      })
+      }),
     );
 
     // Swagger in dev only

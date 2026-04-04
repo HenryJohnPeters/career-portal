@@ -295,5 +295,4 @@ export class TechnicalTestsService {
             : "The submission needs significantly more detail. Review the requirements carefully and expand your solution with code, explanations, and trade-off analysis.",
     };
   }
-
 }

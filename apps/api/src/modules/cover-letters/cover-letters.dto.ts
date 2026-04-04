@@ -78,4 +78,11 @@ export class AiGenerateCoverLetterDto {
   @IsIn(["professional", "friendly"])
   @IsOptional()
   tone?: "professional" | "friendly";
+
+  @ApiPropertyOptional({
+    description: "Specific CV version to base the letter on",
+  })
+  @IsString()
+  @IsOptional()
+  cvVersionId?: string;
 }

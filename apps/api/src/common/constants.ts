@@ -1,16 +1,39 @@
-/** Free-tier resource limits */
-export const FREE_CV_LIMIT = 1;
-export const FREE_COVER_LETTER_LIMIT = 3;
-export const FREE_TIER_MONTHLY_AI_LIMIT = 5;
+/* ═══════════════════════════════════════════════════════════════════════════
+ * FREE-TIER LIMITS — Single source of truth for all free-user restrictions.
+ * Every enforcement point in the codebase imports from here.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+export const FREE_TIER = {
+  /** Max CV versions a free user can create */
+  cvVersions: 1,
+  /** Max cover letters a free user can create */
+  coverLetters: 3,
+  /** Monthly AI action quota (generate, improve, tailor, etc.) */
+  monthlyAiActions: 5,
+  /** Monthly mock interview sessions a free user can start */
+  monthlyMockSessions: 3,
+  /** Monthly interview questions a free user can answer */
+  monthlyQuestions: 50,
+  /** Number of interviewers available to free users (first N in the list) */
+  interviewerCount: 3,
+  /** CV template IDs available to free users */
+  templateIds: [
+    "classic",
+    "modern",
+    "minimal",
+    "executive",
+    "creative",
+  ] as readonly string[],
+} as const;
+
+/** @deprecated Use FREE_TIER.cvVersions instead */
+export const FREE_CV_LIMIT = FREE_TIER.cvVersions;
+/** @deprecated Use FREE_TIER.coverLetters instead */
+export const FREE_COVER_LETTER_LIMIT = FREE_TIER.coverLetters;
+/** @deprecated Use FREE_TIER.monthlyAiActions instead */
+export const FREE_TIER_MONTHLY_AI_LIMIT = FREE_TIER.monthlyAiActions;
 
 /** Templates available to free users */
-export const FREE_TEMPLATE_IDS = [
-  "classic",
-  "modern",
-  "minimal",
-  "executive",
-  "creative",
-] as const;
+export const FREE_TEMPLATE_IDS = FREE_TIER.templateIds;
 
 /** Default CV sections created for every new version */
 export const DEFAULT_CV_SECTIONS = [

@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useDashboardSummary } from "@careerportal/web/data-access";
 import { useAuth } from "../../lib/auth";
+import { isActivePremium } from "@careerportal/shared/types";
 import { Spinner, ErrorState } from "@careerportal/web/ui";
 import { PageHero, PremiumUpgradeBanner } from "../shared";
 import {
@@ -90,7 +91,7 @@ export function DashboardPage() {
   const { data, isLoading, isError, error, refetch } = useDashboardSummary();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isPremium = user?.isPremium ?? false;
+  const isPremium = isActivePremium(user);
 
   if (isLoading) return <Spinner />;
   if (isError)

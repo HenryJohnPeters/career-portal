@@ -23,7 +23,12 @@ export class AuthGuard implements CanActivate {
     }
 
     const token = authHeader.slice(7);
-    const payload = await this.authService.verifyToken(token);
+    let payload: Awaited<ReturnType<AuthService["verifyToken"]>>;
+    try {
+      payload = await this.authService.verifyToken(token);
+    } catch {
+      throw new UnauthorizedException("Invalid or expired token");
+    }
 
     // Resolve Supabase user to local Prisma User (find-or-create)
     const user = await this.authService.findOrCreateUser(

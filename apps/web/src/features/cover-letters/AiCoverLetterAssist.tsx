@@ -23,6 +23,7 @@ import {
 } from "@careerportal/web/data-access";
 import { useAuth } from "../../lib/auth";
 import { COVER_LETTER_TEMPLATES } from "./coverLetterTemplates";
+import { isActivePremium } from "@careerportal/shared/types";
 
 type AiAction = "generate" | "improve" | "tailor";
 
@@ -41,9 +42,9 @@ export function AiCoverLetterAssist({
   onApplyTemplate,
 }: AiCoverLetterAssistProps) {
   const { user } = useAuth();
-  const isPremium = user?.isPremium ?? false;
   const { data: usageData } = useAiUsage();
   const usage = usageData?.data;
+  const isPremium = usage?.isPremium ?? isActivePremium(user);
   const hasUsesLeft = isPremium || (usage?.remaining ?? 1) > 0;
 
   const { data: cvVersionsData } = useCvVersions();
@@ -76,8 +77,8 @@ export function AiCoverLetterAssist({
         companyUrl: companyUrl.trim() || undefined,
         jobDescription: jobDescription.trim() || undefined,
         tone,
-        ...(selectedCvVersionId ? { cvVersionId: selectedCvVersionId } : {}),
-      } as any);
+        cvVersionId: selectedCvVersionId || undefined,
+      });
       setResult(res.data.content);
     } catch (err: any) {
       setError(err.message || "Failed to generate content. Please try again.");

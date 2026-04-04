@@ -14,6 +14,7 @@ import { useAuth } from "../../lib/auth";
 import { AiCoverLetterAssist } from "./AiCoverLetterAssist";
 import {
   FREE_COVER_LETTER_LIMIT,
+  isActivePremium,
   type CoverLetter,
 } from "@careerportal/shared/types";
 import {
@@ -35,7 +36,7 @@ import {
 
 export function CoverLettersPage() {
   const { user } = useAuth();
-  const isPremium = user?.isPremium ?? false;
+  const isPremium = isActivePremium(user);
   const navigate = useNavigate();
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -259,7 +260,7 @@ export function CoverLettersPage() {
                     AI Assistant
                   </span>
                   {!isPremium && (
-                    <Crown className="h-3.5 w-3.5 text-amber-500" />
+                    <Crown className="h-3.5 w-3.5 text-accent-500" />
                   )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -278,7 +279,7 @@ export function CoverLettersPage() {
                       </p>
                     </div>
                     {!isPremium && (
-                      <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
+                      <Crown className="absolute top-2 right-2 h-3 w-3 text-accent-500" />
                     )}
                   </button>
                   <button
@@ -296,7 +297,7 @@ export function CoverLettersPage() {
                       </p>
                     </div>
                     {!isPremium && (
-                      <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
+                      <Crown className="absolute top-2 right-2 h-3 w-3 text-accent-500" />
                     )}
                   </button>
                   <button
@@ -314,7 +315,7 @@ export function CoverLettersPage() {
                       </p>
                     </div>
                     {!isPremium && (
-                      <Crown className="absolute top-2 right-2 h-3 w-3 text-amber-500" />
+                      <Crown className="absolute top-2 right-2 h-3 w-3 text-accent-500" />
                     )}
                   </button>
                 </div>

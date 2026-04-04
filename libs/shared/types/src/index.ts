@@ -7,9 +7,38 @@ export interface User {
   stripeCurrentPeriodEnd?: string | null;
 }
 
-// === Shared Limits ===
-export const FREE_CV_LIMIT = 1;
-export const FREE_COVER_LETTER_LIMIT = 3;
+/**
+ * Frontend mirror of the backend `isActivePremium()` safety net.
+ * Checks BOTH the isPremium flag AND that stripeCurrentPeriodEnd is in the future.
+ * This prevents stale isPremium flags from granting access after expiration.
+ */
+export function isActivePremium(user: User | null | undefined): boolean {
+  if (!user?.isPremium) return false;
+  if (!user.stripeCurrentPeriodEnd) return false;
+  return new Date() < new Date(user.stripeCurrentPeriodEnd);
+}
+
+// === Shared Limits — Single source of truth for the frontend ===
+export const FREE_TIER = {
+  cvVersions: 1,
+  coverLetters: 3,
+  monthlyAiActions: 5,
+  monthlyMockSessions: 3,
+  monthlyQuestions: 50,
+  interviewerCount: 3,
+  templateIds: [
+    "classic",
+    "modern",
+    "minimal",
+    "executive",
+    "creative",
+  ] as readonly string[],
+} as const;
+
+/** @deprecated Use FREE_TIER.cvVersions */
+export const FREE_CV_LIMIT = FREE_TIER.cvVersions;
+/** @deprecated Use FREE_TIER.coverLetters */
+export const FREE_COVER_LETTER_LIMIT = FREE_TIER.coverLetters;
 
 // === Interviewer Traits ===
 export interface InterviewerTraits {
@@ -33,6 +62,14 @@ export interface AiUsageStatus {
   remaining: number | null; // null = unlimited
   isPremium: boolean;
   resetsAt: string; // ISO date of next month start
+  /** Monthly mock session usage (interview prep) */
+  mockSessionsUsed: number;
+  mockSessionsLimit: number | null;
+  mockSessionsRemaining: number | null;
+  /** Monthly question answer usage (interview prep) */
+  questionsUsed: number;
+  questionsLimit: number | null;
+  questionsRemaining: number | null;
 }
 
 // === API Response ===

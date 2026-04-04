@@ -81,7 +81,7 @@ export function useUpdateCvVersion() {
     }) => api.patch<ApiResponse<CvVersion>>(`/cv/versions/${id}`, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.cvVersions });
-      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
+      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
     },
   });
 }
@@ -129,8 +129,8 @@ export function useCreateCvSection() {
         data,
       ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
-      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
+      qc.invalidateQueries({ queryKey: ["cv-sections"] });
+      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
     },
   });
 }
@@ -148,8 +148,8 @@ export function useUpdateCvSection() {
       sectionType?: string;
     }) => api.patch<ApiResponse<CvSection>>(`/cv/sections/${id}`, data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
-      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
+      qc.invalidateQueries({ queryKey: ["cv-sections"] });
+      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
     },
   });
 }
@@ -159,8 +159,8 @@ export function useDeleteCvSection() {
   return useMutation({
     mutationFn: (id: string) => api.delete(`/cv/sections/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
-      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
+      qc.invalidateQueries({ queryKey: ["cv-sections"] });
+      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
     },
   });
 }
@@ -173,8 +173,8 @@ export function useMoveCvSection() {
         direction,
       }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
-      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
+      qc.invalidateQueries({ queryKey: ["cv-sections"] });
+      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
     },
   });
 }
@@ -194,8 +194,8 @@ export function useReorderCvSections() {
         { sectionIds },
       ),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
-      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
+      qc.invalidateQueries({ queryKey: ["cv-sections"] });
+      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
     },
   });
 }
@@ -249,8 +249,8 @@ export function useAiGenerateFullCv() {
       ),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeys.cvVersions });
-      qc.invalidateQueries({ queryKey: queryKeys.cvSections(null) });
-      qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(null) });
+      qc.invalidateQueries({ queryKey: ["cv-sections"] });
+      qc.invalidateQueries({ queryKey: ["cv-html-preview"] });
       qc.invalidateQueries({ queryKey: queryKeys.aiUsage });
     },
   });
@@ -339,6 +339,7 @@ export function useAiGenerateCoverLetter() {
       companyUrl?: string;
       jobDescription?: string;
       tone?: "professional" | "friendly";
+      cvVersionId?: string;
     }) =>
       api.post<ApiResponse<{ content: string }>>(
         `/cover-letters/${id}/ai-generate`,

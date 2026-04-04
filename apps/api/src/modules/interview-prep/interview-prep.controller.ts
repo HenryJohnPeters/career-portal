@@ -10,6 +10,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
+import { timingSafeEqual } from "crypto";
 import { AuthGuard } from "../auth/auth.guard";
 import { InterviewPrepService } from "./interview-prep.service";
 import {
@@ -107,7 +108,11 @@ export class InterviewPrepController {
   @Throttle({ default: { ttl: 60000, limit: 1 } })
   async backgroundFill(@Headers("x-admin-key") adminKey: string) {
     const expectedKey = this.config.get<string>("ADMIN_API_KEY");
-    if (!expectedKey || adminKey !== expectedKey) {
+    if (
+      !expectedKey ||
+      !adminKey ||
+      !timingSafeEqual(Buffer.from(adminKey), Buffer.from(expectedKey))
+    ) {
       throw new UnauthorizedException("Invalid or missing admin API key");
     }
     const result = await this.aiQuestionGenerator.backgroundFill();

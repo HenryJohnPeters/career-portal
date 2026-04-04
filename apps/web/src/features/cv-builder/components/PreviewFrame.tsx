@@ -64,7 +64,7 @@ export function PreviewFrame({
               ref={iframeRef}
               srcDoc={srcDoc}
               title={title}
-              className="border-0 bg-white block h-full"
+              className="border-0 bg-white block h-full pointer-events-none"
               style={{
                 width: CV_CONTENT_WIDTH,
               }}

@@ -4,8 +4,8 @@ import {
   NotFoundException,
   OnModuleDestroy,
 } from "@nestjs/common";
-import { CvService } from "../modules/cv/cv.service";
-import { PrismaService } from "../common/prisma.service";
+import { CvService } from "../cv/cv.service";
+import { PrismaService } from "../../common/prisma.service";
 import { renderCvHtml } from "./render-cv-html";
 import { Semaphore } from "./semaphore";
 

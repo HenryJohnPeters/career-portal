@@ -313,7 +313,7 @@ export function TemplateSelector({
       </h3>
 
       {!isPremium && (
-        <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+        <p className="text-[10px] text-accent-600 dark:text-accent-400 flex items-center gap-1">
           <Crown className="h-3 w-3" />
           Free accounts can use the first {FREE_TEMPLATE_LIMIT} templates.
           Upgrade to Premium for all.
@@ -336,16 +336,16 @@ export function TemplateSelector({
                     isLocked
                       ? "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30 opacity-60 cursor-not-allowed"
                       : isActive
-                      ? "border-accent ring-2 ring-accent/30 dark:ring-accent/40 bg-accent-muted/10 dark:bg-accent-muted/20"
-                      : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
+                        ? "border-accent ring-2 ring-accent/30 dark:ring-accent/40 bg-accent-muted/10 dark:bg-accent-muted/20"
+                        : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
                   }`}
                 >
                   {/* Lock overlay for premium templates */}
                   {isLocked && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-900/10 dark:bg-gray-900/30 rounded-lg">
-                      <div className="flex items-center gap-1 rounded-full bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5">
-                        <Crown className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-                        <span className="text-[9px] font-semibold text-amber-700 dark:text-amber-300">
+                      <div className="flex items-center gap-1 rounded-full bg-accent-100 dark:bg-accent-900/50 px-2 py-0.5">
+                        <Crown className="h-3 w-3 text-accent-600 dark:text-accent-400" />
+                        <span className="text-[9px] font-semibold text-accent-700 dark:text-accent-300">
                           Premium
                         </span>
                       </div>

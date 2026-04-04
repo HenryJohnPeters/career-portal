@@ -11,6 +11,7 @@ import {
 import { Spinner, ErrorState, ConfirmDialog } from "@careerportal/web/ui";
 import { PageHero } from "../shared";
 import { useAuth } from "../../lib/auth";
+import { isActivePremium } from "@careerportal/shared/types";
 import { useCvBuilder } from "./hooks/useCvBuilder";
 import { VersionSidebar } from "./components/VersionSidebar";
 import { VersionToolbar } from "./components/VersionToolbar";
@@ -38,9 +39,9 @@ const SECTION_SUB_TABS = [
 export function CvBuilderPage() {
   const cv = useCvBuilder();
   const { user } = useAuth();
-  const isPremium = user?.isPremium ?? false;
+  const isPremium = isActivePremium(user);
   const [sectionSubTab, setSectionSubTab] = useState<"contact" | "sections">(
-    "contact"
+    "contact",
   );
 
   if (cv.isLoading) return <Spinner />;

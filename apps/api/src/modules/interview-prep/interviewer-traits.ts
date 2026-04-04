@@ -1,3 +1,5 @@
+import { FREE_TIER } from "../../common/constants";
+
 /** Interviewer traits type (synced with frontend) */
 export interface InterviewerTraits {
   questionCount: number;
@@ -70,4 +72,28 @@ export const INTERVIEWER_TRAITS: Record<string, InterviewerTraits> = {
 
 export function clampQuestionCount(value: number): number {
   return Math.max(3, Math.min(25, value));
+}
+
+/**
+ * Ordered list of all interviewer IDs.
+ * The first FREE_TIER.interviewerCount are available to free users.
+ */
+export const INTERVIEWER_ORDER = [
+  "none",
+  "alex",
+  "riley",
+  "morgan",
+  "sam",
+  "kai",
+  "jordan",
+  "phoenix",
+  "nova",
+] as const;
+
+export const FREE_INTERVIEWER_IDS = new Set<string>(
+  INTERVIEWER_ORDER.slice(0, FREE_TIER.interviewerCount),
+);
+
+export function isInterviewerFree(interviewerId: string): boolean {
+  return FREE_INTERVIEWER_IDS.has(interviewerId);
 }

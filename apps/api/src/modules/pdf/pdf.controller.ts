@@ -11,9 +11,9 @@ import {
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { Response } from "express";
 import { PdfService } from "./pdf.service";
-import { AuthGuard } from "../modules/auth/auth.guard";
-import { CurrentUserId } from "../common/current-user.decorator";
-import { PrismaService } from "../common/prisma.service";
+import { AuthGuard } from "../auth/auth.guard";
+import { CurrentUserId } from "../../common/current-user.decorator";
+import { PrismaService } from "../../common/prisma.service";
 
 @ApiTags("pdf")
 @ApiBearerAuth()

@@ -5,6 +5,7 @@ import { InterviewSession } from "./components/InterviewSession";
 import { InterviewReport } from "./components/InterviewReport";
 import { getInterviewerById } from "./interviewer-configs";
 import { useAuth } from "../../lib/auth";
+import { isActivePremium } from "@careerportal/shared/types";
 import {
   getInterviewerPreviewText,
   playInterviewerSpeech,
@@ -14,7 +15,7 @@ import { useEffect, useRef } from "react";
 export function InterviewPrepPage() {
   const state = useInterviewState();
   const { user } = useAuth();
-  const isPremium = user?.isPremium ?? false;
+  const isPremium = isActivePremium(user);
   const previewPlaybackRef = useRef<{ cancel: () => void } | null>(null);
 
   // Resolve the full interviewer config object from the selected ID

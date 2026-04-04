@@ -28,6 +28,7 @@ import type { AiFullCvResult } from "@careerportal/web/data-access";
 import { useAuth } from "../../../lib/auth";
 import { useNavigate } from "react-router-dom";
 import type { CvSection } from "@careerportal/shared/types";
+import { isActivePremium } from "@careerportal/shared/types";
 
 const SECTION_ICONS: Record<string, typeof Briefcase> = {
   profile: User,
@@ -56,9 +57,9 @@ export function RawTextCvPanel({
   onComplete,
 }: RawTextCvPanelProps) {
   const { user } = useAuth();
-  const isPremium = user?.isPremium ?? false;
   const { data: usageData } = useAiUsage();
   const usage = usageData?.data;
+  const isPremium = usage?.isPremium ?? isActivePremium(user);
   const hasUsesLeft = isPremium || (usage?.remaining ?? 1) > 0;
   const navigate = useNavigate();
 
@@ -126,7 +127,7 @@ export function RawTextCvPanel({
       for (let i = 0; i < result.sections.length; i++) {
         const s = result.sections[i];
         setApplyProgress(
-          `Creating section ${i + 1}/${result.sections.length}: ${s.title}…`
+          `Creating section ${i + 1}/${result.sections.length}: ${s.title}…`,
         );
         await createSection.mutateAsync({
           versionId,

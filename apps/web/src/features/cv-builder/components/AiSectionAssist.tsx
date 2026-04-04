@@ -18,6 +18,7 @@ import {
 } from "@careerportal/web/data-access";
 import { useAuth } from "../../../lib/auth";
 import { useNavigate } from "react-router-dom";
+import { isActivePremium } from "@careerportal/shared/types";
 
 type AiAction = "generate" | "improve" | "tailor";
 
@@ -37,9 +38,11 @@ export function AiSectionAssist({
   onApply,
 }: AiSectionAssistProps) {
   const { user } = useAuth();
-  const isPremium = user?.isPremium ?? false;
   const { data: usageData } = useAiUsage();
   const usage = usageData?.data;
+  // Prefer server-computed isPremium (checks both flag + period end)
+  // Fall back to client-side isActivePremium check while usage is loading
+  const isPremium = usage?.isPremium ?? isActivePremium(user);
   const hasUsesLeft = isPremium || (usage?.remaining ?? 1) > 0;
   const navigate = useNavigate();
 

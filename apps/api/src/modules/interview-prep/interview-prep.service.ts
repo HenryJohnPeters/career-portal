@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import {
   QuestionSelector,
@@ -10,11 +14,16 @@ import {
 } from "./engine";
 import { CreateInterviewSessionDto } from "./interview-prep.dto";
 import { AiQuestionGeneratorService } from "../ai/ai-question-generator.service";
-import { TECH_CATEGORIES, DIFFICULTY_RANGES } from "../../common/constants";
+import {
+  TECH_CATEGORIES,
+  DIFFICULTY_RANGES,
+  FREE_TIER,
+} from "../../common/constants";
 import { isActivePremium } from "../../common/subscription.util";
 import {
   INTERVIEWER_TRAITS,
   clampQuestionCount,
+  isInterviewerFree,
 } from "./interviewer-traits";
 
 interface AnswerFeedback {
@@ -74,7 +83,32 @@ export class InterviewPrepService {
 
   /** Create a new interview session: select questions from the bank */
   async createSession(userId: string, dto: CreateInterviewSessionDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const isPremium = user ? isActivePremium(user) : false;
+
+    // ── Enforce interviewer premium restriction ──────────────────────
     const interviewerId = dto.interviewerId;
+    if (interviewerId && !isPremium && !isInterviewerFree(interviewerId)) {
+      throw new ForbiddenException(
+        `This interviewer is only available to Premium users. Free users can use the first ${FREE_TIER.interviewerCount} interviewers. Upgrade to Premium to unlock all interviewers.`,
+      );
+    }
+
+    // ── Enforce monthly mock session limit for free users ────────────
+    if (!isPremium) {
+      const monthStart = new Date();
+      monthStart.setUTCDate(1);
+      monthStart.setUTCHours(0, 0, 0, 0);
+      const sessionCount = await this.prisma.interviewSession.count({
+        where: { userId, createdAt: { gte: monthStart } },
+      });
+      if (sessionCount >= FREE_TIER.monthlyMockSessions) {
+        throw new ForbiddenException(
+          `Free users are limited to ${FREE_TIER.monthlyMockSessions} mock interview sessions per month. Upgrade to Premium for unlimited sessions.`,
+        );
+      }
+    }
+
     const interviewerTraits = interviewerId
       ? INTERVIEWER_TRAITS[interviewerId]
       : undefined;
@@ -123,16 +157,12 @@ export class InterviewPrepService {
     }
 
     // ── Build the primary pool query ──────────────────────────────────
-    const poolWhere: Record<string, unknown> = {
-      track: dto.track,
-      level: dto.level,
-    };
-    const difficultyRange = DIFFICULTY_RANGES[difficulty];
-    if (difficultyRange) poolWhere.difficulty = difficultyRange;
-    // Enforce tag filter — questions must share at least one selected tag
-    if (tags.length > 0) {
-      poolWhere.tags = { hasSome: tags };
-    }
+    const poolWhere = this.buildPoolWhere(
+      dto.track,
+      dto.level,
+      difficulty,
+      tags,
+    );
 
     // Load the question pool scoped to all user-selected filters
     let pool = await this.prisma.interviewQuestion.findMany({
@@ -140,10 +170,6 @@ export class InterviewPrepService {
     });
 
     // ── Fallback: if tag-filtered pool is still empty, broaden to tag-free ──
-    // The urgent generation above creates questions tagged only with the track
-    // name (e.g. ["frontend"]) which won\'t match a hasSome:["react","typescript"]
-    // filter. When that happens we fall back to the track+level+difficulty pool
-    // so the user always gets *something* to answer.
     if (pool.length === 0 && tags.length > 0) {
       try {
         await this.aiQuestionGenerator.ensurePoolForFiltersUrgent(
@@ -153,21 +179,18 @@ export class InterviewPrepService {
       } catch {
         // Non-critical
       }
-      const fallbackWhere: Record<string, unknown> = {
-        track: dto.track,
-        level: dto.level,
-      };
-      if (difficultyRange) fallbackWhere.difficulty = difficultyRange;
+      const fallbackWhere = this.buildPoolWhere(
+        dto.track,
+        dto.level,
+        difficulty,
+        [],
+      );
       pool = await this.prisma.interviewQuestion.findMany({
         where: fallbackWhere as any,
       });
     }
 
-    const poolRecords: QuestionRecord[] = pool.map((q) => ({
-      ...q,
-      options: (q.options as unknown as string[]) ?? undefined,
-      rubric: q.rubric as unknown as QuestionRecord["rubric"],
-    }));
+    const poolRecords = this.toQuestionRecords(pool);
 
     // Gather recent question IDs answered by this user as anti-repeat input
     const recentSessions = await this.prisma.interviewSession.findMany({
@@ -324,6 +347,26 @@ export class InterviewPrepService {
     sessionQuestionId: string,
     answer: string,
   ) {
+    // ── Enforce monthly question limit for free users ─────────────
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (user && !isActivePremium(user)) {
+      const monthStart = new Date();
+      monthStart.setUTCDate(1);
+      monthStart.setUTCHours(0, 0, 0, 0);
+      const answeredThisMonth =
+        await this.prisma.interviewSessionQuestion.count({
+          where: {
+            session: { userId },
+            answeredAt: { gte: monthStart },
+          },
+        });
+      if (answeredThisMonth >= FREE_TIER.monthlyQuestions) {
+        throw new ForbiddenException(
+          `Free users are limited to ${FREE_TIER.monthlyQuestions} practice questions per month. Upgrade to Premium for unlimited questions.`,
+        );
+      }
+    }
+
     const session = await this.getSession(userId, sessionId);
     const sq = session.questions.find((q) => q.id === sessionQuestionId);
     if (!sq) throw new NotFoundException("Session question not found");
@@ -386,24 +429,17 @@ export class InterviewPrepService {
     // Check if follow-up is needed
     let followUp = null;
     if (this.followUpStrategy.shouldFollowUp(evaluation)) {
-      // Scope follow-up pool to the same session filters — prevents escaping user constraints
-      const followUpWhere: Record<string, unknown> = {
-        track: session.track,
-        level: session.level,
-      };
-      const sessionDiffRange = DIFFICULTY_RANGES[session.difficulty];
-      if (sessionDiffRange) followUpWhere.difficulty = sessionDiffRange;
-      if (session.tags && session.tags.length > 0) {
-        followUpWhere.tags = { hasSome: session.tags };
-      }
+      // Scope follow-up pool to the same session filters
+      const followUpWhere = this.buildPoolWhere(
+        session.track,
+        session.level,
+        session.difficulty,
+        session.tags ?? [],
+      );
       const followUpPool = await this.prisma.interviewQuestion.findMany({
         where: followUpWhere as any,
       });
-      const poolRecords: QuestionRecord[] = followUpPool.map((q) => ({
-        ...q,
-        options: (q.options as unknown as string[]) ?? undefined,
-        rubric: q.rubric as unknown as QuestionRecord["rubric"],
-      }));
+      const poolRecords = this.toQuestionRecords(followUpPool);
 
       const followUpQuestion = this.followUpStrategy.selectFollowUp(
         questionRecord,
@@ -515,8 +551,10 @@ export class InterviewPrepService {
    * any questions exist in the DB for a given tag.
    */
   async getAvailableOptions() {
-    const questions = await this.prisma.interviewQuestion.findMany({
-      select: { track: true, tags: true, level: true, type: true },
+    // Only fetch distinct tags from the DB — avoids loading every question row
+    const rows = await this.prisma.interviewQuestion.findMany({
+      select: { tags: true },
+      distinct: ["tags"],
     });
 
     // Merge DB tags into the catalog so new DB-only tags are surfaced
@@ -525,25 +563,15 @@ export class InterviewPrepService {
       for (const item of cat.items) catalogTags.add(item.toLowerCase());
     }
     const dbOnlyTags = new Set<string>();
-    for (const q of questions) {
-      for (const t of q.tags) {
+    for (const row of rows) {
+      for (const t of row.tags) {
         if (!catalogTags.has(t.toLowerCase())) dbOnlyTags.add(t);
       }
-    }
-
-    // Build flat tags list (union of catalog + DB)
-    const allTags = new Set<string>();
-    for (const cat of TECH_CATEGORIES) {
-      for (const item of cat.items) allTags.add(item);
-    }
-    for (const q of questions) {
-      for (const t of q.tags) allTags.add(t);
     }
 
     return {
       techCategories: [
         ...TECH_CATEGORIES,
-        // Append any DB-only tags that aren't in the catalog yet
         ...(dbOnlyTags.size > 0
           ? [{ key: "other", label: "Other", items: [...dbOnlyTags] }]
           : []),
@@ -555,12 +583,34 @@ export class InterviewPrepService {
       difficulties: ["easy", "medium", "hard"],
       companyStyles: ["faang", "startup", "enterprise"],
       personas: ["friendly", "neutral", "tough"],
-      tags: [...allTags].sort(),
     };
   }
 
   private getProgress(questions: { userAnswer: string | null }[]) {
     const answered = questions.filter((q) => q.userAnswer !== null).length;
     return { answered, total: questions.length };
+  }
+
+  /** Build a Prisma where clause for loading questions by track/level/difficulty/tags. */
+  private buildPoolWhere(
+    track: string,
+    level: string,
+    difficulty: string,
+    tags: string[],
+  ): Record<string, unknown> {
+    const where: Record<string, unknown> = { track, level };
+    const range = DIFFICULTY_RANGES[difficulty];
+    if (range) where.difficulty = range;
+    if (tags.length > 0) where.tags = { hasSome: tags };
+    return where;
+  }
+
+  /** Map Prisma rows to engine QuestionRecord objects. */
+  private toQuestionRecords(rows: any[]): QuestionRecord[] {
+    return rows.map((q) => ({
+      ...q,
+      options: (q.options as unknown as string[]) ?? undefined,
+      rubric: q.rubric as unknown as QuestionRecord["rubric"],
+    }));
   }
 }

@@ -214,13 +214,13 @@ export class CvService {
       }
     }
 
-    const original = await this.assertVersionOwner(userId, id);
-    const originalWithSections = await this.prisma.cvVersion.findUnique({
+    // Single fetch with sections — assertVersionOwner + sections in one query
+    const original = await this.prisma.cvVersion.findUnique({
       where: { id },
       include: { sections: true },
     });
-    if (!originalWithSections)
-      throw new NotFoundException("CV version not found");
+    if (!original) throw new NotFoundException("CV version not found");
+    if (original.userId !== userId) throw new ForbiddenException();
 
     const copy = await this.prisma.cvVersion.create({
       data: {
@@ -230,20 +230,20 @@ export class CvService {
         templateId: original.templateId,
         themeConfig: original.themeConfig ?? {},
         headerLayout: original.headerLayout,
-        name: originalWithSections.name,
-        email: originalWithSections.email,
-        photoUrl: originalWithSections.photoUrl,
-        phone: originalWithSections.phone,
-        location: originalWithSections.location,
-        website: originalWithSections.website,
-        linkedin: originalWithSections.linkedin,
-        github: originalWithSections.github,
+        name: original.name,
+        email: original.email,
+        photoUrl: original.photoUrl,
+        phone: original.phone,
+        location: original.location,
+        website: original.website,
+        linkedin: original.linkedin,
+        github: original.github,
       },
     });
 
     // Batch-insert duplicated sections
     await this.prisma.cvSection.createMany({
-      data: originalWithSections.sections.map((section) => ({
+      data: original.sections.map((section) => ({
         cvVersionId: copy.id,
         title: section.title,
         content: section.content,

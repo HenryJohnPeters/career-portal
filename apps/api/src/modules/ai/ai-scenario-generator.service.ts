@@ -3,8 +3,6 @@ import OpenAI from "openai";
 import { AiUsageService } from "./ai-usage.service";
 import { OPENAI_CLIENT } from "./openai.provider";
 
-
-
 export interface ScenarioGenerationInput {
   roleFocus: string;
   level: string;
@@ -46,34 +44,38 @@ Role: ${input.roleFocus} | Level: ${input.level} (junior=3-5 reqs, mid=5-7, seni
     const userPrompt = `Create a ${input.difficulty} ${input.level}-level take-home technical test for a ${input.roleFocus} developer using ${tagsStr}.`;
 
     try {
-      return await this.aiUsage.withReservation(userId, "scenario-generation", async () => {
-        const response = await this.openai.chat.completions.create({
-          model: "gpt-4o",
-          temperature: 0.85,
-          max_tokens: 3000,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-        });
+      return await this.aiUsage.withReservation(
+        userId,
+        "scenario-generation",
+        async () => {
+          const response = await this.openai.chat.completions.create({
+            model: "gpt-4o",
+            temperature: 0.85,
+            max_tokens: 3000,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt },
+            ],
+          });
 
-        const raw = response.choices[0]?.message?.content?.trim() || "{}";
-        const cleaned = raw
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/\s*```$/i, "")
-          .trim();
+          const raw = response.choices[0]?.message?.content?.trim() || "{}";
+          const cleaned = raw
+            .replace(/^```(?:json)?\s*/i, "")
+            .replace(/\s*```$/i, "")
+            .trim();
 
-        const parsed = JSON.parse(cleaned);
-        if (
-          !parsed.title ||
-          !parsed.brief ||
-          !Array.isArray(parsed.requirements)
-        ) {
-          throw new Error("AI scenario missing required fields");
-        }
+          const parsed = JSON.parse(cleaned);
+          if (
+            !parsed.title ||
+            !parsed.brief ||
+            !Array.isArray(parsed.requirements)
+          ) {
+            throw new Error("AI scenario missing required fields");
+          }
 
-        return parsed;
-      });
+          return parsed;
+        },
+      );
     } catch (error) {
       if (error instanceof ForbiddenException) throw error;
       this.logger.error("Scenario generation failed", error);

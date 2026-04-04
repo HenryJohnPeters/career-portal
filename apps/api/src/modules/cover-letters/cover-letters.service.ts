@@ -78,17 +78,21 @@ export class CoverLettersService {
       ];
     }
 
-    return this.aiUsage.withReservation(userId, "cover-letter-suggest", async () => {
-      const { jobTitle, companyName, jobDescription } =
-        await this.resolveJobContext(letter.jobId);
+    return this.aiUsage.withReservation(
+      userId,
+      "cover-letter-suggest",
+      async () => {
+        const { jobTitle, companyName, jobDescription } =
+          await this.resolveJobContext(letter.jobId);
 
-      return this.aiService.suggestCoverLetterImprovements(
-        letter.body.slice(0, 3000),
-        jobTitle,
-        companyName,
-        jobDescription,
-      );
-    });
+        return this.aiService.suggestCoverLetterImprovements(
+          letter.body.slice(0, 3000),
+          jobTitle,
+          companyName,
+          jobDescription,
+        );
+      },
+    );
   }
 
   async rewrite(
@@ -106,18 +110,22 @@ export class CoverLettersService {
         : "Hi there!\n\nI'm really excited about this opportunity and would love to be part of your team. I think my skills and enthusiasm would be a great fit.\n\nLooking forward to chatting more about how I can contribute!\n\nBest,\n[Your Name]";
     }
 
-    return this.aiUsage.withReservation(userId, "cover-letter-rewrite", async () => {
-      const { jobTitle, companyName } = await this.resolveJobContext(
-        letter.jobId,
-      );
+    return this.aiUsage.withReservation(
+      userId,
+      "cover-letter-rewrite",
+      async () => {
+        const { jobTitle, companyName } = await this.resolveJobContext(
+          letter.jobId,
+        );
 
-      return this.aiService.rewriteCoverLetter(
-        body.slice(0, 3000),
-        selectedTone,
-        jobTitle,
-        companyName,
-      );
-    });
+        return this.aiService.rewriteCoverLetter(
+          body.slice(0, 3000),
+          selectedTone,
+          jobTitle,
+          companyName,
+        );
+      },
+    );
   }
 
   async aiGenerate(
@@ -130,13 +138,19 @@ export class CoverLettersService {
       companyUrl?: string;
       jobDescription?: string;
       tone?: "professional" | "friendly";
+      cvVersionId?: string;
     },
   ) {
     const letter = await this.assertOwner(userId, id);
 
     return this.aiUsage.withReservation(userId, "cover-letter", async () => {
       const [cvVersion, user] = await Promise.all([
-        this.resolveActiveCv(userId),
+        dto.cvVersionId
+          ? this.prisma.cvVersion.findFirst({
+              where: { id: dto.cvVersionId, userId },
+              include: { sections: { orderBy: { order: "asc" } } },
+            })
+          : this.resolveActiveCv(userId),
         this.prisma.user.findUnique({
           where: { id: userId },
           select: { name: true },

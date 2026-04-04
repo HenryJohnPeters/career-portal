@@ -75,6 +75,7 @@ export function InterviewSetup({
         <InterviewerSelector
           selectedId={selectedInterviewerId}
           onSelect={onInterviewerChange}
+          isPremium={isPremium}
         />
       </div>
 

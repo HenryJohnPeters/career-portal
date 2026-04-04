@@ -13,7 +13,7 @@ import { JobsModule } from "./modules/jobs/jobs.module";
 import { InterviewPrepModule } from "./modules/interview-prep/interview-prep.module";
 import { TechnicalTestsModule } from "./modules/technical-tests/technical-tests.module";
 import { AiModule } from "./modules/ai/ai.module";
-import { PdfModule } from "./pdf/pdf.module";
+import { PdfModule } from "./modules/pdf/pdf.module";
 import { BillingModule } from "./modules/billing/billing.module";
 
 @Module({

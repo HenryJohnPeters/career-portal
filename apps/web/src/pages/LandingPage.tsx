@@ -90,7 +90,7 @@ export function LandingPage() {
           <div className="flex items-center gap-2">
             <Link
               to="/register?plan=premium"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-amber-400 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-500 transition-all duration-150 active:scale-95"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-accent-400 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-accent-500 transition-all duration-150 active:scale-95"
             >
               <Crown className="h-3 w-3" />
               Go Premium
@@ -122,7 +122,7 @@ export function LandingPage() {
           <p className="text-base sm:text-lg text-text-secondary max-w-xl mx-auto leading-relaxed mb-10">
             CVs, cover letters, job tracking, and interview prep — purpose-built
             for software engineers. Unlock{" "}
-            <span className="text-amber-600 dark:text-amber-400 font-semibold">
+            <span className="text-accent-600 dark:text-accent-400 font-semibold">
               AI features
             </span>{" "}
             with Premium.
@@ -136,7 +136,7 @@ export function LandingPage() {
             </Link>
             <Link
               to="/register?plan=premium"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-amber-500 transition-all duration-150 active:scale-[0.97]"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-accent-400 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-accent-500 transition-all duration-150 active:scale-[0.97]"
             >
               <Crown className="h-4 w-4" />
               Try Premium <Sparkles className="h-3.5 w-3.5" />
@@ -189,7 +189,7 @@ export function LandingPage() {
           </h2>
           <p className="text-sm sm:text-base text-text-secondary max-w-xl mx-auto">
             Six powerful tools free out of the box — supercharged with AI on{" "}
-            <span className="text-amber-600 dark:text-amber-400 font-semibold">
+            <span className="text-accent-600 dark:text-accent-400 font-semibold">
               Premium
             </span>
             .
@@ -216,7 +216,7 @@ export function LandingPage() {
                 </p>
               </div>
               <div className="flex items-start gap-2 mt-auto pt-3 border-t border-border">
-                <span className="shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-widest bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-500 rounded-md px-2 py-0.5 ring-1 ring-amber-200/60 dark:ring-amber-700/30 whitespace-nowrap flex items-center gap-1">
+                <span className="shrink-0 mt-0.5 text-[9px] font-bold uppercase tracking-widest bg-accent-50 dark:bg-accent-900/20 text-accent-600 dark:text-accent-500 rounded-md px-2 py-0.5 ring-1 ring-accent-200/60 dark:ring-accent-700/30 whitespace-nowrap flex items-center gap-1">
                   <Sparkles className="h-2.5 w-2.5" />
                   AI
                 </span>
@@ -244,7 +244,7 @@ export function LandingPage() {
               </h2>
               <p className="text-sm text-text-secondary leading-relaxed max-w-sm mx-auto sm:mx-0">
                 All six tools are free forever. Upgrade to{" "}
-                <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                <span className="text-accent-600 dark:text-accent-400 font-semibold">
                   Premium
                 </span>{" "}
                 any time to unlock AI across every one of them.
@@ -259,7 +259,7 @@ export function LandingPage() {
               </Link>
               <Link
                 to="/register?plan=premium"
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-300/60 dark:border-amber-700/40 bg-amber-50 dark:bg-amber-900/10 px-7 py-3 text-sm font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-all duration-150 active:scale-[0.97]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-accent-300/60 dark:border-accent-700/40 bg-accent-50 dark:bg-accent-900/10 px-7 py-3 text-sm font-semibold text-accent-700 dark:text-accent-400 hover:bg-accent-100 dark:hover:bg-accent-900/20 transition-all duration-150 active:scale-[0.97]"
               >
                 <Crown className="h-4 w-4" />
                 Start with Premium — £9.99/mo

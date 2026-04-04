@@ -11,6 +11,7 @@ import { PageHero, OptionGrid, SectionHeading, LEVEL_META } from "../../shared";
 import type { OptionItem } from "../../shared";
 import { TechStackPicker } from "../../interview-prep/components/TechStackPicker";
 import type { InterviewLevel } from "@careerportal/shared/types";
+import { isActivePremium } from "@careerportal/shared/types";
 import type { useTechTestState } from "../hooks/useTechTestState";
 import { useAuth } from "../../../lib/auth";
 
@@ -20,7 +21,7 @@ const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
     icon: m.icon,
     label: m.label,
     description: m.description,
-  })
+  }),
 );
 
 const TIME_LIMIT_ITEMS: OptionItem[] = [
@@ -37,10 +38,10 @@ interface TechTestSetupProps {
 
 export function TechTestSetup({ state }: TechTestSetupProps) {
   const { user } = useAuth();
-  const isPremium = user?.isPremium ?? false;
+  const isPremium = isActivePremium(user);
   const levelMeta = LEVEL_META[state.level] ?? LEVEL_META.mid;
   const timeMeta = TIME_LIMIT_ITEMS.find(
-    (t) => t.key === String(state.timeLimit)
+    (t) => t.key === String(state.timeLimit),
   );
 
   return (

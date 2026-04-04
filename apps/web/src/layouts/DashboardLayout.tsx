@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { isActivePremium } from "@careerportal/shared/types";
 import { useTheme } from "../lib/theme";
 import {
   LayoutDashboard,
@@ -322,25 +323,25 @@ export function DashboardLayout() {
       </nav>
 
       {/* Upgrade CTA */}
-      {!user?.isPremium && !collapsed && (
+      {!isActivePremium(user) && !collapsed && (
         <div className="px-3 pb-4 shrink-0">
           <NavLink
             to="/app/billing"
             onClick={closeMobileSidebar}
-            className="group flex items-center gap-3 rounded-xl bg-gradient-to-r from-amber-500/10 to-amber-400/5 border border-amber-400/20 p-3.5 hover:border-amber-400/40 hover:from-amber-500/15 transition-all duration-200"
+            className="group flex items-center gap-3 rounded-xl bg-gradient-to-r from-accent-500/10 to-accent-400/5 border border-accent-400/20 p-3.5 hover:border-accent-400/40 hover:from-accent-500/15 transition-all duration-200"
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-400 shadow-sm">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-400 shadow-sm">
               <Crown className="h-4 w-4 text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+              <p className="text-xs font-semibold text-accent-700 dark:text-accent-400">
                 Upgrade to Premium
               </p>
-              <p className="text-[11px] text-amber-600/70 dark:text-amber-500/70 truncate">
+              <p className="text-[11px] text-accent-600/70 dark:text-accent-500/70 truncate">
                 Unlock all AI features · £9.99/mo
               </p>
             </div>
-            <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0 ml-auto" />
+            <Sparkles className="h-3.5 w-3.5 text-accent-500 shrink-0 ml-auto" />
           </NavLink>
         </div>
       )}
@@ -377,8 +378,8 @@ export function DashboardLayout() {
         </div>
 
         <div className="flex items-center gap-1">
-          {user?.isPremium && (
-            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200/70 dark:border-amber-700/40 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400 mr-1">
+          {isActivePremium(user) && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-accent-50 dark:bg-accent-900/20 border border-accent-200/70 dark:border-accent-700/40 px-2.5 py-1 text-[11px] font-semibold text-accent-700 dark:text-accent-400 mr-1">
               <Crown className="h-3 w-3" />
               Premium
             </span>

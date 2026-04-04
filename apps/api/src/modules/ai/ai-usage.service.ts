@@ -1,6 +1,6 @@
 import { Injectable, ForbiddenException } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
-import { FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
+import { FREE_TIER, FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
 import { isActivePremium } from "../../common/subscription.util";
 import type { AiUsageStatus } from "./ai.types";
 
@@ -27,11 +27,25 @@ export class AiUsageService {
   async getUsageStatus(userId: string): Promise<AiUsageStatus> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     const isPremium = user ? isActivePremium(user) : false;
+    const start = this.getMonthStart();
     const used = await this.getMonthlyUsageCount(userId);
     const limit = isPremium ? null : FREE_TIER_MONTHLY_AI_LIMIT;
     const remaining = isPremium
       ? null
       : Math.max(0, FREE_TIER_MONTHLY_AI_LIMIT - used);
+
+    // Interview session + question usage
+    const [mockSessionsUsed, questionsUsed] = await Promise.all([
+      this.prisma.interviewSession.count({
+        where: { userId, createdAt: { gte: start } },
+      }),
+      this.prisma.interviewSessionQuestion.count({
+        where: {
+          session: { userId },
+          answeredAt: { gte: start },
+        },
+      }),
+    ]);
 
     return {
       used,
@@ -39,6 +53,16 @@ export class AiUsageService {
       remaining,
       isPremium,
       resetsAt: this.getNextMonthStart().toISOString(),
+      mockSessionsUsed,
+      mockSessionsLimit: isPremium ? null : FREE_TIER.monthlyMockSessions,
+      mockSessionsRemaining: isPremium
+        ? null
+        : Math.max(0, FREE_TIER.monthlyMockSessions - mockSessionsUsed),
+      questionsUsed,
+      questionsLimit: isPremium ? null : FREE_TIER.monthlyQuestions,
+      questionsRemaining: isPremium
+        ? null
+        : Math.max(0, FREE_TIER.monthlyQuestions - questionsUsed),
     };
   }
 

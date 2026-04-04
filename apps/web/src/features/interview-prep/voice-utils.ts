@@ -1,8 +1,10 @@
 import type { InterviewerConfig } from "./interviewer-configs";
 
 const VOICE_READY_TIMEOUT_MS = 1200;
-const MAX_CHUNK_LENGTH = 220;
-const CHUNK_PAUSE_MS = 80;
+const MAX_CHUNK_LENGTH = 160;
+const CHUNK_PAUSE_MS = 180;
+const SENTENCE_END_PAUSE_MS = 320;
+const COMMA_PAUSE_MS = 100;
 
 type VoiceGenderHint = "female" | "male" | "any";
 
@@ -95,6 +97,7 @@ function voiceScore(
   }
 
   // Prefer higher-quality natural/neural voices when available.
+  // Strongly prefer premium voices — they sound dramatically more human.
   if (
     name.includes("siri") ||
     name.includes("neural") ||
@@ -102,7 +105,12 @@ function voiceScore(
     name.includes("enhanced") ||
     name.includes("premium")
   ) {
-    score += 12;
+    score += 25;
+  }
+
+  // macOS high-quality voices (Siri variants)
+  if (name.includes("(enhanced)") || name.includes("(premium)")) {
+    score += 15;
   }
 
   // Penalize lower quality/flat voices that often sound robotic.
@@ -191,8 +199,10 @@ export function humanizeSpeechText(rawText: string): string {
 }
 
 export function splitSpeechChunks(text: string): string[] {
+  // Split on sentence boundaries AND clause boundaries (commas, semicolons)
+  // for more natural phrasing with appropriate pauses.
   const sentences = text
-    .split(/(?<=[.!?])\s+/)
+    .split(/(?<=[.!?])\ +/)
     .map((s) => s.trim())
     .filter(Boolean);
 
@@ -200,31 +210,42 @@ export function splitSpeechChunks(text: string): string[] {
   let current = "";
 
   for (const sentence of sentences) {
-    const next = current ? `${current} ${sentence}` : sentence;
-    if (next.length <= MAX_CHUNK_LENGTH) {
-      current = next;
-      continue;
-    }
+    // Further split long sentences on clause boundaries
+    const clauses =
+      sentence.length > MAX_CHUNK_LENGTH
+        ? sentence
+            .split(/(?<=[,;:])\ +/)
+            .map((c) => c.trim())
+            .filter(Boolean)
+        : [sentence];
 
-    if (current) chunks.push(current);
-
-    if (sentence.length <= MAX_CHUNK_LENGTH) {
-      current = sentence;
-      continue;
-    }
-
-    const words = sentence.split(" ");
-    let wordChunk = "";
-    for (const word of words) {
-      const candidate = wordChunk ? `${wordChunk} ${word}` : word;
-      if (candidate.length <= MAX_CHUNK_LENGTH) {
-        wordChunk = candidate;
-      } else {
-        if (wordChunk) chunks.push(wordChunk);
-        wordChunk = word;
+    for (const clause of clauses) {
+      const next = current ? `${current} ${clause}` : clause;
+      if (next.length <= MAX_CHUNK_LENGTH) {
+        current = next;
+        continue;
       }
+
+      if (current) chunks.push(current);
+
+      if (clause.length <= MAX_CHUNK_LENGTH) {
+        current = clause;
+        continue;
+      }
+
+      const words = clause.split(" ");
+      let wordChunk = "";
+      for (const word of words) {
+        const candidate = wordChunk ? `${wordChunk} ${word}` : word;
+        if (candidate.length <= MAX_CHUNK_LENGTH) {
+          wordChunk = candidate;
+        } else {
+          if (wordChunk) chunks.push(wordChunk);
+          wordChunk = word;
+        }
+      }
+      current = wordChunk;
     }
-    current = wordChunk;
   }
 
   if (current) chunks.push(current);
@@ -271,38 +292,64 @@ function getChunkProsody(
   chunk: string,
   interviewer: InterviewerConfig,
   chunkIndex: number,
-): { rate: number; pitch: number; volume: number } {
+): { rate: number; pitch: number; volume: number; pauseAfterMs: number } {
   const baseRate = interviewer.voice.speed;
   const basePitch = interviewer.voice.pitch ?? 1;
   const baseVolume = interviewer.voice.volume ?? 1;
 
-  const variation = microVariation(`${interviewer.id}:${chunkIndex}:${chunk}`);
-  const centered = (variation - 0.5) * 2;
+  // Use two different seeds per chunk so rate and pitch vary independently
+  const rateVariation = microVariation(
+    `${interviewer.id}:rate:${chunkIndex}:${chunk}`,
+  );
+  const pitchVariation = microVariation(
+    `${interviewer.id}:pitch:${chunkIndex}:${chunk}`,
+  );
+  const rateCentered = (rateVariation - 0.5) * 2;
+  const pitchCentered = (pitchVariation - 0.5) * 2;
 
-  let rate = baseRate + centered * 0.03;
-  let pitch = basePitch + centered * 0.05;
+  let rate = baseRate + rateCentered * 0.06;
+  let pitch = basePitch + pitchCentered * 0.08;
 
+  // Question inflection — more noticeable rise
   if (/[?]\s*$/.test(chunk)) {
-    pitch += 0.05;
-    rate += 0.01;
+    pitch += 0.08;
+    rate -= 0.02;
   }
 
+  // Emphasis on exclamatory sentences
   if (/[!]\s*$/.test(chunk)) {
-    pitch += 0.03;
-    rate += 0.015;
+    pitch += 0.04;
+    rate += 0.02;
   }
 
-  if (chunk.length > 160) {
+  // Slow down for longer, more complex chunks
+  if (chunk.length > 120) {
+    rate -= 0.04;
+  }
+
+  // Opening sentence of speech should be slightly slower/deliberate
+  if (chunkIndex === 0) {
     rate -= 0.03;
   }
 
-  rate = clamp(rate, 0.84, 1.15);
-  pitch = clamp(pitch, 0.82, 1.22);
+  rate = clamp(rate, 0.82, 1.08);
+  pitch = clamp(pitch, 0.84, 1.18);
+
+  // Determine natural pause length after this chunk
+  let pauseAfterMs = CHUNK_PAUSE_MS;
+  if (/[.!?]\s*$/.test(chunk)) {
+    pauseAfterMs = SENTENCE_END_PAUSE_MS;
+  } else if (/[,;:]\s*$/.test(chunk)) {
+    pauseAfterMs = COMMA_PAUSE_MS;
+  }
+  // Add slight randomness to pauses for naturalness
+  pauseAfterMs += Math.floor(rateVariation * 60);
 
   return {
     rate,
     pitch,
     volume: clamp(baseVolume, 0, 1),
+    pauseAfterMs,
   };
 }
 
@@ -370,10 +417,12 @@ export function playInterviewerSpeech({
 
       utterance.onend = () => {
         if (cancelled) return;
+        const currentChunk = chunks[index];
+        const prosodyInfo = getChunkProsody(currentChunk, interviewer, index);
         index += 1;
         setTimeout(() => {
           speakNext();
-        }, CHUNK_PAUSE_MS);
+        }, prosodyInfo.pauseAfterMs);
       };
 
       utterance.onerror = () => {

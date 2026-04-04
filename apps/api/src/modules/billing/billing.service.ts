@@ -120,9 +120,12 @@ export class BillingService {
         },
         metadata: { userId: user.id },
       },
-      // Fix #6: Idempotency key scoped to userId prevents duplicate checkout
-      // sessions from concurrent requests racing past the isPremium check above.
-      { idempotencyKey: `checkout-${userId}` },
+      // Idempotency key prevents duplicate checkout sessions from concurrent
+      // requests. Uses a 5-minute time bucket so the key naturally expires,
+      // allowing legitimate retries after a cancelled/expired session.
+      {
+        idempotencyKey: `checkout-${userId}-${Math.floor(Date.now() / 300_000)}`,
+      },
     );
 
     if (!session.url) {

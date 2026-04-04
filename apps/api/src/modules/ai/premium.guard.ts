@@ -4,7 +4,9 @@ import {
   ExecutionContext,
   ForbiddenException,
   HttpException,
+  HttpStatus,
 } from "@nestjs/common";
+import { AuthenticatedRequest } from "../auth/auth.guard";
 import { AiUsageService } from "./ai-usage.service";
 import { FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
 
@@ -38,9 +40,17 @@ export class PremiumGuard implements CanActivate {
   constructor(private readonly aiUsage: AiUsageService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const userId = request.userId as string | undefined;
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const userId = request.userId;
     if (!userId) throw new ForbiddenException("Not authenticated");
+
+    // Check quota before setting cooldown so a quota error doesn't block retries
+    const allowed = await this.aiUsage.canUseAi(userId);
+    if (!allowed) {
+      throw new ForbiddenException(
+        `You've reached your free monthly limit of ${FREE_TIER_MONTHLY_AI_LIMIT} AI uses. Upgrade to Premium for unlimited AI-powered tools.`,
+      );
+    }
 
     // Per-user cooldown — prevents accidental double-fire
     const cooldownKey = `${userId}:${request.path}`;
@@ -48,17 +58,11 @@ export class PremiumGuard implements CanActivate {
     if (lastRequest && Date.now() - lastRequest < AI_COOLDOWN_MS) {
       throw new HttpException(
         "Please wait before making another AI request.",
-        429,
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
     recentRequests.set(cooldownKey, Date.now());
 
-    const allowed = await this.aiUsage.canUseAi(userId);
-    if (!allowed) {
-      throw new ForbiddenException(
-        `You've reached your free monthly limit of ${FREE_TIER_MONTHLY_AI_LIMIT} AI uses. Upgrade to Premium for unlimited AI-powered tools.`,
-      );
-    }
     return true;
   }
 }

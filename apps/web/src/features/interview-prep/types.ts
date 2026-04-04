@@ -25,7 +25,7 @@ export interface InterviewSetupProps {
   voiceMuted: boolean;
   onToggleVoiceMute: () => void;
   onPreviewInterviewerVoice: () => void;
-  isPremium?: boolean;
+  isPremium: boolean;
 }
 
 export interface InterviewSessionProps {

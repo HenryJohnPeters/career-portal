@@ -145,7 +145,9 @@ export function useCvBuilder() {
   // ── Preview src doc – fit content to width ──
   const previewSrcDoc = useMemo(() => {
     if (!previewHtml) return "";
-    return previewHtml.replace(
+    // Strip <script> tags — the sandboxed iframe blocks them and logs console errors
+    const cleaned = previewHtml.replace(/<script[\s\S]*?<\/script>/gi, "");
+    return cleaned.replace(
       "</style>",
       `
       body {
