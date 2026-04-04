@@ -12,6 +12,7 @@ import {
   FREE_TEMPLATE_IDS,
   DEFAULT_CV_SECTIONS,
 } from "../../common/constants";
+import { isActivePremium } from "../../common/subscription.util";
 
 @Injectable()
 export class CvService {
@@ -32,7 +33,7 @@ export class CvService {
   async createVersion(userId: string, title: string) {
     // Enforce free-user cap
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.isPremium) {
+    if (!user || !isActivePremium(user)) {
       const count = await this.prisma.cvVersion.count({ where: { userId } });
       if (count >= FREE_CV_LIMIT) {
         throw new ForbiddenException(
@@ -83,13 +84,11 @@ export class CvService {
   ) {
     const version = await this.assertVersionOwner(userId, id);
 
-    console.log("[CV Service] Updating version:", id, "with data:", data);
-
     // Restrict template selection for free users
     if (data.templateId) {
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (
-        !user?.isPremium &&
+        (!user || !isActivePremium(user)) &&
         !(FREE_TEMPLATE_IDS as readonly string[]).includes(data.templateId)
       ) {
         throw new ForbiddenException(
@@ -113,16 +112,6 @@ export class CvService {
         themeConfig: data.themeConfig as any,
       },
       include: { sections: { orderBy: { order: "asc" } } },
-    });
-
-    console.log("[CV Service] Version updated successfully. Contact fields:", {
-      name: updated.name,
-      email: updated.email,
-      phone: updated.phone,
-      location: updated.location,
-      website: updated.website,
-      linkedin: updated.linkedin,
-      github: updated.github,
     });
 
     return updated;
@@ -216,7 +205,7 @@ export class CvService {
   async duplicateVersion(userId: string, id: string) {
     // Enforce free-user cap
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.isPremium) {
+    if (!user || !isActivePremium(user)) {
       const count = await this.prisma.cvVersion.count({ where: { userId } });
       if (count >= FREE_CV_LIMIT) {
         throw new ForbiddenException(

@@ -11,6 +11,9 @@ import { FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
  * Allows premium users unlimited access.
  * Allows free users up to FREE_TIER_MONTHLY_AI_LIMIT AI actions per month.
  * Throws ForbiddenException when the free cap is reached.
+ *
+ * CRITICAL: Checks both isPremium flag AND stripeCurrentPeriodEnd timestamp
+ * to prevent expired premium users from accessing premium features.
  */
 @Injectable()
 export class PremiumGuard implements CanActivate {

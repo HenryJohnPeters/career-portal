@@ -10,6 +10,7 @@ import {
   DIFFICULTY_RANGES,
   LEVEL_TO_DIFFICULTY,
 } from "../../common/constants";
+import { isActivePremium } from "../../common/subscription.util";
 
 @Injectable()
 export class QuestionsService {
@@ -73,7 +74,7 @@ export class QuestionsService {
    */
   async getPracticeUsageStatus(userId: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const isPremium = user?.isPremium ?? false;
+    const isPremium = user ? isActivePremium(user) : false;
     const used = await this.getDailyUsageCount(userId);
     const limit = isPremium ? null : FREE_DAILY_QUESTION_LIMIT;
     const remaining = isPremium
@@ -106,7 +107,7 @@ export class QuestionsService {
   ) {
     // Check daily limit for free users
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const isPremium = user?.isPremium ?? false;
+    const isPremium = user ? isActivePremium(user) : false;
 
     if (!isPremium) {
       const used = await this.getDailyUsageCount(userId);

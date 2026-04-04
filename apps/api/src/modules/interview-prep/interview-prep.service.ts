@@ -11,6 +11,7 @@ import {
 import { CreateInterviewSessionDto } from "./interview-prep.dto";
 import { AiQuestionGeneratorService } from "../ai/ai-question-generator.service";
 import { TECH_CATEGORIES, DIFFICULTY_RANGES } from "../../common/constants";
+import { isActivePremium } from "../../common/subscription.util";
 
 // Interviewer traits type (synced with frontend)
 interface InterviewerTraits {
@@ -391,7 +392,7 @@ export class InterviewPrepService {
 
     // Piggyback generation: premium users randomly trigger new question generation
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (user?.isPremium) {
+    if (user && isActivePremium(user)) {
       this.aiQuestionGenerator
         .maybePiggybackGenerate(
           {

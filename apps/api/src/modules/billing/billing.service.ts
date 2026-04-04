@@ -1,5 +1,6 @@
 import { Injectable, BadRequestException, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { Prisma } from "@prisma/client";
 import Stripe from "stripe";
 import { PrismaService } from "../../common/prisma.service";
 import type { EnvConfig } from "../../common/env.config";
@@ -19,6 +20,25 @@ export class BillingService {
   }
 
   /* ──────────────────────── helpers ──────────────────────── */
+
+  /**
+   * Write a structured audit log entry for a billing event.
+   * Never throws — audit failures must not break the webhook flow.
+   */
+  private async writeAuditLog(
+    userId: string,
+    action: string,
+    reason?: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await this.prisma.auditLog.create({
+        data: { userId, action, reason, metadata: metadata as Prisma.InputJsonValue },
+      });
+    } catch (err) {
+      this.logger.error(`AuditLog write failed for ${userId}/${action}`, err);
+    }
+  }
 
   /**
    * Extract the current_period_end from the first subscription item.
@@ -213,6 +233,10 @@ export class BillingService {
       },
     });
 
+    await this.writeAuditLog(userId, "premium.upgraded", "checkout_completed", {
+      subscriptionId,
+      priceId,
+    });
     this.logger.log(`✅ User ${userId} upgraded to Premium successfully`);
   }
 
@@ -239,6 +263,7 @@ export class BillingService {
       },
     });
 
+    await this.writeAuditLog(user.id, "premium.renewed", "invoice_paid", { periodEnd });
     this.logger.log(`Invoice paid — renewed Premium for user ${user.id}`);
   }
 
@@ -251,9 +276,14 @@ export class BillingService {
     });
     if (!user) return;
 
+    await this.writeAuditLog(user.id, "payment.failed", "invoice_payment_failed");
     this.logger.warn(`Invoice payment failed for user ${user.id}`);
-    // Don't immediately downgrade — Stripe will retry. Downgrade happens
-    // when the subscription is actually deleted/cancelled.
+    // Stripe will retry automatically. The subscription status transitions to
+    // `past_due` or `unpaid`, which fires `customer.subscription.updated` →
+    // onSubscriptionUpdated → sets isPremium = false. We do NOT downgrade here
+    // to avoid punishing users on the first transient payment failure.
+    // The isActivePremium() check in AiUsageService provides a secondary
+    // safety net via stripeCurrentPeriodEnd once the period actually expires.
   }
 
   private async onSubscriptionUpdated(subscription: Stripe.Subscription) {
@@ -276,6 +306,12 @@ export class BillingService {
       },
     });
 
+    if (user.isPremium && !isActive) {
+      await this.writeAuditLog(user.id, "premium.downgraded", `subscription_${subscription.status}`, {
+        subscriptionId: subscription.id,
+        status: subscription.status,
+      });
+    }
     this.logger.log(
       `Subscription updated for user ${user.id} — active: ${isActive}`
     );
@@ -297,6 +333,9 @@ export class BillingService {
       },
     });
 
+    await this.writeAuditLog(user.id, "premium.cancelled", "subscription_deleted", {
+      subscriptionId: subscription.id,
+    });
     this.logger.log(`Subscription cancelled — user ${user.id} downgraded`);
   }
 }

@@ -9,6 +9,7 @@ import { generateScenario } from "./engine/scenario-generator";
 import { AiScenarioGeneratorService } from "../ai/ai-scenario-generator.service";
 import { ROLE_TO_TRACK } from "../../common/constants";
 import { computeGrade } from "../../common/grade.util";
+import { isActivePremium } from "../../common/subscription.util";
 
 @Injectable()
 export class TechnicalTestsService {
@@ -38,7 +39,7 @@ export class TechnicalTestsService {
   async createTest(userId: string, dto: CreateTechnicalTestDto) {
     // Enforce premium-only
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.isPremium) {
+    if (!user || !isActivePremium(user)) {
       throw new ForbiddenException(
         "Technical tests are a Premium feature. Upgrade to access take-home test scenarios."
       );

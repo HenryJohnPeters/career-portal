@@ -26,6 +26,7 @@ model User {
   interviewSessions InterviewSession[]
   technicalTests    TechnicalTest[]
   aiUsages          AiUsage[]
+  auditLogs      AuditLog[]
 }
 
 model CvVersion {
@@ -256,4 +257,20 @@ model PracticeQuestionUsage {
   createdAt DateTime @default(now())
 
   @@index([userId, createdAt])
+}
+
+// === Audit Logging ===
+// Tracks critical events: premium status changes, failed payments, etc.
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  userId      String
+  action      String    // e.g. "premium.downgraded", "payment.failed", "subscription.created"
+  reason      String?   // e.g. "payment_declined", "subscription_expired", "manual_downgrade"
+  metadata    Json?     // extra context (e.g. Stripe error, old value, new value)
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
 }

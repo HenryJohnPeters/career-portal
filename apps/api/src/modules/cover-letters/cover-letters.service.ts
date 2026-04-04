@@ -7,6 +7,7 @@ import { PrismaService } from "../../common/prisma.service";
 import { AiService } from "../ai/ai.service";
 import { AiUsageService } from "../ai/ai-usage.service";
 import { FREE_COVER_LETTER_LIMIT } from "../../common/constants";
+import { isActivePremium } from "../../common/subscription.util";
 
 @Injectable()
 export class CoverLettersService {
@@ -29,7 +30,7 @@ export class CoverLettersService {
     data: { title: string; body?: string; jobId?: string }
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user?.isPremium) {
+    if (!user || !isActivePremium(user)) {
       const count = await this.prisma.coverLetter.count({ where: { userId } });
       if (count >= FREE_COVER_LETTER_LIMIT) {
         throw new ForbiddenException(

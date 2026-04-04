@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
 import { FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
+import { isActivePremium } from "../../common/subscription.util";
 
 export interface AiUsageStatus {
   used: number;
@@ -32,7 +33,7 @@ export class AiUsageService {
    */
   async getUsageStatus(userId: string): Promise<AiUsageStatus> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const isPremium = user?.isPremium ?? false;
+    const isPremium = user ? isActivePremium(user) : false;
     const used = await this.getMonthlyUsageCount(userId);
     const limit = isPremium ? null : FREE_TIER_MONTHLY_AI_LIMIT;
     const remaining = isPremium
@@ -51,10 +52,16 @@ export class AiUsageService {
   /**
    * Check whether a user can perform an AI action.
    * Premium users always can; free users are capped.
+   * 
+   * CRITICAL: Checks both isPremium flag AND subscription period end date.
+   * Expired subscriptions are treated as free accounts.
    */
   async canUseAi(userId: string): Promise<boolean> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (user?.isPremium) return true;
+    if (!user) return false;
+    
+    // Check if premium subscription is active (not expired)
+    if (isActivePremium(user)) return true;
 
     const used = await this.getMonthlyUsageCount(userId);
     return used < FREE_TIER_MONTHLY_AI_LIMIT;
