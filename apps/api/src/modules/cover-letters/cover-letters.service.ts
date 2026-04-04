@@ -31,6 +31,8 @@ export class CoverLettersService {
     userId: string,
     data: { title: string; body?: string; jobId?: string },
   ) {
+    const linkedJobId = await this.resolveOwnedJobId(userId, data.jobId);
+
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !isActivePremium(user)) {
       return this.prisma.$transaction(
@@ -47,7 +49,7 @@ export class CoverLettersService {
               userId,
               title: data.title,
               body: data.body || "",
-              jobId: data.jobId || null,
+              jobId: linkedJobId,
             },
             include: { job: true },
           });
@@ -61,7 +63,7 @@ export class CoverLettersService {
         userId,
         title: data.title,
         body: data.body || "",
-        jobId: data.jobId || null,
+        jobId: linkedJobId,
       },
       include: { job: true },
     });
@@ -73,9 +75,15 @@ export class CoverLettersService {
     data: { title?: string; body?: string; jobId?: string },
   ) {
     await this.assertOwner(userId, id);
+    const linkedJobId = await this.resolveOwnedJobId(userId, data.jobId, true);
+
     return this.prisma.coverLetter.update({
       where: { id },
-      data,
+      data: {
+        title: data.title,
+        body: data.body,
+        ...(linkedJobId !== undefined && { jobId: linkedJobId }),
+      },
       include: { job: true },
     });
   }
@@ -100,7 +108,7 @@ export class CoverLettersService {
       "cover-letter-suggest",
       async () => {
         const { jobTitle, companyName, jobDescription } =
-          await this.resolveJobContext(letter.jobId);
+          await this.resolveJobContext(userId, letter.jobId);
 
         return this.aiService.suggestCoverLetterImprovements(
           letter.body.slice(0, 3000),
@@ -132,6 +140,7 @@ export class CoverLettersService {
       "cover-letter-rewrite",
       async () => {
         const { jobTitle, companyName } = await this.resolveJobContext(
+          userId,
           letter.jobId,
         );
 
@@ -218,13 +227,18 @@ export class CoverLettersService {
   }
 
   /** Resolve job context from a linked job id. */
-  private async resolveJobContext(jobId: string | null): Promise<{
+  private async resolveJobContext(
+    userId: string,
+    jobId: string | null,
+  ): Promise<{
     jobTitle?: string;
     companyName?: string;
     jobDescription?: string;
   }> {
     if (!jobId) return {};
-    const job = await this.prisma.job.findUnique({ where: { id: jobId } });
+    const job = await this.prisma.job.findFirst({
+      where: { id: jobId, userId },
+    });
     if (!job) return {};
     return {
       jobTitle: job.role,
@@ -233,10 +247,30 @@ export class CoverLettersService {
     };
   }
 
+  private async resolveOwnedJobId(
+    userId: string,
+    jobId: string | undefined,
+    allowUndefined = false,
+  ): Promise<string | null | undefined> {
+    if (jobId === undefined) return allowUndefined ? undefined : null;
+
+    const trimmed = jobId.trim();
+    if (!trimmed) return null;
+
+    const job = await this.prisma.job.findFirst({
+      where: { id: trimmed, userId },
+      select: { id: true },
+    });
+
+    if (!job) throw new NotFoundException("Job not found");
+    return job.id;
+  }
+
   private async assertOwner(userId: string, id: string) {
-    const letter = await this.prisma.coverLetter.findUnique({ where: { id } });
+    const letter = await this.prisma.coverLetter.findFirst({
+      where: { id, userId },
+    });
     if (!letter) throw new NotFoundException("Cover letter not found");
-    if (letter.userId !== userId) throw new ForbiddenException();
     return letter;
   }
 }

@@ -55,6 +55,13 @@ export function AiSectionAssist({
 
   const aiGenerate = useAiGenerateCvSection();
 
+  const getErrorMessage = (err: unknown): string => {
+    if (err instanceof Error && err.message.trim().length > 0) {
+      return err.message;
+    }
+    return "Failed to generate content. Please try again.";
+  };
+
   const handleGenerate = async (selectedAction: AiAction) => {
     setAction(selectedAction);
     setResult(null);
@@ -68,8 +75,8 @@ export function AiSectionAssist({
         jobDescription: jobDescription.trim() || undefined,
       });
       setResult(res.data.content);
-    } catch (err: any) {
-      setError(err.message || "Failed to generate content. Please try again.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     }
   };
 

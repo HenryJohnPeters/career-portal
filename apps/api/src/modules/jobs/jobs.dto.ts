@@ -4,8 +4,27 @@ import {
   IsDateString,
   IsIn,
   MaxLength,
+  IsUrl,
+  ValidateIf,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+
+const JOB_STATUSES = [
+  // Current pipeline statuses
+  "wishlist",
+  "applied",
+  "phone_screen",
+  "technical_interview",
+  "onsite",
+  "tech_test",
+  "accepted",
+  "rejected",
+  // Legacy statuses accepted for backward compatibility
+  "saved",
+  "interview",
+  "offer",
+  "ghosted",
+] as const;
 
 export class CreateJobDto {
   @ApiProperty({ example: "Acme Corp" })
@@ -20,16 +39,17 @@ export class CreateJobDto {
 
   @ApiPropertyOptional({
     example: "applied",
-    enum: ["saved", "applied", "interview", "offer", "rejected", "ghosted"],
+    enum: JOB_STATUSES,
   })
   @IsString()
   @IsOptional()
-  @IsIn(["saved", "applied", "interview", "offer", "rejected", "ghosted"])
+  @IsIn(JOB_STATUSES)
   status?: string;
 
   @ApiPropertyOptional()
-  @IsString()
   @IsOptional()
+  @ValidateIf((o) => o.url && o.url.trim().length > 0)
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true })
   @MaxLength(2000)
   url?: string;
 
@@ -67,16 +87,17 @@ export class UpdateJobDto {
 
   @ApiPropertyOptional({
     example: "applied",
-    enum: ["saved", "applied", "interview", "offer", "rejected", "ghosted"],
+    enum: JOB_STATUSES,
   })
   @IsString()
   @IsOptional()
-  @IsIn(["saved", "applied", "interview", "offer", "rejected", "ghosted"])
+  @IsIn(JOB_STATUSES)
   status?: string;
 
   @ApiPropertyOptional()
-  @IsString()
   @IsOptional()
+  @ValidateIf((o) => o.url && o.url.trim().length > 0)
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true })
   @MaxLength(2000)
   url?: string;
 

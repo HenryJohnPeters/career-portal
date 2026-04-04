@@ -1,6 +1,7 @@
 import { Injectable, Inject, Logger } from "@nestjs/common";
 import OpenAI from "openai";
 import * as crypto from "crypto";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { OPENAI_CLIENT } from "./openai.provider";
 import {
@@ -39,6 +40,21 @@ interface GeneratedQuestion {
   rubric: { criteria: { name: string; weight: number; keywords: string[] }[] };
   modelAnswer: string;
   followUpIds: string[];
+}
+
+interface ParsedGeneratedQuestion {
+  prompt: string;
+  options: string[];
+  correctOptionIndex: number;
+  correctOptionIndices?: number[];
+  multiSelect?: boolean;
+  type?: string;
+  expectedPoints?: string[];
+  redFlags?: string[];
+  rubric?: {
+    criteria?: { name: string; weight: number; keywords: string[] }[];
+  };
+  modelAnswer: string;
 }
 
 /** All track/level/difficulty combinations used in background fill. */
@@ -87,7 +103,7 @@ export class AiQuestionGeneratorService {
    * Count how many questions exist in the pool for a given filter combo.
    */
   async getPoolSize(filters: QuestionGenerationFilters): Promise<number> {
-    const where: Record<string, unknown> = {
+    const where: Prisma.InterviewQuestionWhereInput = {
       track: filters.track,
       level: filters.level,
     };
@@ -99,7 +115,60 @@ export class AiQuestionGeneratorService {
       where.tags = { hasSome: filters.tags.map((t) => t.toLowerCase()) };
     }
 
-    return this.prisma.interviewQuestion.count({ where: where as any });
+    return this.prisma.interviewQuestion.count({ where });
+  }
+
+  private toFilterComboJson(
+    filters: QuestionGenerationFilters,
+  ): Prisma.InputJsonValue {
+    return {
+      track: filters.track,
+      level: filters.level,
+      difficulty: filters.difficulty,
+      tags: filters.tags,
+    } as Prisma.InputJsonObject;
+  }
+
+  private isParsedGeneratedQuestion(
+    value: unknown,
+  ): value is ParsedGeneratedQuestion {
+    if (!value || typeof value !== "object") return false;
+    const q = value as Record<string, unknown>;
+
+    return (
+      typeof q.prompt === "string" &&
+      Array.isArray(q.options) &&
+      q.options.length >= 4 &&
+      (q.options as unknown[]).every((option) => typeof option === "string") &&
+      typeof q.correctOptionIndex === "number" &&
+      Number.isFinite(q.correctOptionIndex) &&
+      typeof q.modelAnswer === "string"
+    );
+  }
+
+  private normalizeRubric(
+    rubric: ParsedGeneratedQuestion["rubric"],
+  ): GeneratedQuestion["rubric"] {
+    if (!rubric?.criteria || !Array.isArray(rubric.criteria)) {
+      return { criteria: [] };
+    }
+
+    const criteria = rubric.criteria
+      .filter(
+        (criterion) =>
+          typeof criterion?.name === "string" &&
+          typeof criterion?.weight === "number" &&
+          Number.isFinite(criterion.weight) &&
+          Array.isArray(criterion.keywords) &&
+          criterion.keywords.every((keyword) => typeof keyword === "string"),
+      )
+      .map((criterion) => ({
+        name: criterion.name,
+        weight: Math.max(1, Math.min(5, Math.round(criterion.weight))),
+        keywords: criterion.keywords,
+      }));
+
+    return { criteria };
   }
 
   /**
@@ -219,7 +288,7 @@ export class AiQuestionGeneratorService {
       await this.prisma.questionGenerationLog.create({
         data: {
           filterHash,
-          filterCombo: filters as any,
+          filterCombo: this.toFilterComboJson(filters),
           questionsGenerated: questions.length,
           triggeredBy,
         },
@@ -377,47 +446,56 @@ RULES:
       if (!Array.isArray(parsed)) return [];
 
       return parsed
-        .filter(
-          (q): q is Record<string, unknown> =>
-            typeof q === "object" &&
-            q !== null &&
-            typeof (q as any).prompt === "string" &&
-            Array.isArray((q as any).options) &&
-            (q as any).options.length >= 4 &&
-            typeof (q as any).correctOptionIndex === "number" &&
-            typeof (q as any).modelAnswer === "string",
+        .filter((q): q is ParsedGeneratedQuestion =>
+          this.isParsedGeneratedQuestion(q),
         )
         .filter((q) => {
           // When specific tech tags were requested, reject any question whose
           // prompt or model answer doesn't mention at least one of those tags.
           // This catches hallucinated generic questions that slipped through.
           if (!hasTags) return true;
-          const text =
-            `${q.prompt as string} ${q.modelAnswer as string}`.toLowerCase();
+          const text = `${q.prompt} ${q.modelAnswer}`.toLowerCase();
           return safeTags.some((tag) => text.includes(tag.toLowerCase()));
         })
-        .map((q) => ({
-          track: filters.track,
-          tags:
-            safeTags.length > 0
-              ? safeTags.map((t) => t.toLowerCase())
-              : [filters.track],
-          difficulty: difficultyNum,
-          type: (q.type as string) || "theory",
-          level: filters.level,
-          prompt: q.prompt as string,
-          options: (q.options as string[]).slice(0, 4),
-          correctOptionIndex: q.correctOptionIndex as number,
-          correctOptionIndices: (q.correctOptionIndices as number[]) ?? [
-            q.correctOptionIndex as number,
-          ],
-          multiSelect: (q.multiSelect as boolean) ?? false,
-          expectedPoints: (q.expectedPoints as string[]) ?? [],
-          redFlags: (q.redFlags as string[]) ?? [],
-          rubric: (q.rubric as GeneratedQuestion["rubric"]) ?? { criteria: [] },
-          modelAnswer: q.modelAnswer as string,
-          followUpIds: [],
-        }));
+        .map((q): GeneratedQuestion => {
+          const correctOptionIndex = Math.max(
+            0,
+            Math.min(3, Math.floor(q.correctOptionIndex)),
+          );
+          const correctOptionIndices = Array.isArray(q.correctOptionIndices)
+            ? q.correctOptionIndices
+                .map((index) => Math.floor(index))
+                .filter((index) => index >= 0 && index < 4)
+            : [correctOptionIndex];
+
+          return {
+            track: filters.track,
+            tags:
+              safeTags.length > 0
+                ? safeTags.map((t) => t.toLowerCase())
+                : [filters.track],
+            difficulty: difficultyNum,
+            type: q.type || "theory",
+            level: filters.level,
+            prompt: q.prompt,
+            options: q.options.slice(0, 4),
+            correctOptionIndex,
+            correctOptionIndices:
+              correctOptionIndices.length > 0
+                ? correctOptionIndices
+                : [correctOptionIndex],
+            multiSelect: q.multiSelect ?? false,
+            expectedPoints: Array.isArray(q.expectedPoints)
+              ? q.expectedPoints.filter((item) => typeof item === "string")
+              : [],
+            redFlags: Array.isArray(q.redFlags)
+              ? q.redFlags.filter((item) => typeof item === "string")
+              : [],
+            rubric: this.normalizeRubric(q.rubric),
+            modelAnswer: q.modelAnswer,
+            followUpIds: [],
+          };
+        });
     } catch (error) {
       this.logger.error("OpenAI question batch generation failed", error);
       return [];

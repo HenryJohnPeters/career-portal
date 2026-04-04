@@ -19,7 +19,7 @@ export class AuthService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService<EnvConfig>
+    private readonly config: ConfigService<EnvConfig>,
   ) {
     this.supabaseUrl = this.config.get("SUPABASE_URL");
     this.jwtSecret = this.config.get("SUPABASE_JWT_SECRET");
@@ -32,6 +32,32 @@ export class AuthService {
           jwksRequestsPerMinute: 5,
         })
       : null;
+  }
+
+  /**
+   * Only allow automatic legacy email linking for truly inactive records.
+   * This avoids binding a new Supabase identity onto an existing account
+   * that already has user-generated data.
+   */
+  private async canAutoLinkLegacyUser(userId: string): Promise<boolean> {
+    const [cvVersions, coverLetters, jobs, sessions, tests, aiUsages] =
+      await Promise.all([
+        this.prisma.cvVersion.count({ where: { userId } }),
+        this.prisma.coverLetter.count({ where: { userId } }),
+        this.prisma.job.count({ where: { userId } }),
+        this.prisma.interviewSession.count({ where: { userId } }),
+        this.prisma.technicalTest.count({ where: { userId } }),
+        this.prisma.aiUsage.count({ where: { userId } }),
+      ]);
+
+    return (
+      cvVersions === 0 &&
+      coverLetters === 0 &&
+      jobs === 0 &&
+      sessions === 0 &&
+      tests === 0 &&
+      aiUsages === 0
+    );
   }
 
   private async getSigningKey(header: jwt.JwtHeader): Promise<string> {
@@ -97,6 +123,21 @@ export class AuthService {
       // Also check by email for legacy/seeded users and link them
       user = await this.prisma.user.findUnique({ where: { email } });
       if (user) {
+        if (user.supabaseId && user.supabaseId !== supabaseId) {
+          throw new UnauthorizedException(
+            "Account is already linked to a different identity.",
+          );
+        }
+
+        if (!user.supabaseId) {
+          const canAutoLink = await this.canAutoLinkLegacyUser(user.id);
+          if (!canAutoLink) {
+            throw new UnauthorizedException(
+              "Account recovery required. Please contact support to link this account securely.",
+            );
+          }
+        }
+
         user = await this.prisma.user.update({
           where: { id: user.id },
           data: { supabaseId },

@@ -115,6 +115,21 @@ export const PIPELINE_COLUMNS: PipelineColumn[] = [
 
 export type FollowUpBadge = "overdue" | "due" | "none";
 
+const LEGACY_STATUS_MAP: Record<string, PipelineStatus> = {
+  saved: "wishlist",
+  interview: "phone_screen",
+  offer: "accepted",
+  ghosted: "rejected",
+};
+
+export function normalizePipelineStatus(status: string): PipelineStatus {
+  const normalized = LEGACY_STATUS_MAP[status] ?? status;
+  return (
+    (PIPELINE_COLUMNS.find((c) => c.id === normalized)?.id as PipelineStatus) ??
+    "applied"
+  );
+}
+
 export function getFollowUpBadge(followUpDate?: string | null): FollowUpBadge {
   if (!followUpDate) return "none";
   const now = new Date();
@@ -130,7 +145,5 @@ export function getFollowUpBadge(followUpDate?: string | null): FollowUpBadge {
 }
 
 export function getColumnForStatus(status: string): PipelineColumn {
-  return (
-    PIPELINE_COLUMNS.find((c) => c.id === status) || PIPELINE_COLUMNS[1] // default to "applied"
-  );
+  return PIPELINE_COLUMNS.find((c) => c.id === normalizePipelineStatus(status))!;
 }

@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   Logger,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { InterviewQuestion, Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import {
   QuestionSelector,
@@ -41,6 +41,10 @@ interface AnswerFeedback {
   selectedOptionIndex: number;
   isCorrect: boolean;
 }
+
+type SessionQuestionWithQuestion = Prisma.InterviewSessionQuestionGetPayload<{
+  include: { question: true };
+}>;
 
 @Injectable()
 export class InterviewPrepService {
@@ -141,8 +145,11 @@ export class InterviewPrepService {
           poolFilters,
           userId,
         );
-      } catch {
-        // Non-critical — proceed with whatever we have
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `Urgent pool fill failed for user ${userId} (${dto.track}/${dto.level}/${difficulty}) - proceeding with existing pool. Reason: ${reason}`,
+        );
       }
     }
 
@@ -156,7 +163,7 @@ export class InterviewPrepService {
 
     // Load the question pool scoped to all user-selected filters
     let pool = await this.prisma.interviewQuestion.findMany({
-      where: poolWhere as any,
+      where: poolWhere,
     });
 
     // ── Fallback: if tag-filtered pool is still empty, broaden to tag-free ──
@@ -166,8 +173,11 @@ export class InterviewPrepService {
           { ...poolFilters, tags: [] },
           userId,
         );
-      } catch {
-        // Non-critical
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        this.logger.warn(
+          `Fallback pool fill without tags failed for user ${userId} (${dto.track}/${dto.level}/${difficulty}). Reason: ${reason}`,
+        );
       }
       const fallbackWhere = this.buildPoolWhere(
         dto.track,
@@ -176,7 +186,7 @@ export class InterviewPrepService {
         [],
       );
       pool = await this.prisma.interviewQuestion.findMany({
-        where: fallbackWhere as any,
+        where: fallbackWhere,
       });
     }
 
@@ -212,7 +222,7 @@ export class InterviewPrepService {
       [],
     );
 
-    const createData = {
+    const createData: Prisma.InterviewSessionUncheckedCreateInput = {
       userId,
       track: dto.track,
       level: dto.level,
@@ -239,7 +249,7 @@ export class InterviewPrepService {
     // Create the session with its questions
     const session = isPremium
       ? await this.prisma.interviewSession.create({
-          data: createData as any,
+          data: createData,
           include: {
             questions: {
               include: { question: true },
@@ -263,7 +273,7 @@ export class InterviewPrepService {
             }
 
             return tx.interviewSession.create({
-              data: createData as any,
+              data: createData,
               include: {
                 questions: {
                   include: { question: true },
@@ -309,11 +319,10 @@ export class InterviewPrepService {
 
     let fiftyFiftyEliminated: number[] | null = null;
     if (hasFiftyFifty) {
-      const q = next.question as any;
-      const correctIdx: number = q.correctOptionIndex ?? 0;
-      const optionCount: number = Array.isArray(q.options)
-        ? (q.options as unknown[]).length
-        : 0;
+      const correctIdx = next.question.correctOptionIndex;
+      const optionCount = this.parseQuestionOptions(
+        next.question.options,
+      ).length;
       if (optionCount >= 4) {
         // Collect all wrong indices, then pick 2 to eliminate using a
         // Fisher-Yates shuffle seeded conceptually by order (Math.random
@@ -345,7 +354,7 @@ export class InterviewPrepService {
   }
 
   /** Strip answer-key fields before sending a question to the client. */
-  private sanitiseSessionQuestion(sq: any) {
+  private sanitiseSessionQuestion(sq: SessionQuestionWithQuestion) {
     const { question, ...rest } = sq;
     const {
       correctOptionIndex: _c,
@@ -376,8 +385,8 @@ export class InterviewPrepService {
 
     const questionRecord: QuestionRecord = {
       ...sq.question,
-      options: (sq.question.options as unknown as string[]) ?? undefined,
-      rubric: sq.question.rubric as unknown as QuestionRecord["rubric"],
+      options: this.parseQuestionOptions(sq.question.options),
+      rubric: this.parseQuestionRubric(sq.question.rubric),
     };
 
     // Evaluate the answer
@@ -424,7 +433,7 @@ export class InterviewPrepService {
           data: {
             userAnswer: answer,
             score: evaluation.score,
-            feedback: feedback as unknown as any,
+            feedback: this.toInputJson(feedback),
             answeredAt: new Date(),
           },
           include: { question: true },
@@ -453,7 +462,7 @@ export class InterviewPrepService {
               data: {
                 userAnswer: answer,
                 score: evaluation.score,
-                feedback: feedback as unknown as any,
+                feedback: this.toInputJson(feedback),
                 answeredAt: new Date(),
               },
               include: { question: true },
@@ -473,7 +482,7 @@ export class InterviewPrepService {
         session.tags ?? [],
       );
       const followUpPool = await this.prisma.interviewQuestion.findMany({
-        where: followUpWhere as any,
+        where: followUpWhere,
       });
       const poolRecords = this.toQuestionRecords(followUpPool);
 
@@ -532,7 +541,7 @@ export class InterviewPrepService {
         type: sq.question.type,
         score: sq.score ?? 0,
         maxScore: sq.maxScore,
-        pointsMissed: (sq.feedback as unknown as any)?.pointsMissed ?? [],
+        pointsMissed: this.extractPointsMissed(sq.feedback),
         tags: sq.question.tags,
       }));
 
@@ -549,7 +558,7 @@ export class InterviewPrepService {
       data: {
         status: "completed",
         totalScore,
-        report: report as unknown as any,
+        report: this.toInputJson(report),
       },
       include: {
         questions: {
@@ -638,20 +647,67 @@ export class InterviewPrepService {
     level: string,
     difficulty: string,
     tags: string[],
-  ): Record<string, unknown> {
-    const where: Record<string, unknown> = { track, level };
+  ): Prisma.InterviewQuestionWhereInput {
+    const where: Prisma.InterviewQuestionWhereInput = { track, level };
     const range = DIFFICULTY_RANGES[difficulty];
     if (range) where.difficulty = range;
     if (tags.length > 0) where.tags = { hasSome: tags };
     return where;
   }
 
+  private parseQuestionOptions(options: Prisma.JsonValue): string[] {
+    if (!Array.isArray(options)) return [];
+    return options.filter(
+      (value): value is string => typeof value === "string",
+    );
+  }
+
+  private parseQuestionRubric(
+    rubric: Prisma.JsonValue,
+  ): QuestionRecord["rubric"] {
+    if (!rubric || typeof rubric !== "object") return { criteria: [] };
+    const criteria = (rubric as Record<string, unknown>).criteria;
+    if (!Array.isArray(criteria)) return { criteria: [] };
+
+    return {
+      criteria: criteria
+        .filter(
+          (item) =>
+            typeof item === "object" &&
+            item !== null &&
+            typeof (item as Record<string, unknown>).name === "string" &&
+            typeof (item as Record<string, unknown>).weight === "number" &&
+            Array.isArray((item as Record<string, unknown>).keywords),
+        )
+        .map((item) => ({
+          name: (item as Record<string, unknown>).name as string,
+          weight: (item as Record<string, unknown>).weight as number,
+          keywords: (
+            (item as Record<string, unknown>).keywords as unknown[]
+          ).filter((keyword): keyword is string => typeof keyword === "string"),
+        })),
+    };
+  }
+
+  private toInputJson(value: unknown): Prisma.InputJsonValue {
+    return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+  }
+
+  private extractPointsMissed(feedback: Prisma.JsonValue | null): string[] {
+    if (!feedback || typeof feedback !== "object") return [];
+    const pointsMissed = (feedback as Record<string, unknown>).pointsMissed;
+    if (!Array.isArray(pointsMissed)) return [];
+    return pointsMissed.filter(
+      (point): point is string => typeof point === "string",
+    );
+  }
+
   /** Map Prisma rows to engine QuestionRecord objects. */
-  private toQuestionRecords(rows: any[]): QuestionRecord[] {
+  private toQuestionRecords(rows: InterviewQuestion[]): QuestionRecord[] {
     return rows.map((q) => ({
       ...q,
-      options: (q.options as unknown as string[]) ?? undefined,
-      rubric: q.rubric as unknown as QuestionRecord["rubric"],
+      options: this.parseQuestionOptions(q.options),
+      rubric: this.parseQuestionRubric(q.rubric),
     }));
   }
 }

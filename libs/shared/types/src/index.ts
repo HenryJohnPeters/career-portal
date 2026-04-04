@@ -203,7 +203,7 @@ export interface Job {
   userId: string;
   company: string;
   role: string;
-  status: string;
+  status: JobStatus;
   url?: string | null;
   notes?: string | null;
   cvVersionId?: string | null;

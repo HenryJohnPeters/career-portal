@@ -15,11 +15,22 @@ import { Button } from "@careerportal/web/ui";
 import type { Job, CvVersion, CoverLetter } from "@careerportal/shared/types";
 import { PIPELINE_COLUMNS } from "../constants";
 
+type TrackerJobPatch = {
+  company?: string;
+  role?: string;
+  url?: string;
+  status?: Job["status"];
+  cvVersionId?: string;
+  coverLetterId?: string;
+  followUpDate?: string;
+  notes?: string;
+};
+
 interface TrackerDrawerProps {
   job: Job | null;
   open: boolean;
   onClose: () => void;
-  onSave: (id: string, data: Partial<Job>) => Promise<void>;
+  onSave: (id: string, data: TrackerJobPatch) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   cvVersions: CvVersion[];
   coverLetters: CoverLetter[];
@@ -41,7 +52,7 @@ export function TrackerDrawer({
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [url, setUrl] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<Job["status"]>("applied");
   const [cvVersionId, setCvVersionId] = useState("");
   const [coverLetterId, setCoverLetterId] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
@@ -72,7 +83,7 @@ export function TrackerDrawer({
       coverLetterId: coverLetterId || undefined,
       followUpDate: followUpDate || undefined,
       notes: notes || undefined,
-    } as any);
+    });
   };
 
   const handleDelete = () => {
@@ -161,7 +172,7 @@ export function TrackerDrawer({
             <Field icon={Briefcase} label="Status">
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => setStatus(e.target.value as Job["status"])}
                 className="field-input"
                 aria-label="Application status"
               >

@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import type { HTMLAttributes } from "react";
 import {
   Pencil,
   Trash2,
@@ -32,7 +33,7 @@ interface SectionCardProps {
   onDelete: (id: string) => void;
   onMove: (id: string, direction: "up" | "down") => void;
   onToggleCollapse: (id: string) => void;
-  dragHandleProps?: Record<string, any>;
+  dragHandleProps?: HTMLAttributes<HTMLDivElement>;
   isDragging?: boolean;
 }
 

@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { AiUsageService } from "./ai-usage.service";
 import { OPENAI_CLIENT } from "./openai.provider";
 import { sanitiseTags } from "../../common/constants";
+import type { TechTestScenario } from "../technical-tests/engine/scenario-generator";
 
 export interface ScenarioGenerationInput {
   roleFocus: string;
@@ -24,10 +25,58 @@ export class AiScenarioGeneratorService {
    * Generate a rich technical test scenario via AI.
    * This is used when the hardcoded templates don't cover the tag combo.
    */
+  private isTechTestScenario(value: unknown): value is TechTestScenario {
+    if (!value || typeof value !== "object") return false;
+    const record = value as Record<string, unknown>;
+
+    const hasString = (key: string) => typeof record[key] === "string";
+    const hasStringArray = (key: string) =>
+      Array.isArray(record[key]) &&
+      (record[key] as unknown[]).every((item) => typeof item === "string");
+
+    const hasRequirements =
+      Array.isArray(record.requirements) &&
+      record.requirements.every(
+        (req) =>
+          typeof req === "object" &&
+          req !== null &&
+          typeof (req as Record<string, unknown>).key === "string" &&
+          typeof (req as Record<string, unknown>).text === "string",
+      );
+
+    const hasEvaluationCriteria =
+      Array.isArray(record.evaluationCriteria) &&
+      record.evaluationCriteria.every(
+        (criterion) =>
+          typeof criterion === "object" &&
+          criterion !== null &&
+          typeof (criterion as Record<string, unknown>).name === "string" &&
+          typeof (criterion as Record<string, unknown>).weight === "number" &&
+          typeof (criterion as Record<string, unknown>).description ===
+            "string",
+      );
+
+    return (
+      hasString("title") &&
+      hasString("companyContext") &&
+      hasString("brief") &&
+      hasString("background") &&
+      hasRequirements &&
+      hasStringArray("nonFunctional") &&
+      hasStringArray("acceptanceCriteria") &&
+      hasStringArray("bonusChallenges") &&
+      hasEvaluationCriteria &&
+      hasStringArray("hints") &&
+      hasString("estimatedTime") &&
+      hasStringArray("deliverables") &&
+      hasStringArray("constraints")
+    );
+  }
+
   async generateScenario(
     input: ScenarioGenerationInput,
     userId: string,
-  ): Promise<any | null> {
+  ): Promise<TechTestScenario | null> {
     const safeTags = sanitiseTags(input.tags);
     const tagsStr =
       safeTags.length > 0
@@ -66,12 +115,8 @@ Role: ${input.roleFocus} | Level: ${input.level} (junior=3-5 reqs, mid=5-7, seni
             .replace(/\s*```$/i, "")
             .trim();
 
-          const parsed = JSON.parse(cleaned);
-          if (
-            !parsed.title ||
-            !parsed.brief ||
-            !Array.isArray(parsed.requirements)
-          ) {
+          const parsed = JSON.parse(cleaned) as unknown;
+          if (!this.isTechTestScenario(parsed)) {
             throw new Error("AI scenario missing required fields");
           }
 

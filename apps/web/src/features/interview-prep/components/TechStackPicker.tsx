@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Check, ChevronDown, Layers, Sparkles, X } from "lucide-react";
 import * as Icons from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { InterviewRoleFocus } from "@careerportal/shared/types";
 import { ROLE_TECH_PATHWAYS, type TechPathway } from "../constants";
 
@@ -12,8 +13,10 @@ interface TechStackPickerProps {
 
 // Helper to get icon component from string name
 function getIconComponent(iconName: string) {
-  const IconComponent = (Icons as any)[iconName];
-  return IconComponent || Icons.HelpCircle;
+  const candidate = (Icons as Record<string, unknown>)[iconName];
+  return typeof candidate === "function"
+    ? (candidate as LucideIcon)
+    : Icons.HelpCircle;
 }
 
 export function TechStackPicker({

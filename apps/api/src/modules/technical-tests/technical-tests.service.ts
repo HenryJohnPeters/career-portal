@@ -6,11 +6,34 @@ import {
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { CreateTechnicalTestDto } from "./technical-tests.dto";
-import { generateScenario } from "./engine/scenario-generator";
+import {
+  generateScenario,
+  TechTestScenario,
+} from "./engine/scenario-generator";
 import { AiScenarioGeneratorService } from "../ai/ai-scenario-generator.service";
 import { ROLE_TO_TRACK, FREE_TIER, sanitiseTags } from "../../common/constants";
 import { computeGrade } from "../../common/grade.util";
 import { isActivePremium } from "../../common/subscription.util";
+
+interface SubmissionEvaluation {
+  overallScore: number;
+  maxPossible: number;
+  percentage: number;
+  grade: string;
+  criteriaScores: {
+    name: string;
+    score: number;
+    maxScore: number;
+    description: string;
+  }[];
+  strengths: string[];
+  improvements: string[];
+  requirementsCovered: number;
+  requirementsTotal: number;
+  requirementsMissed: string[];
+  wordCount: number;
+  summary: string;
+}
 
 @Injectable()
 export class TechnicalTestsService {
@@ -18,6 +41,28 @@ export class TechnicalTestsService {
     private readonly prisma: PrismaService,
     private readonly aiScenarioGenerator: AiScenarioGeneratorService,
   ) {}
+
+  private isTechTestScenario(value: unknown): value is TechTestScenario {
+    if (!value || typeof value !== "object") return false;
+    const record = value as Record<string, unknown>;
+
+    return (
+      typeof record.title === "string" &&
+      Array.isArray(record.requirements) &&
+      Array.isArray(record.evaluationCriteria)
+    );
+  }
+
+  private toInputJson(value: unknown): Prisma.InputJsonValue {
+    return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+  }
+
+  private parseScenario(value: Prisma.JsonValue): TechTestScenario {
+    if (!this.isTechTestScenario(value)) {
+      throw new NotFoundException("Technical test scenario is invalid");
+    }
+    return value;
+  }
 
   /** List all technical tests for a user */
   async getTests(userId: string) {
@@ -49,7 +94,7 @@ export class TechnicalTestsService {
     const tags = sanitiseTags(dto.tags ?? []).map((t) => t.toLowerCase());
 
     // Try the hardcoded template engine first
-    let scenario: any = generateScenario({
+    let scenario: TechTestScenario = generateScenario({
       roleFocus: dto.roleFocus,
       level: dto.level,
       difficulty: dto.difficulty,
@@ -85,7 +130,7 @@ export class TechnicalTestsService {
       roleFocus: dto.roleFocus,
       tags,
       timeLimit: dto.timeLimit ?? 60,
-      scenario: scenario as any,
+      scenario: this.toInputJson(scenario),
       status: "not_started",
     };
 
@@ -119,7 +164,7 @@ export class TechnicalTestsService {
    * Count how many of the user's selected tags appear in the scenario text.
    * Used to decide if the hardcoded template is a good match.
    */
-  private countTagOverlap(scenario: any, tags: string[]): number {
+  private countTagOverlap(scenario: TechTestScenario, tags: string[]): number {
     const scenarioText = JSON.stringify(scenario).toLowerCase();
     return tags.filter((t) => scenarioText.includes(t.toLowerCase())).length;
   }
@@ -147,7 +192,7 @@ export class TechnicalTestsService {
       return test; // Already submitted
     }
 
-    const scenario = test.scenario as any;
+    const scenario = this.parseScenario(test.scenario);
     const evaluation = this.evaluateSubmission(submission, scenario);
 
     return this.prisma.technicalTest.update({
@@ -156,7 +201,7 @@ export class TechnicalTestsService {
         status: "submitted",
         submission,
         submittedAt: new Date(),
-        evaluation: evaluation as any,
+        evaluation: this.toInputJson(evaluation),
       },
     });
   }
@@ -172,7 +217,10 @@ export class TechnicalTestsService {
    * This is a heuristic-based evaluation — in a real product you'd use AI.
    * It checks length, keyword coverage, structure, and effort indicators.
    */
-  private evaluateSubmission(submission: string, scenario: any) {
+  private evaluateSubmission(
+    submission: string,
+    scenario: TechTestScenario,
+  ): SubmissionEvaluation {
     const criteria: { name: string; weight: number; description: string }[] =
       scenario.evaluationCriteria ?? [];
     const requirements: { key: string; text: string }[] =

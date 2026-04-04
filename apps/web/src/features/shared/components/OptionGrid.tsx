@@ -17,9 +17,10 @@ interface OptionGridProps<T extends string | number> {
 
 // Helper to get icon component from string name
 function getIconComponent(iconName: string): LucideIcon {
-  // Direct lookup - iconName should already be in PascalCase
-  const IconComponent = (Icons as any)[iconName];
-  return IconComponent || Icons.HelpCircle;
+  const candidate = (Icons as Record<string, unknown>)[iconName];
+  return typeof candidate === "function"
+    ? (candidate as LucideIcon)
+    : Icons.HelpCircle;
 }
 
 export function OptionGrid<T extends string | number>({
@@ -31,13 +32,13 @@ export function OptionGrid<T extends string | number>({
   return (
     <div className={`grid ${columns} gap-3`}>
       {items.map((item) => {
-        const selected = value === (item.key as unknown as T);
+        const selected = String(value) === item.key;
         const IconComponent = getIconComponent(item.icon);
 
         return (
           <button
             key={item.key}
-            onClick={() => onChange(item.key as unknown as T)}
+            onClick={() => onChange(item.key as T)}
             className={`group relative rounded-xl border-2 p-4 text-left transition-all duration-200 ${
               selected
                 ? "border-primary-500 dark:border-primary-600 bg-primary-50 dark:bg-primary-950/30 ring-2 ring-offset-1 ring-offset-white dark:ring-offset-gray-950 ring-primary-400/30 shadow-md"

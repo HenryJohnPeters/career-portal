@@ -1,10 +1,5 @@
-import {
-  Injectable,
-  Logger,
-  NotFoundException,
-  OnModuleDestroy,
-} from "@nestjs/common";
-import { CvService } from "../cv/cv.service";
+import { Injectable, NotFoundException, OnModuleDestroy } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { renderCvHtml } from "./render-cv-html";
 import { Semaphore } from "./semaphore";
@@ -66,10 +61,7 @@ export class PdfService implements OnModuleDestroy {
   private readonly semaphore = new Semaphore(2);
   private readonly cache = new Map<string, CacheEntry>();
 
-  constructor(
-    private readonly cvService: CvService,
-    private readonly prisma: PrismaService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async onModuleDestroy() {
     if (this.browser) {
@@ -107,7 +99,28 @@ export class PdfService implements OnModuleDestroy {
       },
     });
     if (!version) throw new NotFoundException("CV version not found");
-    return version as unknown as CvVersionWithSections;
+    return {
+      ...version,
+      templateId: version.templateId,
+      themeConfig: version.themeConfig,
+      headerLayout: version.headerLayout,
+      sections: version.sections.map((section) => ({
+        title: section.title,
+        content: section.content,
+        order: section.order,
+        sectionType: section.sectionType,
+      })),
+    };
+  }
+
+  private toThemeConfig(themeConfig: unknown): Record<string, unknown> {
+    if (!themeConfig || typeof themeConfig !== "object") {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(themeConfig as Record<string, unknown>).slice(0, 50),
+    );
   }
 
   private buildRenderArgs(
@@ -124,7 +137,7 @@ export class PdfService implements OnModuleDestroy {
       userName: v.name || v.user.name,
       userEmail: v.email || v.user.email,
       templateId: v.templateId ?? undefined,
-      themeConfig: v.themeConfig as Record<string, unknown>,
+      themeConfig: this.toThemeConfig(v.themeConfig),
       headerLayout: v.headerLayout ?? undefined,
       photoUrl: v.photoUrl ?? undefined,
       phone: v.phone ?? undefined,

@@ -9,6 +9,7 @@ import {
   IsUrl,
   ArrayMaxSize,
   ValidateIf,
+  IsEmail,
 } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
@@ -53,7 +54,7 @@ export class UpdateCvVersionDto {
   name?: string;
 
   @ApiPropertyOptional()
-  @IsString()
+  @IsEmail()
   @IsOptional()
   @MaxLength(200)
   email?: string;
@@ -79,20 +80,23 @@ export class UpdateCvVersionDto {
   location?: string;
 
   @ApiPropertyOptional()
-  @IsString()
   @IsOptional()
+  @ValidateIf((o) => o.website && o.website.trim().length > 0)
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true })
   @MaxLength(500)
   website?: string;
 
   @ApiPropertyOptional()
-  @IsString()
   @IsOptional()
+  @ValidateIf((o) => o.linkedin && o.linkedin.trim().length > 0)
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true })
   @MaxLength(500)
   linkedin?: string;
 
   @ApiPropertyOptional()
-  @IsString()
   @IsOptional()
+  @ValidateIf((o) => o.github && o.github.trim().length > 0)
+  @IsUrl({ protocols: ["http", "https"], require_protocol: true })
   @MaxLength(500)
   github?: string;
 }

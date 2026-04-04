@@ -108,6 +108,8 @@ export class CvService {
     },
   ) {
     const version = await this.assertVersionOwner(userId, id);
+    const { themeConfig: _incomingThemeConfig, ...restData } = data;
+    const safeThemeConfig = this.sanitizeThemeConfig(data.themeConfig);
 
     // Restrict template selection for free users
     if (data.templateId) {
@@ -133,8 +135,8 @@ export class CvService {
     const updated = await this.prisma.cvVersion.update({
       where: { id },
       data: {
-        ...data,
-        themeConfig: data.themeConfig as any,
+        ...restData,
+        ...(safeThemeConfig !== undefined && { themeConfig: safeThemeConfig }),
       },
       include: { sections: { orderBy: { order: "asc" } } },
     });
@@ -423,6 +425,52 @@ export class CvService {
     if (version.userId !== userId)
       throw new ForbiddenException("Access denied");
     return version;
+  }
+
+  private sanitizeThemeConfig(
+    themeConfig?: Record<string, unknown>,
+  ): Prisma.InputJsonObject | undefined {
+    if (themeConfig === undefined) return undefined;
+
+    type SafeJson =
+      | string
+      | number
+      | boolean
+      | Prisma.InputJsonObject
+      | Prisma.InputJsonArray;
+
+    const sanitize = (value: unknown, depth = 0): SafeJson => {
+      if (depth > 4) return "";
+      if (typeof value === "string") return value.slice(0, 200);
+      if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+      if (typeof value === "boolean") return value;
+
+      if (Array.isArray(value)) {
+        return value.slice(0, 50).map((item) => sanitize(item, depth + 1));
+      }
+
+      if (value && typeof value === "object") {
+        const entries = Object.entries(value as Record<string, unknown>).slice(
+          0,
+          50,
+        );
+
+        return Object.fromEntries(
+          entries.map(([key, item]) => [
+            key.slice(0, 100),
+            sanitize(item, depth + 1),
+          ]),
+        ) as Prisma.InputJsonObject;
+      }
+
+      return "";
+    };
+
+    const sanitized = sanitize(themeConfig);
+    if (Array.isArray(sanitized) || typeof sanitized !== "object") {
+      return {};
+    }
+    return sanitized as Prisma.InputJsonObject;
   }
 
   private async assertSectionOwner(userId: string, sectionId: string) {

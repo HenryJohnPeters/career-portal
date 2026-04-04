@@ -127,7 +127,17 @@ export function JobsPage() {
 
   const handleDrawerSave = async (id: string, patch: Partial<Job>) => {
     try {
-      await updateMut.mutateAsync({ id, ...patch } as any);
+      await updateMut.mutateAsync({
+        id,
+        company: patch.company,
+        role: patch.role,
+        status: patch.status,
+        url: patch.url ?? undefined,
+        notes: patch.notes ?? undefined,
+        cvVersionId: patch.cvVersionId ?? undefined,
+        coverLetterId: patch.coverLetterId ?? undefined,
+        followUpDate: patch.followUpDate ?? undefined,
+      });
       toast("success", "Application saved");
       const freshJobs: Job[] =
         queryClient.getQueryData<ApiResponse<Job[]>>(queryKeys.jobs)?.data ||

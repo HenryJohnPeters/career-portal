@@ -108,12 +108,20 @@ export class InterviewPrepController {
   @Throttle({ default: { ttl: 60000, limit: 1 } })
   async backgroundFill(@Headers("x-admin-key") adminKey: string) {
     const expectedKey = this.config.get<string>("ADMIN_API_KEY");
-    if (
-      !expectedKey ||
-      !adminKey ||
-      adminKey.length !== expectedKey.length ||
-      !timingSafeEqual(Buffer.from(adminKey), Buffer.from(expectedKey))
-    ) {
+    const provided = Buffer.from(adminKey ?? "");
+    const expected = Buffer.from(expectedKey ?? "");
+    const maxLen = Math.max(provided.length, expected.length, 1);
+    const paddedProvided = Buffer.alloc(maxLen);
+    const paddedExpected = Buffer.alloc(maxLen);
+    provided.copy(paddedProvided);
+    expected.copy(paddedExpected);
+
+    const keyMatches =
+      expected.length > 0 &&
+      provided.length === expected.length &&
+      timingSafeEqual(paddedProvided, paddedExpected);
+
+    if (!keyMatches) {
       throw new UnauthorizedException("Invalid or missing admin API key");
     }
     const result = await this.aiQuestionGenerator.backgroundFill();
