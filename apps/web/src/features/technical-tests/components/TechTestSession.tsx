@@ -1,7 +1,5 @@
-import { Button } from "@careerportal/web/ui";
 import {
   Clock,
-  Send,
   CheckCircle2,
   AlertTriangle,
   Target,
@@ -32,7 +30,6 @@ function formatTime(seconds: number): string {
 export function TechTestSession({ state }: TechTestSessionProps) {
   const test = state.activeTest;
   const [showBrief, setShowBrief] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   if (!test) return null;
 
@@ -100,14 +97,7 @@ export function TechTestSession({ state }: TechTestSessionProps) {
               )}
               <span className="hidden sm:inline">Brief</span>
             </button>
-            <Button
-              size="sm"
-              onClick={() => setShowConfirm(true)}
-              disabled={state.submission.trim().length === 0}
-            >
-              <Send className="h-3 w-3 sm:mr-1.5" />
-              <span className="hidden sm:inline">Submit</span>
-            </Button>
+
           </div>
         </div>
       </div>
@@ -222,50 +212,7 @@ export function TechTestSession({ state }: TechTestSessionProps) {
         </p>
       </div>
 
-      {/* ── Submit confirmation modal ── */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl p-5 sm:p-6 max-w-md w-full space-y-4 animate-in fade-in scale-in duration-200">
-            <h3 className="text-base font-bold text-gray-900 dark:text-white">
-              Submit your solution?
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              You've written{" "}
-              <strong className="text-gray-700 dark:text-gray-300">
-                {wordCount} words
-              </strong>{" "}
-              with{" "}
-              <strong className="text-gray-700 dark:text-gray-300">
-                {formatTime(state.timeRemaining)}
-              </strong>{" "}
-              remaining. Once submitted, you cannot edit your solution.
-            </p>
-            {wordCount < 50 && (
-              <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/40">
-                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-700 dark:text-amber-400">
-                  Your submission is very short. Consider adding more detail for
-                  a better evaluation.
-                </p>
-              </div>
-            )}
-            <div className="flex items-center gap-2.5 justify-end">
-              <Button variant="secondary" onClick={() => setShowConfirm(false)}>
-                Keep Working
-              </Button>
-              <Button
-                onClick={() => {
-                  setShowConfirm(false);
-                  state.handleSubmit();
-                }}
-                loading={state.isSubmitting}
-              >
-                <Send className="h-4 w-4 mr-1.5" /> Submit
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }

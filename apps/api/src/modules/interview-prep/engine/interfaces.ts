@@ -60,7 +60,7 @@ export interface IQuestionSelector {
     pool: QuestionRecord[],
     settings: SessionSettings,
     answeredIds: string[],
-    scores: number[]
+    scores: number[],
   ): QuestionRecord[];
 }
 
@@ -75,7 +75,7 @@ export interface IFollowUpStrategy {
   selectFollowUp(
     question: QuestionRecord,
     evaluation: EvaluationResult,
-    pool: QuestionRecord[]
+    pool: QuestionRecord[],
   ): QuestionRecord | null;
 }
 
@@ -86,6 +86,6 @@ export interface IPersonaResponder {
     score: number,
     maxScore: number,
     pointsMissed: string[],
-    adviceLevel?: "minimal" | "standard" | "detailed"
+    adviceLevel?: "minimal" | "standard" | "detailed",
   ): string;
 }

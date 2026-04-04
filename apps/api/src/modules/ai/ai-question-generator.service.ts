@@ -62,7 +62,7 @@ export class AiQuestionGeneratorService {
 
   constructor(
     @Inject(OPENAI_CLIENT) private readonly openai: OpenAI,
-    private readonly prisma: PrismaService
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
@@ -107,7 +107,7 @@ export class AiQuestionGeneratorService {
    */
   async ensurePoolForFilters(
     filters: QuestionGenerationFilters,
-    triggeredBy: string
+    triggeredBy: string,
   ): Promise<boolean> {
     const poolSize = await this.getPoolSize(filters);
     if (poolSize >= AI_QUESTION_POOL_THRESHOLD) return false;
@@ -140,7 +140,7 @@ export class AiQuestionGeneratorService {
    */
   async ensurePoolForFiltersUrgent(
     filters: QuestionGenerationFilters,
-    triggeredBy = "system"
+    triggeredBy = "system",
   ): Promise<boolean> {
     const poolSize = await this.getPoolSize(filters);
     if (poolSize >= AI_QUESTION_POOL_THRESHOLD) return false;
@@ -173,14 +173,14 @@ export class AiQuestionGeneratorService {
    */
   private async doGenerate(
     filters: QuestionGenerationFilters,
-    triggeredBy: string
+    triggeredBy: string,
   ): Promise<boolean> {
     const poolSize = await this.getPoolSize(filters);
     const filterHash = this.computeFilterHash(filters);
 
     const batchSize = Math.min(
       AI_QUESTION_BATCH_SIZE,
-      AI_QUESTION_POOL_THRESHOLD + 3 - poolSize
+      AI_QUESTION_POOL_THRESHOLD + 3 - poolSize,
     );
     const questions = await this.generateQuestionBatch(filters, batchSize);
 
@@ -224,7 +224,7 @@ export class AiQuestionGeneratorService {
     // user-facing AI actions (cv, cover-letter, etc.) should count.
 
     this.logger.log(
-      `Generated ${questions.length} questions for hash=${filterHash} triggered by ${triggeredBy}`
+      `Generated ${questions.length} questions for hash=${filterHash} triggered by ${triggeredBy}`,
     );
     return true;
   }
@@ -236,7 +236,7 @@ export class AiQuestionGeneratorService {
    */
   async maybePiggybackGenerate(
     filters: QuestionGenerationFilters,
-    userId: string
+    userId: string,
   ): Promise<void> {
     if (Math.random() > AI_PIGGYBACK_CHANCE) return;
     try {
@@ -279,7 +279,7 @@ export class AiQuestionGeneratorService {
    */
   private async generateQuestionBatch(
     filters: QuestionGenerationFilters,
-    count: number
+    count: number,
   ): Promise<GeneratedQuestion[]> {
     const difficultyNum = DIFFICULTY_MAP[filters.difficulty] ?? 3;
     const hasTags = filters.tags.length > 0;
@@ -354,7 +354,7 @@ RULES:
       } catch {
         this.logger.error(
           "Failed to parse AI question batch JSON",
-          cleaned.slice(0, 200)
+          cleaned.slice(0, 200),
         );
         return [];
       }
@@ -370,7 +370,7 @@ RULES:
             Array.isArray((q as any).options) &&
             (q as any).options.length >= 4 &&
             typeof (q as any).correctOptionIndex === "number" &&
-            typeof (q as any).modelAnswer === "string"
+            typeof (q as any).modelAnswer === "string",
         )
         .filter((q) => {
           // When specific tech tags were requested, reject any question whose
@@ -378,7 +378,7 @@ RULES:
           // This catches hallucinated generic questions that slipped through.
           if (!hasTags) return true;
           const text =
-            `${(q.prompt as string)} ${(q.modelAnswer as string)}`.toLowerCase();
+            `${q.prompt as string} ${q.modelAnswer as string}`.toLowerCase();
           return filters.tags.some((tag) => text.includes(tag.toLowerCase()));
         })
         .map((q) => ({

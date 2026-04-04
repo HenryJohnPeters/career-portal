@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import {
   useCreateTechnicalTest,
   useStartTechnicalTest,
-  useSubmitTechnicalTest,
   useTechnicalTests,
   useDeleteTechnicalTest,
 } from "@careerportal/web/data-access";
@@ -46,7 +45,6 @@ export function useTechTestState() {
   const testsQuery = useTechnicalTests();
   const createTest = useCreateTechnicalTest();
   const startTest = useStartTechnicalTest();
-  const submitTest = useSubmitTechnicalTest();
   const deleteTest = useDeleteTechnicalTest();
 
   const tests = testsQuery.data?.data ?? [];
@@ -69,7 +67,7 @@ export function useTechTestState() {
     };
   }, [isTimerRunning, timeRemaining]);
 
-  // Auto-submit when timer expires
+  // Auto-stop when timer expires
   useEffect(() => {
     if (
       view === "working" &&
@@ -78,7 +76,7 @@ export function useTechTestState() {
       activeTest &&
       activeTest.status === "in_progress"
     ) {
-      handleSubmit();
+      // Timer expired — just stay on the working view
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeRemaining, isTimerRunning, view]);
@@ -113,26 +111,10 @@ export function useTechTestState() {
     setView("working");
   }, [activeTest, startTest]);
 
-  /** Submit the user's solution */
-  const handleSubmit = useCallback(async () => {
-    if (!activeTest) return;
-    setIsTimerRunning(false);
-    if (timerRef.current) clearInterval(timerRef.current);
-    const res = await submitTest.mutateAsync({
-      testId: activeTest.id,
-      submission,
-    });
-    setActiveTest(res.data);
-    setView("results");
-  }, [activeTest, submission, submitTest]);
-
-  /** View a past test's results */
+  /** View a past test */
   const handleViewTest = useCallback((test: TechnicalTest) => {
     setActiveTest(test);
-    if (test.status === "submitted" || test.status === "evaluated") {
-      setSubmission(test.submission ?? "");
-      setView("results");
-    } else if (test.status === "in_progress") {
+    if (test.status === "in_progress") {
       setSubmission("");
       // Calculate remaining time
       if (test.startedAt) {
@@ -200,11 +182,9 @@ export function useTechTestState() {
     // Loading
     isGenerating: createTest.isPending,
     isStarting: startTest.isPending,
-    isSubmitting: submitTest.isPending,
     // Actions
     handleGenerate,
     handleStart,
-    handleSubmit,
     handleViewTest,
     handleDelete,
     handleBackToSetup,

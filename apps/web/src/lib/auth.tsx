@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } else {
           setUser(null);
         }
-      }
+      },
     );
 
     return () => listener.subscription.unsubscribe();

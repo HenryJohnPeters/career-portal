@@ -5,7 +5,6 @@ import { useTechTestState } from "./hooks/useTechTestState";
 import { TechTestSetup } from "./components/TechTestSetup";
 import { TechTestBrief } from "./components/TechTestBrief";
 import { TechTestSession } from "./components/TechTestSession";
-import { TechTestResults } from "./components/TechTestResults";
 import { TechTestHistory } from "./components/TechTestHistory";
 
 export function TechnicalTestsPage() {
@@ -21,7 +20,6 @@ export function TechnicalTestsPage() {
   if (state.view === "setup") return <TechTestSetup state={state} />;
   if (state.view === "brief") return <TechTestBrief state={state} />;
   if (state.view === "working") return <TechTestSession state={state} />;
-  if (state.view === "results") return <TechTestResults state={state} />;
   if (state.view === "history") return <TechTestHistory state={state} />;
 
   return null;
@@ -47,8 +45,7 @@ function TechTestPremiumGate() {
           {[
             "AI-generated realistic scenarios",
             "Tailored to your tech stack",
-            "Timed sessions with auto-submit",
-            "Detailed evaluation & scoring",
+            "Timed practice sessions",
             "Covers frontend, backend, fullstack & platform",
             "Unlimited test generation",
           ].map((feature) => (

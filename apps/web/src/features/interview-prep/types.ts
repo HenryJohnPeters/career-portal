@@ -50,5 +50,3 @@ export interface InterviewReportProps {
   activeSession: InterviewSession;
   onStartNew: () => void;
 }
-
-

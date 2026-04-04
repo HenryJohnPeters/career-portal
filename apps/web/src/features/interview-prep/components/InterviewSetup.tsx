@@ -1,7 +1,23 @@
 import { Button } from "@careerportal/web/ui";
-import type { InterviewLevel, InterviewTrack } from "@careerportal/shared/types";
-import { Mic, TrendingUp, Play, Volume2, VolumeX, AlertCircle } from "lucide-react";
-import { PageHero, OptionGrid, SectionHeading, LEVEL_META, TRACK_META } from "../../shared";
+import type {
+  InterviewLevel,
+  InterviewTrack,
+} from "@careerportal/shared/types";
+import {
+  Mic,
+  TrendingUp,
+  Play,
+  Volume2,
+  VolumeX,
+  AlertCircle,
+} from "lucide-react";
+import {
+  PageHero,
+  OptionGrid,
+  SectionHeading,
+  LEVEL_META,
+  TRACK_META,
+} from "../../shared";
 import type { OptionItem } from "../../shared";
 import type { InterviewSetupProps } from "../types";
 import { TechStackPicker } from "./TechStackPicker";
@@ -17,12 +33,14 @@ const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
   }),
 );
 
-const TRACK_ITEMS: OptionItem[] = Object.entries(TRACK_META).map(([key, m]) => ({
-  key,
-  icon: m.icon,
-  label: m.label,
-  description: m.description,
-}));
+const TRACK_ITEMS: OptionItem[] = Object.entries(TRACK_META).map(
+  ([key, m]) => ({
+    key,
+    icon: m.icon,
+    label: m.label,
+    description: m.description,
+  }),
+);
 
 export function InterviewSetup({
   track,

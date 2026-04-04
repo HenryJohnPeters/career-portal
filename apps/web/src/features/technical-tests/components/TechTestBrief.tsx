@@ -1,8 +1,5 @@
-import { Button } from "@careerportal/web/ui";
 import {
-  Play,
   ArrowLeft,
-  Clock,
   CheckCircle2,
   Star,
   AlertTriangle,
@@ -36,7 +33,7 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
   const diffMeta = DIFFICULTY_ITEMS.find((d) => d.key === test.difficulty);
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-4 sm:space-y-5">
+    <div className="w-full space-y-4 sm:space-y-5">
       {/* Header */}
       <div className="flex items-start gap-3">
         <button
@@ -242,27 +239,6 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
         </div>
       </BriefSection>
 
-      {/* Sticky start bar */}
-      <div className="sticky bottom-4 z-10">
-        <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-xl p-3 sm:p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="text-center sm:text-left">
-            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-              Ready to begin?
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              The {test.timeLimit}-minute timer starts once you click Start.
-            </p>
-          </div>
-          <Button
-            size="lg"
-            onClick={state.handleStart}
-            loading={state.isStarting}
-            className="shrink-0 w-full sm:w-auto"
-          >
-            <Play className="h-4 w-4 mr-1.5" /> Start Test
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

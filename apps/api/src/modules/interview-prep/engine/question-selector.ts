@@ -34,13 +34,13 @@ export class QuestionSelector implements IQuestionSelector {
     pool: QuestionRecord[],
     settings: SessionSettings,
     answeredIds: string[],
-    scores: number[]
+    scores: number[],
   ): QuestionRecord[] {
     const recentSet = new Set(answeredIds);
 
     // Step 1: Filter by track and level
     const candidates = pool.filter(
-      (q) => q.track === settings.track && q.level === settings.level
+      (q) => q.track === settings.track && q.level === settings.level,
     );
 
     if (candidates.length === 0) return [];
@@ -48,13 +48,13 @@ export class QuestionSelector implements IQuestionSelector {
     const roleFocusTypeBoost = this.getRoleFocusBoost(settings.roleFocus);
     const tagSet = new Set(settings.tags.map((t) => t.toLowerCase()));
     const preferredTypes = new Set(
-      QuestionSelector.TYPE_AFFINITY[settings.interviewType] ?? []
+      QuestionSelector.TYPE_AFFINITY[settings.interviewType] ?? [],
     );
 
     const targetDifficulty = this.computeTargetDifficulty(
       settings.level,
       settings.difficulty,
-      scores
+      scores,
     );
 
     // Step 2: Assign composite weights
@@ -77,7 +77,7 @@ export class QuestionSelector implements IQuestionSelector {
     // Step 3: Weighted-random sample without replacement
     const selected = this.weightedSampleWithoutReplacement(
       weighted,
-      settings.questionCount
+      settings.questionCount,
     );
 
     // Step 4: Diversify question types
@@ -90,7 +90,7 @@ export class QuestionSelector implements IQuestionSelector {
    */
   private weightedSampleWithoutReplacement(
     items: { question: QuestionRecord; weight: number }[],
-    k: number
+    k: number,
   ): QuestionRecord[] {
     const result: QuestionRecord[] = [];
     const pool = [...items];
@@ -133,7 +133,7 @@ export class QuestionSelector implements IQuestionSelector {
   private computeTargetDifficulty(
     level: string,
     difficultyLabel: string,
-    scores: number[]
+    scores: number[],
   ): number {
     const baseDifficulty: Record<string, number> = {
       junior: 1,
@@ -160,7 +160,7 @@ export class QuestionSelector implements IQuestionSelector {
   private diversifyTypes(
     selected: QuestionRecord[],
     pool: QuestionRecord[],
-    count: number
+    count: number,
   ): QuestionRecord[] {
     const typeCount = new Map<string, number>();
     for (const q of selected) {
@@ -177,7 +177,7 @@ export class QuestionSelector implements IQuestionSelector {
       const toRemove = result.filter((q) => q.type === type).slice(maxPerType);
       for (let i = 0; i < Math.min(excess, toRemove.length); i++) {
         const replacement = pool.find(
-          (q) => q.type !== type && !selectedIds.has(q.id)
+          (q) => q.type !== type && !selectedIds.has(q.id),
         );
         if (replacement) {
           const idx = result.indexOf(toRemove[i]);

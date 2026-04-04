@@ -159,7 +159,7 @@ function NavGroupSection({
 }) {
   const Icon = group.icon;
   const isGroupActive = group.children.some((child) =>
-    pathname.startsWith(child.to)
+    pathname.startsWith(child.to),
   );
 
   if (collapsed) {
@@ -249,7 +249,7 @@ export function DashboardLayout() {
     {
       Applications: true,
       "Interview Prep": true,
-    }
+    },
   );
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();

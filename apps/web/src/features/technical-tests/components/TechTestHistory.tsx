@@ -6,7 +6,6 @@ import {
   Eye,
   Clock,
   Plus,
-  BarChart3,
 } from "lucide-react";
 import { LEVEL_META } from "../../shared";
 import {
@@ -15,7 +14,6 @@ import {
 } from "../../interview-prep/constants";
 import type {
   TechnicalTest,
-  TechTestEvaluation,
 } from "@careerportal/shared/types";
 import type { useTechTestState } from "../hooks/useTechTestState";
 
@@ -117,56 +115,18 @@ function TestCard({
   const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === test.roleFocus);
   const diffMeta = DIFFICULTY_ITEMS.find((d) => d.key === test.difficulty);
   const statusMeta = STATUS_META[test.status] ?? STATUS_META.not_started;
-  const evaluation = test.evaluation as TechTestEvaluation | null;
   const date = new Date(test.createdAt).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
   });
 
-  const gradePct = evaluation?.percentage ?? null;
-  const gradeColor =
-    gradePct === null
-      ? "text-gray-400"
-      : gradePct >= 70
-      ? "text-emerald-600 dark:text-emerald-400"
-      : gradePct >= 40
-      ? "text-amber-600 dark:text-amber-400"
-      : "text-red-600 dark:text-red-400";
-
   return (
     <div className="group rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden hover:shadow-md hover:-translate-y-px transition-all duration-200">
-      {/* Top accent for evaluated */}
-      {test.status === "evaluated" && gradePct !== null && (
-        <div
-          className={`h-0.5 ${
-            gradePct >= 70
-              ? "bg-emerald-500"
-              : gradePct >= 40
-              ? "bg-amber-500"
-              : "bg-red-400"
-          }`}
-        />
-      )}
       <div className="flex items-center gap-3 p-4">
-        {/* Grade badge */}
+        {/* Icon */}
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
-          {evaluation ? (
-            <div className="text-center">
-              <span
-                className={`text-lg font-black leading-none block ${gradeColor}`}
-              >
-                {evaluation.grade}
-              </span>
-              <span
-                className={`text-[10px] font-bold ${gradeColor} tabular-nums`}
-              >
-                {evaluation.percentage}%
-              </span>
-            </div>
-          ) : (
-            <ClipboardCheck className="h-5 w-5 text-gray-400" />
-          )}
+          <ClipboardCheck className="h-5 w-5 text-gray-400" />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -194,15 +154,6 @@ function TestCard({
             <span className="text-[10px] text-gray-400 dark:text-gray-500">
               {date}
             </span>
-            {evaluation && (
-              <>
-                <span className="text-gray-300 dark:text-gray-700">·</span>
-                <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                  {evaluation.requirementsCovered}/
-                  {evaluation.requirementsTotal} requirements
-                </span>
-              </>
-            )}
             {test.tags.length > 0 && (
               <>
                 <span className="text-gray-300 dark:text-gray-700">·</span>

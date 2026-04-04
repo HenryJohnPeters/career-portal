@@ -56,10 +56,22 @@ class ErrorBoundary extends React.Component<
             color: "#e2e8f0",
           }}
         >
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+          <h1
+            style={{
+              fontSize: "1.5rem",
+              fontWeight: 600,
+              marginBottom: "0.5rem",
+            }}
+          >
             Something went wrong
           </h1>
-          <p style={{ color: "#94a3b8", marginBottom: "1.5rem", maxWidth: "420px" }}>
+          <p
+            style={{
+              color: "#94a3b8",
+              marginBottom: "1.5rem",
+              maxWidth: "420px",
+            }}
+          >
             An unexpected error occurred. Please reload the page, and if the
             problem persists, contact support.
           </p>
@@ -72,7 +84,13 @@ class ErrorBoundary extends React.Component<
                 width: "100%",
               }}
             >
-              <summary style={{ cursor: "pointer", color: "#f87171", marginBottom: "0.5rem" }}>
+              <summary
+                style={{
+                  cursor: "pointer",
+                  color: "#f87171",
+                  marginBottom: "0.5rem",
+                }}
+              >
                 Error details (dev only)
               </summary>
               <pre
@@ -131,5 +149,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>
-  </React.StrictMode>
+  </React.StrictMode>,
 );
