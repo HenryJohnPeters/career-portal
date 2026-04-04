@@ -165,7 +165,9 @@ export class AiQuestionGeneratorService {
       if (userGenCount >= AI_MAX_USER_DAILY_GENERATIONS) return false;
     }
 
-    return this.doGenerate(filters, "system");
+    // Pass the actual triggeredBy (userId) so the generation log correctly
+    // attributes this call — otherwise the daily cap is never decremented.
+    return this.doGenerate(filters, triggeredBy);
   }
 
   /**

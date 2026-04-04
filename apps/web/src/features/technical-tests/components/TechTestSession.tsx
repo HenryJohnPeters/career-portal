@@ -46,14 +46,14 @@ export function TechTestSession({ state }: TechTestSessionProps) {
   const timerColor = isCritical
     ? "text-red-600 dark:text-red-400"
     : isLow
-    ? "text-amber-600 dark:text-amber-400"
-    : "text-gray-700 dark:text-gray-300";
+      ? "text-amber-600 dark:text-amber-400"
+      : "text-gray-700 dark:text-gray-300";
 
   const progressColor = isCritical
     ? "bg-red-500"
     : isLow
-    ? "bg-amber-500"
-    : "bg-violet-600";
+      ? "bg-amber-500"
+      : "bg-violet-600";
 
   return (
     <div className="w-full space-y-4">
@@ -97,7 +97,6 @@ export function TechTestSession({ state }: TechTestSessionProps) {
               )}
               <span className="hidden sm:inline">Brief</span>
             </button>
-
           </div>
         </div>
       </div>
@@ -211,8 +210,6 @@ export function TechTestSession({ state }: TechTestSessionProps) {
           explanation matters as much as code.
         </p>
       </div>
-
-
     </div>
   );
 }

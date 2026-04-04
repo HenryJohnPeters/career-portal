@@ -12,9 +12,7 @@ import {
   ROLE_FOCUS_ITEMS,
   DIFFICULTY_ITEMS,
 } from "../../interview-prep/constants";
-import type {
-  TechnicalTest,
-} from "@careerportal/shared/types";
+import type { TechnicalTest } from "@careerportal/shared/types";
 import type { useTechTestState } from "../hooks/useTechTestState";
 
 interface TechTestHistoryProps {

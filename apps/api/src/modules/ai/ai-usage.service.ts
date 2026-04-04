@@ -61,6 +61,56 @@ export class AiUsageService {
   }
 
   /**
+   * Atomically check the quota and reserve a usage slot in a single transaction.
+   * Returns true if the slot was reserved (caller should proceed with the AI call).
+   * Returns false if the quota is exhausted.
+   *
+   * On AI failure the caller must call `rollbackUsage()` to release the slot.
+   * This prevents the race condition where two concurrent requests both pass
+   * canUseAi() and then both call OpenAI.
+   */
+  async reserveUsage(
+    userId: string,
+    action: string,
+  ): Promise<{ reserved: boolean; usageId: string | null }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return { reserved: false, usageId: null };
+
+    if (isActivePremium(user)) {
+      // Premium users: always allow, still record for analytics
+      const record = await this.prisma.aiUsage.create({
+        data: { userId, action },
+      });
+      return { reserved: true, usageId: record.id };
+    }
+
+    // Free users: atomic check-and-insert inside a serializable transaction
+    // to prevent two concurrent requests both passing the limit check
+    return this.prisma.$transaction(async (tx) => {
+      const start = this.getMonthStart();
+      const used = await tx.aiUsage.count({
+        where: { userId, createdAt: { gte: start } },
+      });
+      if (used >= FREE_TIER_MONTHLY_AI_LIMIT) {
+        return { reserved: false, usageId: null };
+      }
+      const record = await tx.aiUsage.create({
+        data: { userId, action },
+      });
+      return { reserved: true, usageId: record.id };
+    });
+  }
+
+  /**
+   * Roll back a previously reserved usage slot (e.g. when the AI call fails).
+   */
+  async rollbackUsage(usageId: string): Promise<void> {
+    await this.prisma.aiUsage
+      .delete({ where: { id: usageId } })
+      .catch(() => {});
+  }
+
+  /**
    * Record an AI usage event.
    */
   async recordUsage(userId: string, action: string): Promise<void> {

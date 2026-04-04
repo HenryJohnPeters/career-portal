@@ -25,7 +25,7 @@ export function useTechTestState() {
   // Derive roleFocus automatically from selected tags
   const roleFocus = useMemo(
     () => deriveRoleFocusFromTags(selectedTags),
-    [selectedTags]
+    [selectedTags],
   );
 
   // Derive difficulty from level
@@ -83,7 +83,7 @@ export function useTechTestState() {
 
   const toggleTag = useCallback((tag: string) => {
     setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
     );
   }, []);
 
@@ -119,7 +119,7 @@ export function useTechTestState() {
       // Calculate remaining time
       if (test.startedAt) {
         const elapsed = Math.floor(
-          (Date.now() - new Date(test.startedAt).getTime()) / 1000
+          (Date.now() - new Date(test.startedAt).getTime()) / 1000,
         );
         const remaining = Math.max(0, test.timeLimit * 60 - elapsed);
         setTimeRemaining(remaining);
@@ -142,7 +142,7 @@ export function useTechTestState() {
         setView("setup");
       }
     },
-    [activeTest, deleteTest]
+    [activeTest, deleteTest],
   );
 
   /** Back to setup */

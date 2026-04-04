@@ -298,77 +298,89 @@ export class CvService {
   ) {
     const section = await this.assertSectionOwner(userId, sectionId);
 
-    // Enforce monthly AI limit
-    const canUse = await this.aiUsage.canUseAi(userId);
-    if (!canUse) {
+    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
+    const { reserved, usageId } = await this.aiUsage.reserveUsage(
+      userId,
+      "cv-section",
+    );
+    if (!reserved) {
       throw new ForbiddenException(
         "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 
-    // Fetch all sibling sections for context
-    const allSections = await this.prisma.cvSection.findMany({
-      where: { cvVersionId: section.cvVersionId },
-      orderBy: { order: "asc" },
-    });
+    try {
+      // Fetch all sibling sections for context
+      const allSections = await this.prisma.cvSection.findMany({
+        where: { cvVersionId: section.cvVersionId },
+        orderBy: { order: "asc" },
+      });
 
-    // Fetch user name for personalisation
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true },
-    });
+      // Fetch user name for personalisation
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
 
-    const content = await this.aiService.generateCvSectionContent({
-      action: dto.action,
-      sectionType: section.sectionType,
-      sectionTitle: section.title,
-      currentContent: section.content,
-      jobTitle: dto.jobTitle,
-      jobDescription: dto.jobDescription,
-      userName: user?.name,
-      allSections: allSections
-        .filter((s) => s.id !== sectionId)
-        .map((s) => ({
-          title: s.title,
-          sectionType: s.sectionType,
-          content: s.content,
-        })),
-    });
+      const content = await this.aiService.generateCvSectionContent({
+        action: dto.action,
+        sectionType: section.sectionType,
+        sectionTitle: section.title,
+        currentContent: section.content,
+        jobTitle: dto.jobTitle,
+        jobDescription: dto.jobDescription,
+        userName: user?.name,
+        allSections: allSections
+          .filter((s) => s.id !== sectionId)
+          .map((s) => ({
+            title: s.title,
+            sectionType: s.sectionType,
+            content: s.content,
+          })),
+      });
 
-    // Record usage only after a successful OpenAI response
-    await this.aiUsage.recordUsage(userId, "cv-section");
-
-    return { content };
+      return { content };
+    } catch (error) {
+      // Roll back the reserved usage slot so the user can retry
+      if (usageId) await this.aiUsage.rollbackUsage(usageId);
+      throw error;
+    }
   }
 
   async aiGenerateFullCv(
     userId: string,
     dto: { rawText: string; jobTitle?: string; jobDescription?: string },
   ): Promise<AiFullCvResult> {
-    // Enforce monthly AI limit
-    const canUse = await this.aiUsage.canUseAi(userId);
-    if (!canUse) {
+    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
+    const { reserved, usageId } = await this.aiUsage.reserveUsage(
+      userId,
+      "cv-full",
+    );
+    if (!reserved) {
       throw new ForbiddenException(
         "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true },
-    });
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
+      });
 
-    const result = await this.aiService.generateFullCvFromRawText({
-      rawText: dto.rawText,
-      jobTitle: dto.jobTitle,
-      jobDescription: dto.jobDescription,
-      userName: user?.name,
-    });
+      const result = await this.aiService.generateFullCvFromRawText({
+        rawText: dto.rawText,
+        jobTitle: dto.jobTitle,
+        jobDescription: dto.jobDescription,
+        userName: user?.name,
+      });
 
-    // Record usage only after a successful OpenAI response
-    await this.aiUsage.recordUsage(userId, "cv-full");
-
-    return result;
+      return result;
+    } catch (error) {
+      // Roll back the reserved usage slot so the user can retry
+      if (usageId) await this.aiUsage.rollbackUsage(usageId);
+      throw error;
+    }
   }
 
   private async assertVersionOwner(userId: string, versionId: string) {

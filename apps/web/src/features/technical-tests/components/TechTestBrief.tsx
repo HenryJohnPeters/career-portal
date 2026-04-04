@@ -238,7 +238,6 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
           ))}
         </div>
       </BriefSection>
-
     </div>
   );
 }

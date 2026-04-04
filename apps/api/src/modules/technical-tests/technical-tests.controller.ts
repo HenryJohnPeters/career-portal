@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
 import { AuthGuard } from "../auth/auth.guard";
+import { PremiumGuard } from "../ai/premium.guard";
 import { TechnicalTestsService } from "./technical-tests.service";
 import {
   CreateTechnicalTestDto,
@@ -31,9 +32,10 @@ export class TechnicalTestsController {
   }
 
   @Post()
+  @UseGuards(PremiumGuard)
   async createTest(
     @CurrentUserId() userId: string,
-    @Body() dto: CreateTechnicalTestDto
+    @Body() dto: CreateTechnicalTestDto,
   ) {
     const data = await this.service.createTest(userId, dto);
     return { data };
@@ -55,7 +57,7 @@ export class TechnicalTestsController {
   async submitTest(
     @CurrentUserId() userId: string,
     @Param("id") id: string,
-    @Body() dto: SubmitTechnicalTestDto
+    @Body() dto: SubmitTechnicalTestDto,
   ) {
     const data = await this.service.submitTest(userId, id, dto.submission);
     return { data };

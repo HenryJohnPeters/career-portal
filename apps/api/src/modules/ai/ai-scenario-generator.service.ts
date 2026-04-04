@@ -16,7 +16,7 @@ export class AiScenarioGeneratorService {
 
   constructor(
     @Inject(OPENAI_CLIENT) private readonly openai: OpenAI,
-    private readonly aiUsage: AiUsageService
+    private readonly aiUsage: AiUsageService,
   ) {}
 
   /**
@@ -25,13 +25,16 @@ export class AiScenarioGeneratorService {
    */
   async generateScenario(
     input: ScenarioGenerationInput,
-    userId: string
+    userId: string,
   ): Promise<any | null> {
-    // Enforce monthly AI limit
-    const canUse = await this.aiUsage.canUseAi(userId);
-    if (!canUse) {
+    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
+    const { reserved, usageId } = await this.aiUsage.reserveUsage(
+      userId,
+      "scenario-generation",
+    );
+    if (!reserved) {
       throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage."
+        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 
@@ -77,22 +80,25 @@ Role: ${input.roleFocus} | Level: ${input.level} (junior=3-5 reqs, mid=5-7, seni
           !Array.isArray(parsed.requirements)
         ) {
           this.logger.error("AI scenario missing required fields");
+          // Roll back — user gets nothing usable
+          if (usageId) await this.aiUsage.rollbackUsage(usageId);
           return null;
         }
-
-        // Record AI usage
-        await this.aiUsage.recordUsage(userId, "scenario-generation");
 
         return parsed;
       } catch {
         this.logger.error(
           "Failed to parse AI scenario JSON",
-          cleaned.slice(0, 200)
+          cleaned.slice(0, 200),
         );
+        // Roll back — AI returned garbage, don't charge the user
+        if (usageId) await this.aiUsage.rollbackUsage(usageId);
         return null;
       }
     } catch (error) {
       this.logger.error("OpenAI scenario generation failed", error);
+      // Roll back — API call failed, don't charge the user
+      if (usageId) await this.aiUsage.rollbackUsage(usageId);
       return null;
     }
   }

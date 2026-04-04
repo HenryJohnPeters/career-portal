@@ -1,5 +1,1 @@
-export type TechTestView =
-  | "setup"
-  | "brief"
-  | "working"
-  | "history";
+export type TechTestView = "setup" | "brief" | "working" | "history";

@@ -3,14 +3,32 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  HttpException,
 } from "@nestjs/common";
 import { AiUsageService } from "./ai-usage.service";
 import { FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
 
 /**
+ * Per-user AI request cooldown (in-memory).
+ * Prevents accidental double-fires from rapid clicks, network retries, etc.
+ * Keyed by `userId:path` to allow parallel use of different AI features.
+ */
+const AI_COOLDOWN_MS = 10_000; // 10 seconds
+const recentRequests = new Map<string, number>();
+
+// Periodically clean up stale entries (every 60s) to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, ts] of recentRequests) {
+    if (now - ts > AI_COOLDOWN_MS * 2) recentRequests.delete(key);
+  }
+}, 60_000).unref();
+
+/**
  * Allows premium users unlimited access.
  * Allows free users up to FREE_TIER_MONTHLY_AI_LIMIT AI actions per month.
  * Throws ForbiddenException when the free cap is reached.
+ * Also enforces a short per-user cooldown to prevent duplicate AI requests.
  *
  * CRITICAL: Checks both isPremium flag AND stripeCurrentPeriodEnd timestamp
  * to prevent expired premium users from accessing premium features.
@@ -23,6 +41,17 @@ export class PremiumGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const userId = request.userId as string | undefined;
     if (!userId) throw new ForbiddenException("Not authenticated");
+
+    // Per-user cooldown — prevents accidental double-fire
+    const cooldownKey = `${userId}:${request.path}`;
+    const lastRequest = recentRequests.get(cooldownKey);
+    if (lastRequest && Date.now() - lastRequest < AI_COOLDOWN_MS) {
+      throw new HttpException(
+        "Please wait before making another AI request.",
+        429,
+      );
+    }
+    recentRequests.set(cooldownKey, Date.now());
 
     const allowed = await this.aiUsage.canUseAi(userId);
     if (!allowed) {

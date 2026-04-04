@@ -10,6 +10,25 @@ import type { AiFullCvResult } from "./ai.types";
 
 export type { AiFullCvResult, AiFullCvSection } from "./ai.types";
 
+/**
+ * Model selection: use gpt-4o for complex structured output (full CV parsing,
+ * question generation) and gpt-4o-mini for simpler rewriting/suggestion tasks.
+ * This saves 60-80% on the simpler calls with negligible quality difference.
+ */
+const MODEL_HEAVY = "gpt-4o";
+const MODEL_LIGHT = "gpt-4o-mini";
+
+/** Server-side input truncation limits to prevent token-burning attacks. */
+const MAX_RAW_TEXT = 5000;
+const MAX_JOB_DESCRIPTION = 3000;
+const MAX_CURRENT_CONTENT = 3000;
+const MAX_SECTION_CONTEXT = 1500;
+
+function truncate(text: string | undefined, max: number): string | undefined {
+  if (!text) return text;
+  return text.length > max ? text.slice(0, max) : text;
+}
+
 export type AiCvAction = "generate" | "improve" | "tailor";
 
 export interface AiFullCvFromTextRequest {
@@ -56,7 +75,7 @@ export class AiService {
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
+        model: req.action === "generate" ? MODEL_HEAVY : MODEL_LIGHT,
         temperature: 0.4,
         max_tokens: 1500,
         messages: [
@@ -77,7 +96,7 @@ export class AiService {
   private buildCvSystemPrompt(req: AiCvSectionRequest): string {
     const sectionContext = req.allSections
       ?.filter((s) => s.content.trim().length > 0)
-      .map((s) => `[${s.title}]\n${s.content}`)
+      .map((s) => `[${s.title}]\n${truncate(s.content, MAX_SECTION_CONTEXT)}`)
       .join("\n\n");
 
     return `You are a developer writing your own CV. First-person implied, never third person. Direct, technical, no fluff.
@@ -92,14 +111,11 @@ Anti-hallucination (critical): Preserve every skill, tech, qualification and ach
   }
 
   private buildCvUserPrompt(req: AiCvSectionRequest): string {
-    const {
-      action,
-      sectionType,
-      sectionTitle,
-      currentContent,
-      jobTitle,
-      jobDescription,
-    } = req;
+    const { action, sectionType, sectionTitle, jobTitle } = req;
+
+    // Truncate user-provided text to prevent token-burning
+    const currentContent = truncate(req.currentContent, MAX_CURRENT_CONTENT);
+    const jobDescription = truncate(req.jobDescription, MAX_JOB_DESCRIPTION);
 
     if (action === "generate") {
       let prompt = `Generate professional content for a CV "${sectionTitle}" section (type: ${sectionType}). IMPORTANT: Only include skills and technologies that are explicitly mentioned in my notes below, in the other CV sections provided as context, or in the job description if provided. Do not invent any skills beyond those sources.`;
@@ -157,15 +173,15 @@ Tailoring: lead Profile with user's most relevant skills, emphasise matching Exp
 
 Return ONLY the JSON. No preamble, no code fences.`;
 
-    let userPrompt = `Convert this brain-dump into my CV. Only use skills/tech from my text and the job description — invent nothing:\n\n${req.rawText}`;
+    let userPrompt = `Convert this brain-dump into my CV. Only use skills/tech from my text and the job description — invent nothing:\n\n${truncate(req.rawText, MAX_RAW_TEXT)}`;
     if (req.jobTitle) userPrompt += `\n\nTargeting: ${req.jobTitle}.`;
     if (req.jobDescription)
-      userPrompt += `\n\nJob description:\n${req.jobDescription}`;
+      userPrompt += `\n\nJob description:\n${truncate(req.jobDescription, MAX_JOB_DESCRIPTION)}`;
     if (req.userName) userPrompt += `\n\nMy name: ${req.userName}.`;
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
+        model: MODEL_HEAVY,
         temperature: 0.3,
         max_tokens: 4000,
         messages: [
@@ -229,7 +245,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
+        model: req.action === "generate" ? MODEL_HEAVY : MODEL_LIGHT,
         temperature: 0.75,
         max_tokens: 2000,
         messages: [
@@ -253,9 +269,11 @@ Return ONLY the JSON. No preamble, no code fences.`;
     companyName?: string,
     jobDescription?: string,
   ): Promise<string[]> {
+    const safeBody = truncate(body, MAX_CURRENT_CONTENT) ?? "";
+    const safeJd = truncate(jobDescription, MAX_JOB_DESCRIPTION);
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
+        model: MODEL_LIGHT,
         temperature: 0.6,
         max_tokens: 1000,
         messages: [
@@ -265,10 +283,10 @@ Return ONLY the JSON. No preamble, no code fences.`;
           },
           {
             role: "user",
-            content: `Suggest improvements:\n\n${body}${
+            content: `Suggest improvements:\n\n${safeBody}${
               jobTitle ? `\n\nRole: ${jobTitle}` : ""
             }${companyName ? ` at ${companyName}` : ""}${
-              jobDescription ? `\n\nJD:\n${jobDescription}` : ""
+              safeJd ? `\n\nJD:\n${safeJd}` : ""
             }`,
           },
         ],
@@ -295,6 +313,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
     jobTitle?: string,
     companyName?: string,
   ): Promise<string> {
+    const safeBody = truncate(body, MAX_CURRENT_CONTENT) ?? "";
     const toneInstruction =
       tone === "professional"
         ? "Polished, formal tone."
@@ -302,7 +321,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
 
     try {
       const response = await this.openai.chat.completions.create({
-        model: "gpt-4o",
+        model: MODEL_LIGHT,
         temperature: 0.7,
         max_tokens: 2000,
         messages: [
@@ -318,7 +337,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
                     companyName ? ` at ${companyName}` : ""
                   }`
                 : ""
-            }:\n\n${body}`,
+            }:\n\n${safeBody}`,
           },
         ],
       });
@@ -340,7 +359,7 @@ Return ONLY the JSON. No preamble, no code fences.`;
 
     const cvContext = req.cvSections
       ?.filter((s) => s.content.trim().length > 0)
-      .map((s) => `[${s.title}]\n${s.content}`)
+      .map((s) => `[${s.title}]\n${truncate(s.content, MAX_SECTION_CONTEXT)}`)
       .join("\n\n");
 
     return `Expert cover letter writer. ${toneInstruction} Write greeting, 2-3 body paragraphs, closing. Highlight relevant CV experience. Show genuine enthusiasm. Reference company naturally if URL provided. No placeholder brackets. Return ONLY the letter.${
@@ -349,15 +368,11 @@ Return ONLY the JSON. No preamble, no code fences.`;
   }
 
   private buildCoverLetterUserPrompt(req: AiCoverLetterRequest): string {
-    const {
-      action,
-      currentBody,
-      jobTitle,
-      companyName,
-      companyUrl,
-      jobDescription,
-      userName,
-    } = req;
+    const { action, jobTitle, companyName, companyUrl, userName } = req;
+
+    // Truncate user-provided text to prevent token-burning
+    const currentBody = truncate(req.currentBody, MAX_CURRENT_CONTENT);
+    const jobDescription = truncate(req.jobDescription, MAX_JOB_DESCRIPTION);
 
     if (action === "generate") {
       let prompt = "Generate a complete cover letter";

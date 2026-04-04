@@ -78,28 +78,33 @@ export class CoverLettersService {
       ];
     }
 
-    // Enforce monthly AI limit
-    const canUse = await this.aiUsage.canUseAi(userId);
-    if (!canUse) {
+    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
+    const { reserved, usageId } = await this.aiUsage.reserveUsage(
+      userId,
+      "cover-letter-suggest",
+    );
+    if (!reserved) {
       throw new ForbiddenException(
         "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 
-    const { jobTitle, companyName, jobDescription } =
-      await this.resolveJobContext(letter.jobId);
+    try {
+      const { jobTitle, companyName, jobDescription } =
+        await this.resolveJobContext(letter.jobId);
 
-    const result = await this.aiService.suggestCoverLetterImprovements(
-      letter.body.slice(0, 3000),
-      jobTitle,
-      companyName,
-      jobDescription,
-    );
+      const result = await this.aiService.suggestCoverLetterImprovements(
+        letter.body.slice(0, 3000),
+        jobTitle,
+        companyName,
+        jobDescription,
+      );
 
-    // Record usage only after a successful OpenAI response
-    await this.aiUsage.recordUsage(userId, "cover-letter-suggest");
-
-    return result;
+      return result;
+    } catch (error) {
+      if (usageId) await this.aiUsage.rollbackUsage(usageId);
+      throw error;
+    }
   }
 
   async rewrite(
@@ -117,29 +122,34 @@ export class CoverLettersService {
         : "Hi there!\n\nI'm really excited about this opportunity and would love to be part of your team. I think my skills and enthusiasm would be a great fit.\n\nLooking forward to chatting more about how I can contribute!\n\nBest,\n[Your Name]";
     }
 
-    // Enforce monthly AI limit
-    const canUse = await this.aiUsage.canUseAi(userId);
-    if (!canUse) {
+    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
+    const { reserved, usageId } = await this.aiUsage.reserveUsage(
+      userId,
+      "cover-letter-rewrite",
+    );
+    if (!reserved) {
       throw new ForbiddenException(
         "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 
-    const { jobTitle, companyName } = await this.resolveJobContext(
-      letter.jobId,
-    );
+    try {
+      const { jobTitle, companyName } = await this.resolveJobContext(
+        letter.jobId,
+      );
 
-    const result = await this.aiService.rewriteCoverLetter(
-      body.slice(0, 3000),
-      selectedTone,
-      jobTitle,
-      companyName,
-    );
+      const result = await this.aiService.rewriteCoverLetter(
+        body.slice(0, 3000),
+        selectedTone,
+        jobTitle,
+        companyName,
+      );
 
-    // Record usage only after a successful OpenAI response
-    await this.aiUsage.recordUsage(userId, "cover-letter-rewrite");
-
-    return result;
+      return result;
+    } catch (error) {
+      if (usageId) await this.aiUsage.rollbackUsage(usageId);
+      throw error;
+    }
   }
 
   async aiGenerate(
@@ -156,53 +166,58 @@ export class CoverLettersService {
   ) {
     const letter = await this.assertOwner(userId, id);
 
-    // Enforce monthly AI limit
-    const canUse = await this.aiUsage.canUseAi(userId);
-    if (!canUse) {
+    // Atomically reserve a usage slot (prevents race conditions on the free-tier cap)
+    const { reserved, usageId } = await this.aiUsage.reserveUsage(
+      userId,
+      "cover-letter",
+    );
+    if (!reserved) {
       throw new ForbiddenException(
         "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
       );
     }
 
-    const cvVersion = await this.resolveActiveCv(userId);
+    try {
+      const cvVersion = await this.resolveActiveCv(userId);
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { name: true },
-    });
-
-    let { jobTitle, companyName, companyUrl, jobDescription } = dto;
-    if (letter.jobId && (!jobTitle || !companyName)) {
-      const job = await this.prisma.job.findUnique({
-        where: { id: letter.jobId },
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true },
       });
-      if (job) {
-        jobTitle = jobTitle || job.role;
-        companyName = companyName || job.company;
-        jobDescription = jobDescription || job.notes || undefined;
+
+      let { jobTitle, companyName, companyUrl, jobDescription } = dto;
+      if (letter.jobId && (!jobTitle || !companyName)) {
+        const job = await this.prisma.job.findUnique({
+          where: { id: letter.jobId },
+        });
+        if (job) {
+          jobTitle = jobTitle || job.role;
+          companyName = companyName || job.company;
+          jobDescription = jobDescription || job.notes || undefined;
+        }
       }
+
+      const content = await this.aiService.generateCoverLetterContent({
+        action: dto.action,
+        currentBody: letter.body ? letter.body.slice(0, 3000) : undefined,
+        jobTitle,
+        companyName,
+        companyUrl,
+        jobDescription,
+        tone: dto.tone || "professional",
+        userName: user?.name,
+        cvSections: cvVersion?.sections.map((s) => ({
+          title: s.title,
+          sectionType: s.sectionType,
+          content: s.content,
+        })),
+      });
+
+      return { content };
+    } catch (error) {
+      if (usageId) await this.aiUsage.rollbackUsage(usageId);
+      throw error;
     }
-
-    const content = await this.aiService.generateCoverLetterContent({
-      action: dto.action,
-      currentBody: letter.body ? letter.body.slice(0, 3000) : undefined,
-      jobTitle,
-      companyName,
-      companyUrl,
-      jobDescription,
-      tone: dto.tone || "professional",
-      userName: user?.name,
-      cvSections: cvVersion?.sections.map((s) => ({
-        title: s.title,
-        sectionType: s.sectionType,
-        content: s.content,
-      })),
-    });
-
-    // Record usage only after a successful OpenAI response
-    await this.aiUsage.recordUsage(userId, "cover-letter");
-
-    return { content };
   }
 
   // ── Private helpers ────────────────────────────────────────
