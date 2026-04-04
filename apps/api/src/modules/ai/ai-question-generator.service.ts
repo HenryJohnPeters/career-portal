@@ -13,6 +13,7 @@ import {
   AI_MAX_USER_DAILY_GENERATIONS,
   AI_BACKGROUND_BUDGET,
   AI_PIGGYBACK_CHANCE,
+  sanitiseTags,
 } from "../../common/constants";
 
 export interface QuestionGenerationFilters {
@@ -184,51 +185,57 @@ export class AiQuestionGeneratorService {
       AI_QUESTION_BATCH_SIZE,
       AI_QUESTION_POOL_THRESHOLD + 3 - poolSize,
     );
-    const questions = await this.generateQuestionBatch(filters, batchSize);
+    if (batchSize <= 0) return false;
 
-    if (questions.length === 0) return false;
+    try {
+      const questions = await this.generateQuestionBatch(filters, batchSize);
 
-    for (const q of questions) {
-      await this.prisma.interviewQuestion.create({
+      if (questions.length === 0) return false;
+
+      for (const q of questions) {
+        await this.prisma.interviewQuestion.create({
+          data: {
+            track: q.track,
+            tags: q.tags,
+            difficulty: q.difficulty,
+            type: q.type,
+            level: q.level,
+            prompt: q.prompt,
+            options: q.options,
+            correctOptionIndex: q.correctOptionIndex,
+            correctOptionIndices: q.correctOptionIndices,
+            multiSelect: q.multiSelect,
+            expectedPoints: q.expectedPoints,
+            redFlags: q.redFlags,
+            rubric: q.rubric,
+            modelAnswer: q.modelAnswer,
+            followUpIds: q.followUpIds,
+            source: "ai-generated",
+            generatedForHash: filterHash,
+          },
+        });
+      }
+
+      await this.prisma.questionGenerationLog.create({
         data: {
-          track: q.track,
-          tags: q.tags,
-          difficulty: q.difficulty,
-          type: q.type,
-          level: q.level,
-          prompt: q.prompt,
-          options: q.options,
-          correctOptionIndex: q.correctOptionIndex,
-          correctOptionIndices: q.correctOptionIndices,
-          multiSelect: q.multiSelect,
-          expectedPoints: q.expectedPoints,
-          redFlags: q.redFlags,
-          rubric: q.rubric,
-          modelAnswer: q.modelAnswer,
-          followUpIds: q.followUpIds,
-          source: "ai-generated",
-          generatedForHash: filterHash,
+          filterHash,
+          filterCombo: filters as any,
+          questionsGenerated: questions.length,
+          triggeredBy,
         },
       });
+
+      this.logger.log(
+        `Generated ${questions.length} questions for hash=${filterHash} triggered by ${triggeredBy}`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `doGenerate failed for hash=${filterHash}`,
+        error,
+      );
+      return false;
     }
-
-    await this.prisma.questionGenerationLog.create({
-      data: {
-        filterHash,
-        filterCombo: filters as any,
-        questionsGenerated: questions.length,
-        triggeredBy,
-      },
-    });
-
-    // Fix #5: Never charge pool-fill (which benefits all users) against an
-    // individual user's monthly AI usage counter. Only the guard-protected
-    // user-facing AI actions (cv, cover-letter, etc.) should count.
-
-    this.logger.log(
-      `Generated ${questions.length} questions for hash=${filterHash} triggered by ${triggeredBy}`,
-    );
-    return true;
   }
 
   /**
@@ -263,13 +270,21 @@ export class AiQuestionGeneratorService {
     for (const filters of BACKGROUND_FILL_COMBOS) {
       if (callsMade >= AI_BACKGROUND_BUDGET) break;
 
-      const poolSize = await this.getPoolSize(filters);
-      if (poolSize < AI_QUESTION_POOL_THRESHOLD) {
-        const generated = await this.ensurePoolForFilters(filters, "system");
-        if (generated) {
-          callsMade++;
-          totalGenerated += AI_QUESTION_BATCH_SIZE;
+      try {
+        const poolSize = await this.getPoolSize(filters);
+        if (poolSize < AI_QUESTION_POOL_THRESHOLD) {
+          const generated = await this.ensurePoolForFilters(filters, "system");
+          if (generated) {
+            callsMade++;
+            // Approximate: actual count logged inside doGenerate
+            totalGenerated += AI_QUESTION_BATCH_SIZE;
+          }
         }
+      } catch (err) {
+        this.logger.warn(
+          `Background fill failed for ${filters.track}/${filters.level}/${filters.difficulty}`,
+          err,
+        );
       }
     }
 
@@ -284,9 +299,10 @@ export class AiQuestionGeneratorService {
     count: number,
   ): Promise<GeneratedQuestion[]> {
     const difficultyNum = DIFFICULTY_MAP[filters.difficulty] ?? 3;
-    const hasTags = filters.tags.length > 0;
+    const safeTags = sanitiseTags(filters.tags);
+    const hasTags = safeTags.length > 0;
     const tagsStr = hasTags
-      ? filters.tags.join(", ")
+      ? safeTags.join(", ")
       : `general ${filters.track} topics`;
 
     // When concrete tech tags are provided, restrict question types to ones
@@ -381,13 +397,13 @@ RULES:
           if (!hasTags) return true;
           const text =
             `${q.prompt as string} ${q.modelAnswer as string}`.toLowerCase();
-          return filters.tags.some((tag) => text.includes(tag.toLowerCase()));
+          return safeTags.some((tag) => text.includes(tag.toLowerCase()));
         })
         .map((q) => ({
           track: filters.track,
           tags:
-            filters.tags.length > 0
-              ? filters.tags.map((t) => t.toLowerCase())
+            safeTags.length > 0
+              ? safeTags.map((t) => t.toLowerCase())
               : [filters.track],
           difficulty: difficultyNum,
           type: (q.type as string) || "theory",

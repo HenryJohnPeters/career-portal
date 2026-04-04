@@ -24,7 +24,7 @@ interface SectionCardProps {
   isCollapsed: boolean;
   sectionEdits: { title: string; content: string };
   updatePending: boolean;
-  autoSaveStatus: "idle" | "saving" | "saved";
+  autoSaveStatus: "idle" | "saving" | "saved" | "error";
   onEditChange: (edits: { title: string; content: string }) => void;
   onStartEdit: (section: CvSection) => void;
   onSave: () => void;
@@ -85,6 +85,11 @@ export function SectionCard({
               <span className="flex items-center gap-1.5 text-[10px] font-medium text-emerald-500">
                 <Check className="h-3 w-3" />
                 Saved
+              </span>
+            )}
+            {autoSaveStatus === "error" && (
+              <span className="flex items-center gap-1.5 text-[10px] font-medium text-red-500">
+                Save failed
               </span>
             )}
           </div>

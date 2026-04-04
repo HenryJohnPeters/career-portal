@@ -3,11 +3,12 @@ import {
   NotFoundException,
   ForbiddenException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { CreateTechnicalTestDto } from "./technical-tests.dto";
 import { generateScenario } from "./engine/scenario-generator";
 import { AiScenarioGeneratorService } from "../ai/ai-scenario-generator.service";
-import { ROLE_TO_TRACK, FREE_TIER } from "../../common/constants";
+import { ROLE_TO_TRACK, FREE_TIER, sanitiseTags } from "../../common/constants";
 import { computeGrade } from "../../common/grade.util";
 import { isActivePremium } from "../../common/subscription.util";
 
@@ -23,6 +24,7 @@ export class TechnicalTestsService {
     return this.prisma.technicalTest.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
+      take: 200,
     });
   }
 
@@ -41,22 +43,10 @@ export class TechnicalTestsService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new ForbiddenException("User not found");
 
-    if (!isActivePremium(user)) {
-      const monthStart = new Date();
-      monthStart.setUTCDate(1);
-      monthStart.setUTCHours(0, 0, 0, 0);
-      const testCount = await this.prisma.technicalTest.count({
-        where: { userId, createdAt: { gte: monthStart } },
-      });
-      if (testCount >= FREE_TIER.monthlyTechTests) {
-        throw new ForbiddenException(
-          `Free users are limited to ${FREE_TIER.monthlyTechTests} technical tests per month. Upgrade to Premium for unlimited tests.`,
-        );
-      }
-    }
+    const isPremium = isActivePremium(user);
 
-    // Normalize tags to lowercase — the DB and generators store lowercase tags
-    const tags = (dto.tags ?? []).map((t) => t.toLowerCase());
+    // Sanitize and normalize tags — the DB and generators store lowercase tags
+    const tags = sanitiseTags(dto.tags ?? []).map((t) => t.toLowerCase());
 
     // Try the hardcoded template engine first
     let scenario: any = generateScenario({
@@ -86,20 +76,41 @@ export class TechnicalTestsService {
       }
     }
 
-    const test = await this.prisma.technicalTest.create({
-      data: {
-        userId,
-        title: scenario.title,
-        track: ROLE_TO_TRACK[dto.roleFocus] ?? "fullstack",
-        level: dto.level,
-        difficulty: dto.difficulty,
-        roleFocus: dto.roleFocus,
-        tags,
-        timeLimit: dto.timeLimit ?? 60,
-        scenario: scenario as any,
-        status: "not_started",
-      },
-    });
+    const createData = {
+      userId,
+      title: scenario.title,
+      track: ROLE_TO_TRACK[dto.roleFocus] ?? "fullstack",
+      level: dto.level,
+      difficulty: dto.difficulty,
+      roleFocus: dto.roleFocus,
+      tags,
+      timeLimit: dto.timeLimit ?? 60,
+      scenario: scenario as any,
+      status: "not_started",
+    };
+
+    const test = isPremium
+      ? await this.prisma.technicalTest.create({ data: createData })
+      : await this.prisma.$transaction(
+          async (tx) => {
+            const monthStart = new Date();
+            monthStart.setUTCDate(1);
+            monthStart.setUTCHours(0, 0, 0, 0);
+
+            const testCount = await tx.technicalTest.count({
+              where: { userId, createdAt: { gte: monthStart } },
+            });
+
+            if (testCount >= FREE_TIER.monthlyTechTests) {
+              throw new ForbiddenException(
+                `Free users are limited to ${FREE_TIER.monthlyTechTests} technical tests per month. Upgrade to Premium for unlimited tests.`,
+              );
+            }
+
+            return tx.technicalTest.create({ data: createData });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
 
     return test;
   }

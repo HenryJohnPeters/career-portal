@@ -13,7 +13,7 @@ import { PageHero, PremiumUpgradeBanner, ItemCard } from "../shared";
 import { useAuth } from "../../lib/auth";
 import { AiCoverLetterAssist } from "./AiCoverLetterAssist";
 import {
-  FREE_COVER_LETTER_LIMIT,
+  FREE_TIER,
   isActivePremium,
   type CoverLetter,
 } from "@careerportal/shared/types";
@@ -59,7 +59,7 @@ export function CoverLettersPage() {
     return <ErrorState message={(error as Error).message} onRetry={refetch} />;
 
   const letters: CoverLetter[] = data?.data || [];
-  const atFreeLimit = !isPremium && letters.length >= FREE_COVER_LETTER_LIMIT;
+  const atFreeLimit = !isPremium && letters.length >= FREE_TIER.coverLetters;
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return;
@@ -94,24 +94,32 @@ export function CoverLettersPage() {
 
   const handleSuggest = async () => {
     if (!editingId) return;
-    await updateMut.mutateAsync({
-      id: editingId,
-      title: editTitle,
-      body: editBody,
-    });
-    const res = await suggestMut.mutateAsync(editingId);
-    setSuggestions(res.data);
+    try {
+      await updateMut.mutateAsync({
+        id: editingId,
+        title: editTitle,
+        body: editBody,
+      });
+      const res = await suggestMut.mutateAsync(editingId);
+      setSuggestions(res.data);
+    } catch {
+      // Mutation errors are surfaced via isPending/isError on the mutation
+    }
   };
 
   const handleRewrite = async (tone: "professional" | "friendly") => {
     if (!editingId) return;
-    await updateMut.mutateAsync({
-      id: editingId,
-      title: editTitle,
-      body: editBody,
-    });
-    const res = await rewriteMut.mutateAsync({ id: editingId, tone });
-    setRewriteResult(res.data);
+    try {
+      await updateMut.mutateAsync({
+        id: editingId,
+        title: editTitle,
+        body: editBody,
+      });
+      const res = await rewriteMut.mutateAsync({ id: editingId, tone });
+      setRewriteResult(res.data);
+    } catch {
+      // Mutation errors are surfaced via isPending/isError on the mutation
+    }
   };
 
   const applyRewrite = () => {
@@ -324,6 +332,13 @@ export function CoverLettersPage() {
                     <PremiumUpgradeBanner message="AI features require Premium. Upgrade for suggestions, rewrites & more." />
                   </div>
                 )}
+                {(suggestMut.isError || rewriteMut.isError) && (
+                  <p className="mt-3 text-xs text-red-500">
+                    {(suggestMut.error as Error)?.message ||
+                      (rewriteMut.error as Error)?.message ||
+                      "AI request failed. Please try again."}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -334,7 +349,7 @@ export function CoverLettersPage() {
           {/* Free-user cap warning */}
           {atFreeLimit && !showCreate && (
             <PremiumUpgradeBanner
-              message={`Free accounts are limited to ${FREE_COVER_LETTER_LIMIT} cover letters. Upgrade for unlimited cover letters and AI-powered tools.`}
+              message={`Free accounts are limited to ${FREE_TIER.coverLetters} cover letters. Upgrade for unlimited cover letters and AI-powered tools.`}
             />
           )}
 

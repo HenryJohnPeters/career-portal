@@ -14,6 +14,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   logout: () => void;
   isLoading: boolean;
+  /** Non-null when the /auth/me call fails — callers can show a retry banner. */
+  authError: string | null;
+  /** Re-fetch user from the API. Call after premium upgrade or profile change. */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -23,16 +27,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [hasSession, setHasSession] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Fetch user data manually instead of using useMe hook
   const fetchUser = useCallback(async () => {
     try {
       setIsLoadingUser(true);
+      setAuthError(null);
       const response = await api.get<{ data: User }>("/auth/me");
       setUser(response.data);
     } catch (error) {
       console.error("Failed to fetch user:", error);
       setUser(null);
+      setAuthError(
+        error instanceof Error ? error.message : "Failed to load user",
+      );
     } finally {
       setIsLoadingUser(false);
     }
@@ -76,11 +85,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setHasSession(false);
   }, []);
 
-  const loading = !supabaseReady || (hasSession && isLoadingUser);
+  // Don't show infinite loading when the /auth/me call failed
+  const loading = !supabaseReady || (hasSession && isLoadingUser && !authError);
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, logout, isLoading: loading }}
+      value={{ user, isAuthenticated: !!user, logout, isLoading: loading, authError, refreshUser: fetchUser }}
     >
       {children}
     </AuthContext.Provider>

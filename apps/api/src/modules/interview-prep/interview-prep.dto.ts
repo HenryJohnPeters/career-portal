@@ -82,9 +82,12 @@ export class CreateInterviewSessionDto {
   @IsIn(["friendly", "neutral", "tough"])
   persona?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    enum: ["none", "alex", "riley", "morgan", "sam", "kai", "jordan", "phoenix", "nova"],
+  })
   @IsOptional()
   @IsString()
+  @IsIn(["none", "alex", "riley", "morgan", "sam", "kai", "jordan", "phoenix", "nova"])
   interviewerId?: string;
 }
 

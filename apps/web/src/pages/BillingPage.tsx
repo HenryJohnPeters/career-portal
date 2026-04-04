@@ -4,6 +4,7 @@ import { isActivePremium, FREE_TIER } from "@careerportal/shared/types";
 import {
   useSubscriptionStatus,
   useCreateCheckoutSession,
+  useVerifyCheckoutSession,
   useCreatePortalSession,
   queryKeys,
 } from "@careerportal/web/data-access";
@@ -43,7 +44,7 @@ const PREMIUM_FEATURES = [
 ];
 
 export function BillingPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -51,25 +52,54 @@ export function BillingPage() {
 
   const success = searchParams.get("success") === "true";
   const cancelled = searchParams.get("cancelled") === "true";
+  const checkoutSessionId = searchParams.get("session_id");
 
   const { data: statusData, isLoading: statusLoading } =
     useSubscriptionStatus();
   const checkoutMut = useCreateCheckoutSession();
+  const { mutate: verifyCheckout } = useVerifyCheckoutSession();
   const portalMut = useCreatePortalSession();
 
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [showCancelBanner, setShowCancelBanner] = useState(false);
 
+  // After Stripe checkout success, poll until the webhook has activated premium.
+  // The Stripe redirect arrives before the webhook fires, so we poll briefly.
   useEffect(() => {
+    let isCancelled = false;
+
     if (success) {
       setShowSuccessBanner(true);
       queryClient.invalidateQueries({ queryKey: queryKeys.me });
       queryClient.invalidateQueries({ queryKey: queryKeys.subscriptionStatus });
+      queryClient.invalidateQueries({ queryKey: queryKeys.aiUsage });
+
+      if (checkoutSessionId) {
+        verifyCheckout(checkoutSessionId);
+      }
+
+      // Poll user status for up to 15 seconds to wait for webhook
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        if (isCancelled) {
+          clearInterval(poll);
+          return;
+        }
+        attempts++;
+        await refreshUser();
+        queryClient.invalidateQueries({ queryKey: queryKeys.subscriptionStatus });
+        if (attempts >= 5) clearInterval(poll);
+      }, 3000);
+
       const t = setTimeout(
         () => navigate("/app/billing", { replace: true }),
         500,
       );
-      return () => clearTimeout(t);
+      return () => {
+        isCancelled = true;
+        clearTimeout(t);
+        clearInterval(poll);
+      };
     }
     if (cancelled) {
       setShowCancelBanner(true);
@@ -79,7 +109,15 @@ export function BillingPage() {
       );
       return () => clearTimeout(t);
     }
-  }, [success, cancelled, queryClient, navigate]);
+  }, [
+    success,
+    cancelled,
+    checkoutSessionId,
+    verifyCheckout,
+    queryClient,
+    navigate,
+    refreshUser,
+  ]);
 
   const handleUpgrade = async () => {
     try {
@@ -103,6 +141,7 @@ export function BillingPage() {
   const periodEnd = subscription?.stripeCurrentPeriodEnd
     ? new Date(subscription.stripeCurrentPeriodEnd)
     : null;
+  const premiumConfirmed = subscription?.isPremium ?? isPremium;
 
   if (statusLoading) return <Spinner />;
 
@@ -114,10 +153,14 @@ export function BillingPage() {
           <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-              Welcome to Premium! 🎉
+              {premiumConfirmed
+                ? "Welcome to Premium! 🎉"
+                : "Payment received. Finalising your subscription..."}
             </p>
             <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
-              Your subscription is active. All AI features are now unlocked.
+              {premiumConfirmed
+                ? "Your subscription is active. All AI features are now unlocked."
+                : "We are confirming your billing status with Stripe. This usually takes a few seconds."}
             </p>
           </div>
         </div>

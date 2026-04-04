@@ -49,37 +49,22 @@ export function useTechTestState() {
 
   const tests = testsQuery.data?.data ?? [];
 
-  // Timer
+  // Timer — only depends on isTimerRunning to avoid re-creating intervals on every tick
   useEffect(() => {
-    if (isTimerRunning && timeRemaining > 0) {
-      timerRef.current = setInterval(() => {
-        setTimeRemaining((prev) => {
-          if (prev <= 1) {
-            setIsTimerRunning(false);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+    if (!isTimerRunning) return;
+    timerRef.current = setInterval(() => {
+      setTimeRemaining((prev) => {
+        if (prev <= 1) {
+          setIsTimerRunning(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isTimerRunning, timeRemaining]);
-
-  // Auto-stop when timer expires
-  useEffect(() => {
-    if (
-      view === "working" &&
-      timeRemaining === 0 &&
-      !isTimerRunning &&
-      activeTest &&
-      activeTest.status === "in_progress"
-    ) {
-      // Timer expired — just stay on the working view
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeRemaining, isTimerRunning, view]);
+  }, [isTimerRunning]);
 
   const toggleTag = useCallback((tag: string) => {
     setSelectedTags((prev) =>

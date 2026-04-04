@@ -14,6 +14,7 @@ export class JobsService {
     return this.prisma.job.findMany({
       where: { userId },
       orderBy: { createdAt: "desc" },
+      take: 500,
       include: JOB_INCLUDE,
     });
   }

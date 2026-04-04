@@ -8,7 +8,7 @@ import {
   Copy,
 } from "lucide-react";
 import { Button } from "@careerportal/web/ui";
-import { FREE_CV_LIMIT, type CvVersion } from "@careerportal/shared/types";
+import { FREE_TIER, type CvVersion } from "@careerportal/shared/types";
 import { ItemCard, PremiumUpgradeBanner } from "../../shared";
 
 interface VersionSidebarProps {
@@ -54,13 +54,13 @@ export function VersionSidebar({
   onDelete,
   onDuplicate,
 }: VersionSidebarProps) {
-  const atFreeLimit = !isPremium && versions.length >= FREE_CV_LIMIT;
+  const atFreeLimit = !isPremium && versions.length >= FREE_TIER.cvVersions;
 
   return (
     <div className="space-y-4">
       {atFreeLimit && !showCreateVersion && (
         <PremiumUpgradeBanner
-          message={`Free accounts are limited to ${FREE_CV_LIMIT} CV. Upgrade for unlimited CVs and AI-powered tools.`}
+          message={`Free accounts are limited to ${FREE_TIER.cvVersions} CV. Upgrade for unlimited CVs and AI-powered tools.`}
         />
       )}
 

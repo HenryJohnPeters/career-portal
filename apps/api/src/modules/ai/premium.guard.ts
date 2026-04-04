@@ -8,7 +8,7 @@ import {
 } from "@nestjs/common";
 import { AuthenticatedRequest } from "../auth/auth.guard";
 import { AiUsageService } from "./ai-usage.service";
-import { FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
+import { FREE_TIER } from "../../common/constants";
 
 /**
  * Per-user AI request cooldown (in-memory).
@@ -28,7 +28,7 @@ setInterval(() => {
 
 /**
  * Allows premium users unlimited access.
- * Allows free users up to FREE_TIER_MONTHLY_AI_LIMIT AI actions per month.
+ * Allows free users up to FREE_TIER.monthlyAiActions AI actions per month.
  * Throws ForbiddenException when the free cap is reached.
  * Also enforces a short per-user cooldown to prevent duplicate AI requests.
  *
@@ -48,7 +48,7 @@ export class PremiumGuard implements CanActivate {
     const allowed = await this.aiUsage.canUseAi(userId);
     if (!allowed) {
       throw new ForbiddenException(
-        `You've reached your free monthly limit of ${FREE_TIER_MONTHLY_AI_LIMIT} AI uses. Upgrade to Premium for unlimited AI-powered tools.`,
+        `You've reached your free monthly limit of ${FREE_TIER.monthlyAiActions} AI uses. Upgrade to Premium for unlimited AI-powered tools.`,
       );
     }
 

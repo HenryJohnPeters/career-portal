@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDateString, MaxLength } from "class-validator";
+import { IsString, IsOptional, IsDateString, IsIn, MaxLength } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateJobDto {
@@ -12,10 +12,10 @@ export class CreateJobDto {
   @MaxLength(200)
   role!: string;
 
-  @ApiPropertyOptional({ example: "applied" })
+  @ApiPropertyOptional({ example: "applied", enum: ["saved", "applied", "interview", "offer", "rejected", "ghosted"] })
   @IsString()
   @IsOptional()
-  @MaxLength(50)
+  @IsIn(["saved", "applied", "interview", "offer", "rejected", "ghosted"])
   status?: string;
 
   @ApiPropertyOptional()
@@ -56,10 +56,10 @@ export class UpdateJobDto {
   @MaxLength(200)
   role?: string;
 
-  @ApiPropertyOptional({ example: "applied" })
+  @ApiPropertyOptional({ example: "applied", enum: ["saved", "applied", "interview", "offer", "rejected", "ghosted"] })
   @IsString()
   @IsOptional()
-  @MaxLength(50)
+  @IsIn(["saved", "applied", "interview", "offer", "rejected", "ghosted"])
   status?: string;
 
   @ApiPropertyOptional()

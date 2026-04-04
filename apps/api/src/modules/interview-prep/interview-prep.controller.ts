@@ -111,6 +111,7 @@ export class InterviewPrepController {
     if (
       !expectedKey ||
       !adminKey ||
+      adminKey.length !== expectedKey.length ||
       !timingSafeEqual(Buffer.from(adminKey), Buffer.from(expectedKey))
     ) {
       throw new UnauthorizedException("Invalid or missing admin API key");

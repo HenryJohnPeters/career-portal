@@ -7,6 +7,8 @@ async function getToken(): Promise<string | null> {
   return data.session?.access_token ?? null;
 }
 
+const DEFAULT_TIMEOUT_MS = 30_000;
+
 async function requestRaw(
   path: string,
   options: RequestInit = {},
@@ -27,7 +29,23 @@ async function requestRaw(
 
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers,
+      signal: options.signal ?? controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (controller.signal.aborted) {
+      throw new Error("Request timed out");
+    }
+    throw err;
+  }
+  clearTimeout(timeout);
 
   if (!res.ok) {
     const contentType = res.headers.get("content-type") || "";

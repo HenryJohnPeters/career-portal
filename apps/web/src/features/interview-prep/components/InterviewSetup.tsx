@@ -163,7 +163,6 @@ export function InterviewSetup({
             <TechStackPicker
               selectedTags={selectedTags}
               onToggleTag={onToggleTag}
-              isPremium={isPremium}
               roleFocus={track === "devops" ? "platform" : track}
             />
           </div>

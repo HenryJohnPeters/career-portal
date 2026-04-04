@@ -3,12 +3,13 @@ import {
   NotFoundException,
   ForbiddenException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { AiService } from "../ai/ai.service";
 import { AiUsageService } from "../ai/ai-usage.service";
 import type { AiCvAction, AiFullCvResult } from "../ai/ai.service";
 import {
-  FREE_CV_LIMIT,
+  FREE_TIER,
   FREE_TEMPLATE_IDS,
   DEFAULT_CV_SECTIONS,
 } from "../../common/constants";
@@ -34,12 +35,36 @@ export class CvService {
     // Enforce free-user cap
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !isActivePremium(user)) {
-      const count = await this.prisma.cvVersion.count({ where: { userId } });
-      if (count >= FREE_CV_LIMIT) {
-        throw new ForbiddenException(
-          `Free accounts are limited to ${FREE_CV_LIMIT} CV. Upgrade to Premium for unlimited CVs.`,
-        );
-      }
+      return this.prisma.$transaction(
+        async (tx) => {
+          const count = await tx.cvVersion.count({ where: { userId } });
+          if (count >= FREE_TIER.cvVersions) {
+            throw new ForbiddenException(
+              `Free accounts are limited to ${FREE_TIER.cvVersions} CV. Upgrade to Premium for unlimited CVs.`,
+            );
+          }
+
+          const version = await tx.cvVersion.create({
+            data: { userId, title },
+          });
+
+          await tx.cvSection.createMany({
+            data: DEFAULT_CV_SECTIONS.map((s, i) => ({
+              cvVersionId: version.id,
+              title: s.title,
+              sectionType: s.sectionType,
+              content: "",
+              order: i,
+            })),
+          });
+
+          return tx.cvVersion.findUnique({
+            where: { id: version.id },
+            include: { sections: { orderBy: { order: "asc" } } },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
     }
 
     const version = await this.prisma.cvVersion.create({
@@ -205,22 +230,61 @@ export class CvService {
   async duplicateVersion(userId: string, id: string) {
     // Enforce free-user cap
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !isActivePremium(user)) {
-      const count = await this.prisma.cvVersion.count({ where: { userId } });
-      if (count >= FREE_CV_LIMIT) {
-        throw new ForbiddenException(
-          `Free accounts are limited to ${FREE_CV_LIMIT} CV. Upgrade to Premium for unlimited CVs.`,
-        );
-      }
-    }
-
     // Single fetch with sections — assertVersionOwner + sections in one query
     const original = await this.prisma.cvVersion.findUnique({
       where: { id },
       include: { sections: true },
     });
     if (!original) throw new NotFoundException("CV version not found");
-    if (original.userId !== userId) throw new ForbiddenException();
+    if (original.userId !== userId) throw new ForbiddenException("Access denied");
+
+    if (!user || !isActivePremium(user)) {
+      return this.prisma.$transaction(
+        async (tx) => {
+          const count = await tx.cvVersion.count({ where: { userId } });
+          if (count >= FREE_TIER.cvVersions) {
+            throw new ForbiddenException(
+              `Free accounts are limited to ${FREE_TIER.cvVersions} CV. Upgrade to Premium for unlimited CVs.`,
+            );
+          }
+
+          const copy = await tx.cvVersion.create({
+            data: {
+              userId,
+              title: `${original.title} (Copy)`,
+              isActive: false,
+              templateId: original.templateId,
+              themeConfig: original.themeConfig ?? {},
+              headerLayout: original.headerLayout,
+              name: original.name,
+              email: original.email,
+              photoUrl: original.photoUrl,
+              phone: original.phone,
+              location: original.location,
+              website: original.website,
+              linkedin: original.linkedin,
+              github: original.github,
+            },
+          });
+
+          await tx.cvSection.createMany({
+            data: original.sections.map((section) => ({
+              cvVersionId: copy.id,
+              title: section.title,
+              content: section.content,
+              sectionType: section.sectionType,
+              order: section.order,
+            })),
+          });
+
+          return tx.cvVersion.findUnique({
+            where: { id: copy.id },
+            include: { sections: { orderBy: { order: "asc" } } },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    }
 
     const copy = await this.prisma.cvVersion.create({
       data: {
@@ -355,7 +419,7 @@ export class CvService {
       where: { id: versionId },
     });
     if (!version) throw new NotFoundException("CV version not found");
-    if (version.userId !== userId) throw new ForbiddenException();
+    if (version.userId !== userId) throw new ForbiddenException("Access denied");
     return version;
   }
 
@@ -365,7 +429,7 @@ export class CvService {
       include: { cvVersion: true },
     });
     if (!section) throw new NotFoundException("Section not found");
-    if (section.cvVersion.userId !== userId) throw new ForbiddenException();
+    if (section.cvVersion.userId !== userId) throw new ForbiddenException("Access denied");
     return section;
   }
 }

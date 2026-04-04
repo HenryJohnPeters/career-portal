@@ -3,10 +3,11 @@ import {
   NotFoundException,
   ForbiddenException,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { AiService } from "../ai/ai.service";
 import { AiUsageService } from "../ai/ai-usage.service";
-import { FREE_COVER_LETTER_LIMIT } from "../../common/constants";
+import { FREE_TIER } from "../../common/constants";
 import { isActivePremium } from "../../common/subscription.util";
 
 @Injectable()
@@ -21,6 +22,7 @@ export class CoverLettersService {
     return this.prisma.coverLetter.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
+      take: 200,
       include: { job: true },
     });
   }
@@ -31,12 +33,27 @@ export class CoverLettersService {
   ) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !isActivePremium(user)) {
-      const count = await this.prisma.coverLetter.count({ where: { userId } });
-      if (count >= FREE_COVER_LETTER_LIMIT) {
-        throw new ForbiddenException(
-          `Free accounts are limited to ${FREE_COVER_LETTER_LIMIT} cover letters. Upgrade to Premium for unlimited cover letters.`,
-        );
-      }
+      return this.prisma.$transaction(
+        async (tx) => {
+          const count = await tx.coverLetter.count({ where: { userId } });
+          if (count >= FREE_TIER.coverLetters) {
+            throw new ForbiddenException(
+              `Free accounts are limited to ${FREE_TIER.coverLetters} cover letters. Upgrade to Premium for unlimited cover letters.`,
+            );
+          }
+
+          return tx.coverLetter.create({
+            data: {
+              userId,
+              title: data.title,
+              body: data.body || "",
+              jobId: data.jobId || null,
+            },
+            include: { job: true },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
     }
 
     return this.prisma.coverLetter.create({

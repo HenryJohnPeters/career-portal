@@ -7,7 +7,6 @@ import { ROLE_TECH_PATHWAYS, type TechPathway } from "../constants";
 interface TechStackPickerProps {
   selectedTags: string[];
   onToggleTag: (tag: string) => void;
-  isPremium?: boolean;
   roleFocus?: InterviewRoleFocus;
 }
 

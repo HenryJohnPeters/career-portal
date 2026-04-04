@@ -2,7 +2,9 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Logger,
 } from "@nestjs/common";
+import { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import {
   QuestionSelector,
@@ -18,6 +20,7 @@ import {
   TECH_CATEGORIES,
   DIFFICULTY_RANGES,
   FREE_TIER,
+  sanitiseTags,
 } from "../../common/constants";
 import { isActivePremium } from "../../common/subscription.util";
 import {
@@ -41,6 +44,7 @@ interface AnswerFeedback {
 
 @Injectable()
 export class InterviewPrepService {
+  private readonly logger = new Logger(InterviewPrepService.name);
   private readonly questionSelector = new QuestionSelector();
   private readonly evaluator = new RuleBasedEvaluator();
   private readonly followUpStrategy = new FollowUpStrategy();
@@ -63,6 +67,7 @@ export class InterviewPrepService {
         },
       },
       orderBy: { createdAt: "desc" },
+      take: 100,
     });
   }
 
@@ -94,21 +99,6 @@ export class InterviewPrepService {
       );
     }
 
-    // ── Enforce monthly mock session limit for free users ────────────
-    if (!isPremium) {
-      const monthStart = new Date();
-      monthStart.setUTCDate(1);
-      monthStart.setUTCHours(0, 0, 0, 0);
-      const sessionCount = await this.prisma.interviewSession.count({
-        where: { userId, createdAt: { gte: monthStart } },
-      });
-      if (sessionCount >= FREE_TIER.monthlyMockSessions) {
-        throw new ForbiddenException(
-          `Free users are limited to ${FREE_TIER.monthlyMockSessions} mock interview sessions per month. Upgrade to Premium for unlimited sessions.`,
-        );
-      }
-    }
-
     const interviewerTraits = interviewerId
       ? INTERVIEWER_TRAITS[interviewerId]
       : undefined;
@@ -128,8 +118,8 @@ export class InterviewPrepService {
     const companyStyle = dto.companyStyle ?? "startup";
     const safeInterviewerId = interviewerTraits ? interviewerId : undefined;
 
-    // Normalize tags to lowercase — the DB stores lowercase tags
-    const tags = (dto.tags ?? []).map((t) => t.toLowerCase());
+    // Sanitize and normalize tags — the DB stores lowercase tags
+    const tags = sanitiseTags(dto.tags ?? []).map((t) => t.toLowerCase());
 
     // ── Ensure the question pool has enough content ─────────────────
     // Check pool size for this combo. If too thin, generate questions
@@ -222,38 +212,68 @@ export class InterviewPrepService {
       [],
     );
 
-    // Create the session with its questions
-    const session = await this.prisma.interviewSession.create({
-      data: {
-        userId,
-        track: dto.track,
-        level: dto.level,
-        tags,
-        roleFocus,
-        interviewType,
-        duration,
-        difficulty,
-        companyStyle,
-        questionCount: selected.length,
-        persona,
-        interviewerId: safeInterviewerId,
-        status: "in_progress",
-        questions: {
-          create: selected.map((q, idx) => ({
-            questionId: q.id,
-            orderIndex: idx,
-            maxScore: 10,
-            isFollowUp: false,
-          })),
-        },
-      } as any,
-      include: {
-        questions: {
-          include: { question: true },
-          orderBy: { orderIndex: "asc" },
-        },
+    const createData = {
+      userId,
+      track: dto.track,
+      level: dto.level,
+      tags,
+      roleFocus,
+      interviewType,
+      duration,
+      difficulty,
+      companyStyle,
+      questionCount: selected.length,
+      persona,
+      interviewerId: safeInterviewerId,
+      status: "in_progress",
+      questions: {
+        create: selected.map((q, idx) => ({
+          questionId: q.id,
+          orderIndex: idx,
+          maxScore: 10,
+          isFollowUp: false,
+        })),
       },
-    });
+    };
+
+    // Create the session with its questions
+    const session = isPremium
+      ? await this.prisma.interviewSession.create({
+          data: createData as any,
+          include: {
+            questions: {
+              include: { question: true },
+              orderBy: { orderIndex: "asc" },
+            },
+          },
+        })
+      : await this.prisma.$transaction(
+          async (tx) => {
+            const monthStart = new Date();
+            monthStart.setUTCDate(1);
+            monthStart.setUTCHours(0, 0, 0, 0);
+
+            const sessionCount = await tx.interviewSession.count({
+              where: { userId, createdAt: { gte: monthStart } },
+            });
+            if (sessionCount >= FREE_TIER.monthlyMockSessions) {
+              throw new ForbiddenException(
+                `Free users are limited to ${FREE_TIER.monthlyMockSessions} mock interview sessions per month. Upgrade to Premium for unlimited sessions.`,
+              );
+            }
+
+            return tx.interviewSession.create({
+              data: createData as any,
+              include: {
+                questions: {
+                  include: { question: true },
+                  orderBy: { orderIndex: "asc" },
+                },
+              },
+            });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
 
     return session;
   }
@@ -347,25 +367,8 @@ export class InterviewPrepService {
     sessionQuestionId: string,
     answer: string,
   ) {
-    // ── Enforce monthly question limit for free users ─────────────
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (user && !isActivePremium(user)) {
-      const monthStart = new Date();
-      monthStart.setUTCDate(1);
-      monthStart.setUTCHours(0, 0, 0, 0);
-      const answeredThisMonth =
-        await this.prisma.interviewSessionQuestion.count({
-          where: {
-            session: { userId },
-            answeredAt: { gte: monthStart },
-          },
-        });
-      if (answeredThisMonth >= FREE_TIER.monthlyQuestions) {
-        throw new ForbiddenException(
-          `Free users are limited to ${FREE_TIER.monthlyQuestions} practice questions per month. Upgrade to Premium for unlimited questions.`,
-        );
-      }
-    }
+    const isPremium = user ? isActivePremium(user) : false;
 
     const session = await this.getSession(userId, sessionId);
     const sq = session.questions.find((q) => q.id === sessionQuestionId);
@@ -414,17 +417,51 @@ export class InterviewPrepService {
       isCorrect: evaluation.isCorrect,
     };
 
-    // Save the answer and score
-    const updated = await this.prisma.interviewSessionQuestion.update({
-      where: { id: sessionQuestionId },
-      data: {
-        userAnswer: answer,
-        score: evaluation.score,
-        feedback: feedback as unknown as any,
-        answeredAt: new Date(),
-      },
-      include: { question: true },
-    });
+    // Save the answer and score (with atomic free-tier question-limit check)
+    const updated = isPremium
+      ? await this.prisma.interviewSessionQuestion.update({
+          where: { id: sessionQuestionId },
+          data: {
+            userAnswer: answer,
+            score: evaluation.score,
+            feedback: feedback as unknown as any,
+            answeredAt: new Date(),
+          },
+          include: { question: true },
+        })
+      : await this.prisma.$transaction(
+          async (tx) => {
+            const monthStart = new Date();
+            monthStart.setUTCDate(1);
+            monthStart.setUTCHours(0, 0, 0, 0);
+
+            const answeredThisMonth =
+              await tx.interviewSessionQuestion.count({
+                where: {
+                  session: { userId },
+                  answeredAt: { gte: monthStart },
+                },
+              });
+
+            if (answeredThisMonth >= FREE_TIER.monthlyQuestions) {
+              throw new ForbiddenException(
+                `Free users are limited to ${FREE_TIER.monthlyQuestions} practice questions per month. Upgrade to Premium for unlimited questions.`,
+              );
+            }
+
+            return tx.interviewSessionQuestion.update({
+              where: { id: sessionQuestionId },
+              data: {
+                userAnswer: answer,
+                score: evaluation.score,
+                feedback: feedback as unknown as any,
+                answeredAt: new Date(),
+              },
+              include: { question: true },
+            });
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
 
     // Check if follow-up is needed
     let followUp = null;
@@ -536,7 +573,9 @@ export class InterviewPrepService {
           },
           userId,
         )
-        .catch(() => {});
+        .catch((err) =>
+          this.logger.warn('Piggyback question generation failed (non-critical)', err),
+        );
     }
 
     return updated;

@@ -90,7 +90,7 @@ export function useCvBuilder() {
 
   // ── Auto-save ──
   const [autoSaveStatus, setAutoSaveStatus] = useState<
-    "idle" | "saving" | "saved"
+    "idle" | "saving" | "saved" | "error"
   >("idle");
   const debouncedEdits = useDebounce(sectionEdits, 1500);
   const lastSavedRef = useRef<string>("");
@@ -167,6 +167,8 @@ export function useCvBuilder() {
   // ── Auto-save effect ──
   useEffect(() => {
     if (!editingSectionId) return;
+    // Guard: only save if the version hasn't changed since editing started
+    if (!selectedVersionIdRef.current) return;
     const key = `${editingSectionId}:${debouncedEdits.title}:${debouncedEdits.content}`;
     if (key === lastSavedRef.current) return;
     if (!debouncedEdits.title.trim()) return;
@@ -179,8 +181,24 @@ export function useCvBuilder() {
         setAutoSaveStatus("saved");
         setTimeout(() => setAutoSaveStatus("idle"), 2000);
       })
-      .catch(() => setAutoSaveStatus("idle"));
+      .catch(() => setAutoSaveStatus("error"));
   }, [debouncedEdits, editingSectionId]);
+
+  // ── Safe version switching – flush pending edits first ──
+  const safeSetSelectedVersionId = useCallback(
+    (id: string | null) => {
+      if (editingSectionId) {
+        const key = `${editingSectionId}:${sectionEdits.title}:${sectionEdits.content}`;
+        if (key !== lastSavedRef.current && sectionEdits.title.trim()) {
+          updateSection.mutate({ id: editingSectionId, ...sectionEdits });
+        }
+        setEditingSectionId(null);
+        setAutoSaveStatus("idle");
+      }
+      setSelectedVersionId(id);
+    },
+    [editingSectionId, sectionEdits, updateSection],
+  );
 
   // ── Version handlers ──
   const handleCreateVersion = async () => {
@@ -382,7 +400,7 @@ export function useCvBuilder() {
     versions,
     selectedVersion,
     selectedVersionId,
-    setSelectedVersionId,
+    setSelectedVersionId: safeSetSelectedVersionId,
     newVersionTitle,
     setNewVersionTitle,
     showCreateVersion,

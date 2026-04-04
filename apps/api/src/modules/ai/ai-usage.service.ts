@@ -1,11 +1,13 @@
-import { Injectable, ForbiddenException } from "@nestjs/common";
+import { Injectable, ForbiddenException, Logger } from "@nestjs/common";
 import { PrismaService } from "../../common/prisma.service";
-import { FREE_TIER, FREE_TIER_MONTHLY_AI_LIMIT } from "../../common/constants";
+import { FREE_TIER } from "../../common/constants";
 import { isActivePremium } from "../../common/subscription.util";
 import type { AiUsageStatus } from "./ai.types";
 
 @Injectable()
 export class AiUsageService {
+  private readonly logger = new Logger(AiUsageService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   /**
@@ -29,10 +31,10 @@ export class AiUsageService {
     const isPremium = user ? isActivePremium(user) : false;
     const start = this.getMonthStart();
     const used = await this.getMonthlyUsageCount(userId);
-    const limit = isPremium ? null : FREE_TIER_MONTHLY_AI_LIMIT;
+    const limit = isPremium ? null : FREE_TIER.monthlyAiActions;
     const remaining = isPremium
       ? null
-      : Math.max(0, FREE_TIER_MONTHLY_AI_LIMIT - used);
+      : Math.max(0, FREE_TIER.monthlyAiActions - used);
 
     // Interview session + question + tech test usage
     const [mockSessionsUsed, questionsUsed, techTestsUsed] = await Promise.all([
@@ -89,7 +91,7 @@ export class AiUsageService {
     if (isActivePremium(user)) return true;
 
     const used = await this.getMonthlyUsageCount(userId);
-    return used < FREE_TIER_MONTHLY_AI_LIMIT;
+    return used < FREE_TIER.monthlyAiActions;
   }
 
   /**
@@ -123,7 +125,7 @@ export class AiUsageService {
       const used = await tx.aiUsage.count({
         where: { userId, createdAt: { gte: start } },
       });
-      if (used >= FREE_TIER_MONTHLY_AI_LIMIT) {
+      if (used >= FREE_TIER.monthlyAiActions) {
         return { reserved: false, usageId: null };
       }
       const record = await tx.aiUsage.create({
@@ -139,7 +141,9 @@ export class AiUsageService {
   async rollbackUsage(usageId: string): Promise<void> {
     await this.prisma.aiUsage
       .delete({ where: { id: usageId } })
-      .catch(() => {});
+      .catch((err) =>
+        this.logger.warn(`Rollback for usage ${usageId} failed (non-critical)`, err),
+      );
   }
 
   /**

@@ -36,11 +36,6 @@ export const FREE_TIER = {
   ] as readonly string[],
 } as const;
 
-/** @deprecated Use FREE_TIER.cvVersions */
-export const FREE_CV_LIMIT = FREE_TIER.cvVersions;
-/** @deprecated Use FREE_TIER.coverLetters */
-export const FREE_COVER_LETTER_LIMIT = FREE_TIER.coverLetters;
-
 // === Interviewer Traits ===
 export interface InterviewerTraits {
   questionCount: number;

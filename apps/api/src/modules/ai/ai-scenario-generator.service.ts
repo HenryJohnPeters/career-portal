@@ -2,6 +2,7 @@ import { Injectable, Inject, Logger, ForbiddenException } from "@nestjs/common";
 import OpenAI from "openai";
 import { AiUsageService } from "./ai-usage.service";
 import { OPENAI_CLIENT } from "./openai.provider";
+import { sanitiseTags } from "../../common/constants";
 
 export interface ScenarioGenerationInput {
   roleFocus: string;
@@ -27,9 +28,10 @@ export class AiScenarioGeneratorService {
     input: ScenarioGenerationInput,
     userId: string,
   ): Promise<any | null> {
+    const safeTags = sanitiseTags(input.tags);
     const tagsStr =
-      input.tags.length > 0
-        ? input.tags.join(", ")
+      safeTags.length > 0
+        ? safeTags.join(", ")
         : `general ${input.roleFocus} technologies`;
 
     const systemPrompt = `Senior engineering manager creating realistic take-home technical tests. Return ONLY a valid JSON object — no code fences, no extra text:

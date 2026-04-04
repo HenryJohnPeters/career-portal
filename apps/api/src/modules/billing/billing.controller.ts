@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Body,
   Req,
   Res,
   UseGuards,
@@ -17,6 +18,7 @@ import Stripe from "stripe";
 import { AuthGuard } from "../auth/auth.guard";
 import { BillingService } from "./billing.service";
 import { CurrentUserId } from "../../common/current-user.decorator";
+import { VerifyCheckoutSessionDto } from "./billing.dto";
 
 @ApiTags("billing")
 @Controller("billing")
@@ -32,6 +34,21 @@ export class BillingController {
   async createCheckout(@CurrentUserId() userId: string) {
     const { url } = await this.billingService.createCheckoutSession(userId);
     return { data: { url } };
+  }
+
+  /* ── Verify Stripe Checkout Session server-side ─────────── */
+  @Post("checkout/verify")
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  async verifyCheckout(
+    @CurrentUserId() userId: string,
+    @Body() dto: VerifyCheckoutSessionDto,
+  ) {
+    const status = await this.billingService.verifyCheckoutSession(
+      userId,
+      dto.sessionId,
+    );
+    return { data: status };
   }
 
   /* ── Create Stripe Customer Portal Session ──────────────── */

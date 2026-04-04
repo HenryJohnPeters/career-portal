@@ -15,7 +15,8 @@ export class RuleBasedEvaluator implements IAnswerEvaluator {
     const correctIdx = question.correctOptionIndex ?? 0;
     const correctAnswer = options[correctIdx] ?? question.modelAnswer;
     const selectedIdx = parseInt(userAnswer, 10);
-    const isCorrect = selectedIdx === correctIdx;
+    const isCorrect =
+      !Number.isNaN(selectedIdx) && selectedIdx === correctIdx;
 
     // For multiple choice: full marks if correct, zero if wrong
     const criteria = question.rubric?.criteria ?? [];
@@ -52,7 +53,7 @@ export class RuleBasedEvaluator implements IAnswerEvaluator {
       suggestions,
       correctAnswer,
       correctOptionIndex: correctIdx,
-      selectedOptionIndex: selectedIdx,
+      selectedOptionIndex: Number.isNaN(selectedIdx) ? -1 : selectedIdx,
       isCorrect,
     };
   }

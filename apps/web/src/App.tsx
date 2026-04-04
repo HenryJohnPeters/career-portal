@@ -14,11 +14,23 @@ import { JobsPage } from "./pages/JobsPage";
 import { InterviewPrepPage } from "./pages/InterviewPrepPage";
 import { TechnicalTestsPage } from "./pages/TechnicalTestsPage";
 import { BillingPage } from "./pages/BillingPage";
-import { Spinner } from "@careerportal/web/ui";
+import { Spinner, Button } from "@careerportal/web/ui";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading, isAuthenticated } = useAuth();
+  const { user, isLoading, isAuthenticated, authError, refreshUser } = useAuth();
   if (isLoading) return <Spinner />;
+  if (authError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg-primary">
+        <div className="text-center space-y-3">
+          <p className="text-sm text-red-500">{authError}</p>
+          <Button size="sm" onClick={() => refreshUser()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
   if (!isAuthenticated || !user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }

@@ -8,7 +8,7 @@ import { TechTestSession } from "./components/TechTestSession";
 import { TechTestHistory } from "./components/TechTestHistory";
 
 export function TechnicalTestsPage() {
-  const { user, isLoading: meLoading } = useAuth();
+  const { user } = useAuth();
   const { data: usageData } = useAiUsage();
   const usage = usageData?.data;
   const isPremium = usage?.isPremium ?? isActivePremium(user);

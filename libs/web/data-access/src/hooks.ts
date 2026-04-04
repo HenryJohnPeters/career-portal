@@ -558,6 +558,21 @@ export function useCreateCheckoutSession() {
   });
 }
 
+export function useVerifyCheckoutSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) =>
+      api.post<ApiResponse<SubscriptionStatus>>("/billing/checkout/verify", {
+        sessionId,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.me });
+      qc.invalidateQueries({ queryKey: queryKeys.subscriptionStatus });
+      qc.invalidateQueries({ queryKey: queryKeys.aiUsage });
+    },
+  });
+}
+
 export function useCreatePortalSession() {
   return useMutation({
     mutationFn: () => api.post<ApiResponse<{ url: string }>>("/billing/portal"),

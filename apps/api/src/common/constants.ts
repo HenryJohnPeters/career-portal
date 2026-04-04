@@ -27,13 +27,6 @@ export const FREE_TIER = {
   ] as readonly string[],
 } as const;
 
-/** @deprecated Use FREE_TIER.cvVersions instead */
-export const FREE_CV_LIMIT = FREE_TIER.cvVersions;
-/** @deprecated Use FREE_TIER.coverLetters instead */
-export const FREE_COVER_LETTER_LIMIT = FREE_TIER.coverLetters;
-/** @deprecated Use FREE_TIER.monthlyAiActions instead */
-export const FREE_TIER_MONTHLY_AI_LIMIT = FREE_TIER.monthlyAiActions;
-
 /** Templates available to free users */
 export const FREE_TEMPLATE_IDS = FREE_TIER.templateIds;
 
@@ -199,3 +192,24 @@ export const TECH_CATEGORIES: {
     ],
   },
 ];
+
+/**
+ * Sanitise a user-supplied tag before interpolating it into an AI prompt.
+ * Strips anything that isn't alphanumeric, spaces, hyphens, dots, plus signs,
+ * hash signs, or slashes (covers "C#", "C++", ".NET", "Next.js", "Node/Express").
+ * Returns the cleaned string truncated to 50 chars, or null if empty after cleaning.
+ */
+export function sanitiseTag(raw: string): string | null {
+  const cleaned = raw
+    .replace(/[^a-zA-Z0-9 \-_.+#/]/g, "")
+    .trim()
+    .slice(0, 50);
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+/**
+ * Sanitise an array of user-supplied tags for safe AI prompt interpolation.
+ */
+export function sanitiseTags(tags: string[]): string[] {
+  return tags.map(sanitiseTag).filter((t): t is string => t !== null);
+}

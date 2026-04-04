@@ -32,7 +32,7 @@ function SortableSectionCard(props: {
   isCollapsed: boolean;
   sectionEdits: { title: string; content: string };
   updatePending: boolean;
-  autoSaveStatus: "idle" | "saving" | "saved";
+  autoSaveStatus: "idle" | "saving" | "saved" | "error";
   onEditChange: (edits: { title: string; content: string }) => void;
   onStartEdit: (section: CvSection) => void;
   onSave: () => void;
@@ -77,7 +77,7 @@ interface SectionEditorProps {
   newSectionTitle: string;
   createSectionPending: boolean;
   updateSectionPending: boolean;
-  autoSaveStatus: "idle" | "saving" | "saved";
+  autoSaveStatus: "idle" | "saving" | "saved" | "error";
   collapsedSections: Set<string>;
   showTemplates: boolean;
   onNewSectionTitleChange: (value: string) => void;

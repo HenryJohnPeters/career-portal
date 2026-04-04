@@ -53,10 +53,6 @@ interface ScenarioTemplate {
 
 const pickRandom = <T>(arr: T[]): T =>
   arr[Math.floor(Math.random() * arr.length)];
-const pickN = <T>(arr: T[], n: number): T[] => {
-  const shuffled = [...arr].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, n);
-};
 
 /**
  * Case-insensitive match: find the first item in `candidates` whose

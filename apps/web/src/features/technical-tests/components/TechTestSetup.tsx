@@ -99,7 +99,6 @@ export function TechTestSetup({ state, isPremium, usage }: TechTestSetupProps) {
             <TechStackPicker
               selectedTags={state.selectedTags}
               onToggleTag={state.toggleTag}
-              isPremium={isPremium}
             />
           </section>
           <section>

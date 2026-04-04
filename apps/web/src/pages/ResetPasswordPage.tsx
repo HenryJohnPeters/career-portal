@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { supabase } from "@careerportal/web/data-access";
 import { Button } from "@careerportal/web/ui";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Lock,
   AlertCircle,
@@ -30,6 +30,19 @@ export function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [hasSession, setHasSession] = useState<boolean | null>(null);
+
+  // Verify the user has a valid recovery session before showing the form
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setHasSession(!!data.session);
+      if (!data.session) {
+        setError(
+          "Invalid or expired password reset link. Please request a new one.",
+        );
+      }
+    });
+  }, []);
 
   const {
     register,
@@ -193,9 +206,17 @@ export function ResetPasswordPage() {
                 </div>
               )}
 
-              <Button type="submit" className="w-full" loading={loading}>
+              <Button type="submit" className="w-full" loading={loading} disabled={hasSession === false}>
                 {!loading && "Update Password"}
               </Button>
+              {hasSession === false && (
+                <Link
+                  to="/forgot-password"
+                  className="block text-center text-sm text-primary-600 dark:text-primary-400 font-medium hover:underline mt-2"
+                >
+                  Request new reset link
+                </Link>
+              )}
             </form>
           </div>
         </div>

@@ -184,6 +184,7 @@ export class PdfService implements OnModuleDestroy {
 
       return { buffer, cacheHit: false };
     } finally {
+      // page.close() can fail if the browser crashed — safe to ignore in cleanup
       await page?.close().catch(() => {});
       this.semaphore.release();
     }
