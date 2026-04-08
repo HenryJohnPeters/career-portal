@@ -455,7 +455,6 @@ export interface TechnicalTest {
   difficulty: string;
   roleFocus: string;
   tags: string[];
-  timeLimit: number;
   scenario: TechTestScenario;
   status: TechnicalTestStatus;
   submission: string | null;
@@ -471,7 +470,6 @@ export interface CreateTechnicalTestRequest {
   level: InterviewLevel;
   difficulty: InterviewDifficulty;
   tags: string[];
-  timeLimit?: number;
 }
 
 // === AI CV Generation ===

@@ -24,6 +24,11 @@ import { TechStackPicker } from "./TechStackPicker";
 import { InterviewerSelector } from "./InterviewerSelector";
 import { getInterviewerById } from "../interviewer-configs";
 import { PremiumUpgradeBanner } from "../../shared/components/PremiumUpgradeBanner";
+import {
+  getVoiceSelectionDiagnostics,
+  type VoiceSelectionDiagnostics,
+} from "../voice-utils";
+import { useEffect, useState } from "react";
 
 const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
   ([key, m]) => ({
@@ -63,6 +68,60 @@ export function InterviewSetup({
   const selectedInterviewer = getInterviewerById(selectedInterviewerId) ?? null;
   const canPreview = !!selectedInterviewer && selectedInterviewer.id !== "none";
   const canStart = selectedTags.length > 0;
+  const [voiceDiagnostics, setVoiceDiagnostics] =
+    useState<VoiceSelectionDiagnostics | null>(null);
+  const [voiceDiagnosticsLoading, setVoiceDiagnosticsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!selectedInterviewer || selectedInterviewer.id === "none") {
+      setVoiceDiagnostics(null);
+      setVoiceDiagnosticsLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setVoiceDiagnosticsLoading(true);
+    getVoiceSelectionDiagnostics(selectedInterviewer)
+      .then((diag) => {
+        if (!cancelled) setVoiceDiagnostics(diag);
+      })
+      .catch(() => {
+        if (!cancelled) setVoiceDiagnostics(null);
+      })
+      .finally(() => {
+        if (!cancelled) setVoiceDiagnosticsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedInterviewer]);
+
+  const qualityLabel =
+    voiceDiagnostics?.qualityTier === "high"
+      ? "Natural quality"
+      : voiceDiagnostics?.qualityTier === "standard"
+        ? "Standard quality"
+        : "Fallback quality";
+
+  const genderLabel =
+    voiceDiagnostics?.genderMatched === true
+      ? "gender matched"
+      : voiceDiagnostics?.genderMatched === false
+        ? "gender fallback"
+        : "gender neutral";
+
+  const voiceQualityText =
+    !selectedInterviewer || selectedInterviewer.id === "none"
+      ? "Practice mode has no interviewer voice."
+      : voiceDiagnosticsLoading
+        ? "Selecting the most natural free system voice..."
+        : voiceDiagnostics?.selectedVoiceName
+          ? `${qualityLabel} • ${genderLabel} • ${voiceDiagnostics.selectedVoiceName}`
+          : "No premium-quality system voice found; using browser fallback.";
 
   return (
     <div className="w-full space-y-6">
@@ -101,6 +160,9 @@ export function InterviewSetup({
             {voiceMuted
               ? "Voice is muted before start"
               : "Voice is enabled for this interview"}
+          </p>
+          <p className="text-[11px] text-text-tertiary mt-1">
+            {voiceQualityText}
           </p>
         </div>
         <div className="flex items-center gap-2">

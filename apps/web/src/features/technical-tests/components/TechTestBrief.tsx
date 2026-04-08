@@ -53,7 +53,6 @@ export function TechTestBrief({ state }: TechTestBriefProps) {
               (diffMeta?.icon ?? "🟡") +
                 " " +
                 (diffMeta?.label ?? test.difficulty),
-              "⏱️ " + test.timeLimit + " min",
               "📐 " + scenario.estimatedTime,
             ].map((chip) => (
               <span

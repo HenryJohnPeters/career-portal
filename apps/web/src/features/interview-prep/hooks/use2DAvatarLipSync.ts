@@ -91,7 +91,7 @@ export function use2DAvatarLipSync(
   interviewer: InterviewerConfig | null,
   options: { enabled: boolean; muted: boolean },
 ): Use2DAvatarReturn {
-  const cleanupRef = useRef<(() => void) | null>(null);
+  const mouthFallbackCleanupRef = useRef<(() => void) | null>(null);
   const playbackRef = useRef<{ cancel: () => void } | null>(null);
 
   const { enabled, muted } = options;
@@ -116,23 +116,24 @@ export function use2DAvatarLipSync(
 
       // Cleanup any existing speech
       playbackRef.current?.cancel();
-      cleanupRef.current?.();
+      mouthFallbackCleanupRef.current?.();
       playbackRef.current = null;
 
       setIsSpeaking(true);
       setStatus("speaking");
 
-      // Start mouth animation
+      // Start fallback animation; boundary callbacks will take over when available.
       const prepared = humanizeSpeechText(text);
-      cleanupRef.current = animateMouthShapes(
+      mouthFallbackCleanupRef.current = animateMouthShapes(
         prepared,
         setMouthShape,
         interviewer.voice.speed,
       );
 
       const finish = () => {
-        cleanupRef.current?.();
+        mouthFallbackCleanupRef.current?.();
         playbackRef.current = null;
+        mouthFallbackCleanupRef.current = null;
         setMouthShape("closed");
         setIsSpeaking(false);
         setStatus(enabled && interviewer && !muted ? "ready" : "idle");
@@ -142,6 +143,16 @@ export function use2DAvatarLipSync(
         interviewer,
         text,
         muted,
+        onBoundary: ({ chunk, charIndex }) => {
+          // Disable fallback animation once real speech boundary events are flowing.
+          if (mouthFallbackCleanupRef.current) {
+            mouthFallbackCleanupRef.current();
+            mouthFallbackCleanupRef.current = null;
+          }
+
+          const char = chunk.charAt(charIndex) || " ";
+          setMouthShape(getPhonemeFromChar(char));
+        },
         onComplete: finish,
         onError: finish,
       });
@@ -158,7 +169,7 @@ export function use2DAvatarLipSync(
   const stopSpeaking = useCallback(() => {
     playbackRef.current?.cancel();
     playbackRef.current = null;
-    cleanupRef.current?.();
+    mouthFallbackCleanupRef.current?.();
 
     setMouthShape("closed");
     setIsSpeaking(false);
@@ -175,7 +186,7 @@ export function use2DAvatarLipSync(
   useEffect(() => {
     return () => {
       playbackRef.current?.cancel();
-      cleanupRef.current?.();
+      mouthFallbackCleanupRef.current?.();
     };
   }, []);
 

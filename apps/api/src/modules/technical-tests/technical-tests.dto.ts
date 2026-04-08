@@ -2,13 +2,10 @@ import {
   IsString,
   IsOptional,
   IsArray,
-  IsInt,
   IsIn,
-  Min,
-  Max,
   MaxLength,
 } from "class-validator";
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { ApiProperty } from "@nestjs/swagger";
 
 export class CreateTechnicalTestDto {
   @ApiProperty({ enum: ["frontend", "backend", "fullstack", "platform"] })
@@ -31,13 +28,6 @@ export class CreateTechnicalTestDto {
   @IsString({ each: true })
   @MaxLength(50, { each: true })
   tags!: string[];
-
-  @ApiPropertyOptional({ default: 60, description: "Time limit in minutes" })
-  @IsOptional()
-  @IsInt()
-  @Min(15)
-  @Max(480)
-  timeLimit?: number;
 }
 
 export class SubmitTechnicalTestDto {

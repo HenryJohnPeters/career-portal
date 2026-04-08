@@ -48,7 +48,6 @@ export function BillingPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const isPremium = isActivePremium(user);
 
   const success = searchParams.get("success") === "true";
   const cancelled = searchParams.get("cancelled") === "true";
@@ -59,6 +58,9 @@ export function BillingPage() {
   const checkoutMut = useCreateCheckoutSession();
   const { mutate: verifyCheckout } = useVerifyCheckoutSession();
   const portalMut = useCreatePortalSession();
+
+  const subscription = statusData?.data;
+  const isPremium = subscription?.isPremium ?? isActivePremium(user);
 
   const [showSuccessBanner, setShowSuccessBanner] = useState(false);
   const [showCancelBanner, setShowCancelBanner] = useState(false);
@@ -121,12 +123,34 @@ export function BillingPage() {
     refreshUser,
   ]);
 
+  // If billing status confirms premium but auth context is stale, refresh it
+  // so premium UI unlocks consistently across the app.
+  useEffect(() => {
+    if (!subscription?.isPremium) return;
+    if (isActivePremium(user)) return;
+
+    void refreshUser();
+  }, [subscription?.isPremium, user, refreshUser]);
+
   const handleUpgrade = async () => {
     try {
       const res = await checkoutMut.mutateAsync();
       window.location.href = res.data.url;
-    } catch {
-      /* handled by mutation */
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+
+      // Stripe state can be ahead of local auth context. If checkout says the
+      // user is already subscribed, refresh local user/billing caches.
+      if (message.toLowerCase().includes("active subscription")) {
+        await Promise.all([
+          refreshUser(),
+          queryClient.invalidateQueries({ queryKey: queryKeys.me }),
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.subscriptionStatus,
+          }),
+          queryClient.invalidateQueries({ queryKey: queryKeys.aiUsage }),
+        ]);
+      }
     }
   };
 
@@ -139,7 +163,6 @@ export function BillingPage() {
     }
   };
 
-  const subscription = statusData?.data;
   const periodEnd = subscription?.stripeCurrentPeriodEnd
     ? new Date(subscription.stripeCurrentPeriodEnd)
     : null;
@@ -148,7 +171,7 @@ export function BillingPage() {
   if (statusLoading) return <Spinner />;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-fade-in-up">
+    <div className="w-full space-y-6 animate-fade-in-up">
       {/* Success banner */}
       {showSuccessBanner && (
         <div className="flex items-center gap-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/60 px-5 py-4 animate-fade-in">

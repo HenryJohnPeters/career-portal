@@ -2,7 +2,6 @@ import { Button } from "@careerportal/web/ui";
 import {
   ClipboardCheck,
   TrendingUp,
-  Timer,
   Play,
   Sparkles,
   History,
@@ -23,14 +22,6 @@ const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
   }),
 );
 
-const TIME_LIMIT_ITEMS: OptionItem[] = [
-  { key: "30", icon: "⚡", label: "30 min", description: "Quick challenge" },
-  { key: "60", icon: "⏱️", label: "1 hour", description: "Standard" },
-  { key: "90", icon: "🕐", label: "1.5 hours", description: "In-depth" },
-  { key: "120", icon: "🕑", label: "2 hours", description: "Comprehensive" },
-  { key: "180", icon: "🕒", label: "3 hours", description: "Take-home" },
-];
-
 interface TechTestSetupProps {
   state: ReturnType<typeof useTechTestState>;
   isPremium: boolean;
@@ -39,9 +30,6 @@ interface TechTestSetupProps {
 
 export function TechTestSetup({ state, isPremium, usage }: TechTestSetupProps) {
   const levelMeta = LEVEL_META[state.level] ?? LEVEL_META.mid;
-  const timeMeta = TIME_LIMIT_ITEMS.find(
-    (t) => t.key === String(state.timeLimit),
-  );
 
   return (
     <div className="w-full space-y-6 sm:space-y-8">
@@ -101,15 +89,6 @@ export function TechTestSetup({ state, isPremium, usage }: TechTestSetupProps) {
               onToggleTag={state.toggleTag}
             />
           </section>
-          <section>
-            <SectionHeading icon={Timer} label="Time Limit" />
-            <OptionGrid
-              items={TIME_LIMIT_ITEMS}
-              value={String(state.timeLimit)}
-              onChange={(v) => state.setTimeLimit(Number(v))}
-              columns="grid-cols-2 sm:grid-cols-5"
-            />
-          </section>
         </div>
 
         {/* Right — Summary + Generate */}
@@ -132,11 +111,6 @@ export function TechTestSetup({ state, isPremium, usage }: TechTestSetupProps) {
                     icon={levelMeta.icon}
                     label="Level"
                     value={levelMeta.label}
-                  />
-                  <PreviewRow
-                    icon={timeMeta?.icon ?? "⏱️"}
-                    label="Time Limit"
-                    value={timeMeta?.label ?? "1 hour"}
                   />
                   {state.selectedTags.length > 0 && (
                     <div className="pt-0.5">
@@ -192,7 +166,7 @@ export function TechTestSetup({ state, isPremium, usage }: TechTestSetupProps) {
                     emoji: "📋",
                     tip: "Review the brief, requirements & acceptance criteria",
                   },
-                  { emoji: "⏱️", tip: "Start the timer when ready to begin" },
+                  { emoji: "🚀", tip: "Start when ready and work at your pace" },
                   {
                     emoji: "✍️",
                     tip: "Write your solution — code, architecture, trade-offs",

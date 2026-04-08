@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { IsString, MinLength } from "class-validator";
+import { IsString, Matches, MaxLength, MinLength } from "class-validator";
 
 export class VerifyCheckoutSessionDto {
   @ApiProperty({
@@ -8,5 +8,7 @@ export class VerifyCheckoutSessionDto {
   })
   @IsString()
   @MinLength(5)
+  @MaxLength(255)
+  @Matches(/^cs_[a-zA-Z0-9_]+$/)
   sessionId!: string;
 }

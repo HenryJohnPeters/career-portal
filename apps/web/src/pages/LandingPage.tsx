@@ -54,7 +54,7 @@ const features = [
   {
     icon: Code,
     title: "Mock Tests",
-    free: "Work through timed technical tests across DSA, system design, and behavioural categories.",
+    free: "Work through realistic technical tests across DSA, system design, and behavioural categories.",
     premium:
       "AI tailors test difficulty and question selection to your target role and weak spots.",
   },

@@ -137,7 +137,7 @@ export function getFollowUpBadge(followUpDate?: string | null): FollowUpBadge {
   const target = new Date(followUpDate);
   target.setHours(0, 0, 0, 0);
   const diffDays = Math.floor(
-    (target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    (target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
   );
   if (diffDays < 0) return "overdue";
   if (diffDays <= 2) return "due";
@@ -145,5 +145,7 @@ export function getFollowUpBadge(followUpDate?: string | null): FollowUpBadge {
 }
 
 export function getColumnForStatus(status: string): PipelineColumn {
-  return PIPELINE_COLUMNS.find((c) => c.id === normalizePipelineStatus(status))!;
+  return PIPELINE_COLUMNS.find(
+    (c) => c.id === normalizePipelineStatus(status),
+  )!;
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   useCreateTechnicalTest,
   useStartTechnicalTest,
@@ -20,7 +20,6 @@ export function useTechTestState() {
   // Setup filters
   const [level, setLevel] = useState<InterviewLevel>("mid");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [timeLimit, setTimeLimit] = useState(60); // minutes
 
   // Derive roleFocus automatically from selected tags
   const roleFocus = useMemo(
@@ -37,9 +36,6 @@ export function useTechTestState() {
 
   // Working state
   const [submission, setSubmission] = useState("");
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // API
   const testsQuery = useTechnicalTests();
@@ -48,23 +44,6 @@ export function useTechTestState() {
   const deleteTest = useDeleteTechnicalTest();
 
   const tests = testsQuery.data?.data ?? [];
-
-  // Timer — only depends on isTimerRunning to avoid re-creating intervals on every tick
-  useEffect(() => {
-    if (!isTimerRunning) return;
-    timerRef.current = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          setIsTimerRunning(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [isTimerRunning]);
 
   const toggleTag = useCallback((tag: string) => {
     setSelectedTags((prev) =>
@@ -79,20 +58,17 @@ export function useTechTestState() {
       level,
       difficulty,
       tags: selectedTags.map((t) => t.toLowerCase()),
-      timeLimit,
     });
     setActiveTest(res.data);
     setSubmission("");
     setView("brief");
-  }, [roleFocus, level, difficulty, selectedTags, timeLimit, createTest]);
+  }, [roleFocus, level, difficulty, selectedTags, createTest]);
 
-  /** Start the timer and move to the working view */
+  /** Start the test and move to the working view */
   const handleStart = useCallback(async () => {
     if (!activeTest) return;
     const res = await startTest.mutateAsync(activeTest.id);
     setActiveTest(res.data);
-    setTimeRemaining(activeTest.timeLimit * 60);
-    setIsTimerRunning(true);
     setView("working");
   }, [activeTest, startTest]);
 
@@ -101,17 +77,6 @@ export function useTechTestState() {
     setActiveTest(test);
     if (test.status === "in_progress") {
       setSubmission("");
-      // Calculate remaining time
-      if (test.startedAt) {
-        const elapsed = Math.floor(
-          (Date.now() - new Date(test.startedAt).getTime()) / 1000,
-        );
-        const remaining = Math.max(0, test.timeLimit * 60 - elapsed);
-        setTimeRemaining(remaining);
-        if (remaining > 0) {
-          setIsTimerRunning(true);
-        }
-      }
       setView("working");
     } else {
       setView("brief");
@@ -134,8 +99,6 @@ export function useTechTestState() {
   const handleBackToSetup = useCallback(() => {
     setActiveTest(null);
     setSubmission("");
-    setIsTimerRunning(false);
-    if (timerRef.current) clearInterval(timerRef.current);
     setView("setup");
   }, []);
 
@@ -153,14 +116,10 @@ export function useTechTestState() {
     difficulty,
     selectedTags,
     toggleTag,
-    timeLimit,
-    setTimeLimit,
     // Active test
     activeTest,
     submission,
     setSubmission,
-    timeRemaining,
-    isTimerRunning,
     // History
     tests,
     isLoadingTests: testsQuery.isLoading,

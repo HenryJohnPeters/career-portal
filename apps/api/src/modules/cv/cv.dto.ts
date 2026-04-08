@@ -63,7 +63,7 @@ export class UpdateCvVersionDto {
   @ValidateIf((o) => o.photoUrl && o.photoUrl.trim().length > 0)
   @IsUrl(
     { protocols: ["https"], require_protocol: true },
-    { message: "photoUrl must be a valid HTTPS URL" }
+    { message: "photoUrl must be a valid HTTPS URL" },
   )
   photoUrl?: string;
 

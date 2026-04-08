@@ -40,8 +40,10 @@ export class JobsService {
       coverLetterId?: string;
     },
   ) {
-    const { cvVersionId, coverLetterId } =
-      await this.resolveOwnedRelations(userId, data);
+    const { cvVersionId, coverLetterId } = await this.resolveOwnedRelations(
+      userId,
+      data,
+    );
 
     const created = await this.prisma.job.create({
       data: {
@@ -75,8 +77,10 @@ export class JobsService {
     },
   ) {
     await this.assertOwner(userId, jobId);
-    const { cvVersionId, coverLetterId } =
-      await this.resolveOwnedRelations(userId, data);
+    const { cvVersionId, coverLetterId } = await this.resolveOwnedRelations(
+      userId,
+      data,
+    );
 
     const updated = await this.prisma.job.update({
       where: { id: jobId },

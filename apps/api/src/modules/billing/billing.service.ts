@@ -9,9 +9,15 @@ import {
   isEntitledSubscriptionStatus,
   pickMostRelevantSubscription,
 } from "./billing-state.util";
+import {
+  getCheckoutSessionSubscriptionId,
+  isCheckoutSessionTerminal,
+  shouldReusePendingCheckoutSession,
+} from "./checkout-session.util";
 
 const WEBHOOK_EVENT_STALE_MS = 15 * 60 * 1000;
 const STATUS_SYNC_COOLDOWN_MS = 15 * 1000;
+const CHECKOUT_SESSION_LOCK_MS = 30 * 60 * 1000;
 
 @Injectable()
 export class BillingService {
@@ -130,8 +136,137 @@ export class BillingService {
     return subscription.items.data[0]?.price?.id ?? null;
   }
 
+  private getCheckoutSessionCustomerId(
+    session: Stripe.Checkout.Session,
+  ): string | null {
+    return typeof session.customer === "string"
+      ? session.customer
+      : (session.customer?.id ?? null);
+  }
+
   private isAllowedPremiumPrice(priceId: string | null): boolean {
     return !!priceId && priceId === this.config.get("STRIPE_PRICE_ID");
+  }
+
+  private async clearPendingCheckout(
+    userId: string,
+    expectedSessionId?: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { stripeCheckoutSessionId: true },
+    });
+
+    if (!user?.stripeCheckoutSessionId) return;
+
+    if (
+      expectedSessionId &&
+      user.stripeCheckoutSessionId !== expectedSessionId
+    ) {
+      return;
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        stripeCheckoutSessionId: null,
+        stripeCheckoutSessionExpiresAt: null,
+      },
+    });
+  }
+
+  private async getReusablePendingCheckout(user: {
+    id: string;
+    stripeCheckoutSessionId: string | null;
+    stripeCheckoutSessionExpiresAt: Date | null;
+    stripeCustomerId: string | null;
+  }): Promise<{ url: string } | null> {
+    if (!user.stripeCheckoutSessionId) return null;
+
+    const now = Date.now();
+    const expiresAtMs = user.stripeCheckoutSessionExpiresAt?.getTime() ?? null;
+    if (expiresAtMs !== null && expiresAtMs <= now) {
+      await this.clearPendingCheckout(user.id, user.stripeCheckoutSessionId);
+      return null;
+    }
+
+    try {
+      const session = await this.stripe.checkout.sessions.retrieve(
+        user.stripeCheckoutSessionId,
+      );
+
+      const claimedUserId =
+        session.metadata?.userId || session.client_reference_id || undefined;
+      if (claimedUserId && claimedUserId !== user.id) {
+        await this.clearPendingCheckout(user.id, user.stripeCheckoutSessionId);
+        this.logger.warn(
+          `Cleared mismatched pending checkout ${session.id} for user ${user.id}`,
+        );
+        return null;
+      }
+
+      const customerId = this.getCheckoutSessionCustomerId(session);
+      if (
+        user.stripeCustomerId &&
+        customerId &&
+        customerId !== user.stripeCustomerId
+      ) {
+        await this.clearPendingCheckout(user.id, user.stripeCheckoutSessionId);
+        this.logger.warn(
+          `Cleared pending checkout ${session.id} with mismatched customer for user ${user.id}`,
+        );
+        return null;
+      }
+
+      if (
+        shouldReusePendingCheckoutSession({
+          mode: session.mode,
+          status: session.status,
+          url: session.url,
+          expiresAtMs,
+          nowMs: now,
+        })
+      ) {
+        return { url: session.url as string };
+      }
+
+      if (isCheckoutSessionTerminal(session.status)) {
+        await this.clearPendingCheckout(user.id, user.stripeCheckoutSessionId);
+      }
+
+      return null;
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (
+        message.includes("No such checkout.session") ||
+        message.includes("resource_missing")
+      ) {
+        await this.clearPendingCheckout(user.id, user.stripeCheckoutSessionId);
+        return null;
+      }
+
+      throw err;
+    }
+  }
+
+  private async findUserByCheckoutSession(session: Stripe.Checkout.Session) {
+    const userId = session.metadata?.userId || session.client_reference_id;
+    if (userId) {
+      const user = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (user) return user;
+    }
+
+    const customerId = this.getCheckoutSessionCustomerId(session);
+    if (customerId) {
+      const user = await this.prisma.user.findUnique({
+        where: { stripeCustomerId: customerId },
+      });
+      if (user) return user;
+    }
+
+    return this.prisma.user.findUnique({
+      where: { stripeCheckoutSessionId: session.id },
+    });
   }
 
   /**
@@ -498,6 +633,11 @@ export class BillingService {
       throw new BadRequestException("You already have an active subscription.");
     }
 
+    const reusable = await this.getReusablePendingCheckout(user);
+    if (reusable) {
+      return reusable;
+    }
+
     const priceId = this.config.get("STRIPE_PRICE_ID");
     const clientUrl = this.config.get("CLIENT_URL");
 
@@ -526,6 +666,16 @@ export class BillingService {
     if (!session.url) {
       throw new BadRequestException("Failed to create checkout session.");
     }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        stripeCheckoutSessionId: session.id,
+        stripeCheckoutSessionExpiresAt: new Date(
+          Date.now() + CHECKOUT_SESSION_LOCK_MS,
+        ),
+      },
+    });
 
     return { url: session.url };
   }
@@ -570,6 +720,10 @@ export class BillingService {
       expand: ["subscription"],
     });
 
+    if (isCheckoutSessionTerminal(session.status)) {
+      await this.clearPendingCheckout(userId, session.id);
+    }
+
     if (session.mode !== "subscription") {
       throw new BadRequestException(
         "Checkout session is not a subscription session.",
@@ -585,10 +739,7 @@ export class BillingService {
       );
     }
 
-    const customerId =
-      typeof session.customer === "string"
-        ? session.customer
-        : session.customer?.id;
+    const customerId = this.getCheckoutSessionCustomerId(session);
     if (customerId) {
       const existingUser = await this.prisma.user.findUnique({
         where: { stripeCustomerId: customerId },
@@ -609,11 +760,10 @@ export class BillingService {
       return this.mapUserStatus(user);
     }
 
-    const rawSubscription = session.subscription;
-    const subscription =
-      typeof rawSubscription === "string"
-        ? await this.retrieveSubscriptionOrNull(rawSubscription)
-        : rawSubscription;
+    const rawSubscriptionId = getCheckoutSessionSubscriptionId(session);
+    const subscription = rawSubscriptionId
+      ? await this.retrieveSubscriptionOrNull(rawSubscriptionId)
+      : null;
 
     if (subscription) {
       await this.applySubscriptionState(
@@ -677,8 +827,12 @@ export class BillingService {
           break;
         case "payment_intent.succeeded":
         case "payment_intent.payment_failed":
-        case "checkout.session.expired":
           this.logger.log(`Observed non-state event: ${event.type}`);
+          break;
+        case "checkout.session.expired":
+          await this.onCheckoutExpired(
+            event.data.object as Stripe.Checkout.Session,
+          );
           break;
         default:
           this.logger.log(`Unhandled event type: ${event.type}`);
@@ -701,7 +855,7 @@ export class BillingService {
       return;
     }
 
-    const subscriptionId = session.subscription as string;
+    const subscriptionId = getCheckoutSessionSubscriptionId(session);
     if (!subscriptionId) {
       this.logger.warn("checkout.session.completed: no subscription ID");
       return;
@@ -725,10 +879,7 @@ export class BillingService {
     }
 
     // Cross-verify customer mapping: ensure session.customer matches the user's stored customer ID
-    const customerId =
-      typeof session.customer === "string"
-        ? session.customer
-        : session.customer?.id;
+    const customerId = this.getCheckoutSessionCustomerId(session);
     if (customerId) {
       const existingUser = await this.prisma.user.findUnique({
         where: { stripeCustomerId: customerId },
@@ -746,12 +897,28 @@ export class BillingService {
       subscription,
       "checkout_completed",
     );
+    await this.clearPendingCheckout(userId, session.id);
 
     if (isEntitledSubscriptionStatus(subscription.status)) {
       this.logger.log(
         `Checkout completed and synced for user ${userId}, subscription ${subscriptionId}`,
       );
     }
+  }
+
+  private async onCheckoutExpired(session: Stripe.Checkout.Session) {
+    const user = await this.findUserByCheckoutSession(session);
+    if (!user) {
+      this.logger.warn(
+        `checkout.session.expired: user not found for session ${session.id}`,
+      );
+      return;
+    }
+
+    await this.clearPendingCheckout(user.id, session.id);
+    await this.writeAuditLog(user.id, "checkout.expired", "session_expired", {
+      sessionId: session.id,
+    });
   }
 
   private async onInvoicePaid(invoice: Stripe.Invoice) {

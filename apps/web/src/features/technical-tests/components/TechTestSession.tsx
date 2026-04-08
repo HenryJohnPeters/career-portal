@@ -1,5 +1,4 @@
 import {
-  Clock,
   CheckCircle2,
   AlertTriangle,
   Target,
@@ -16,17 +15,6 @@ interface TechTestSessionProps {
   state: ReturnType<typeof useTechTestState>;
 }
 
-function formatTime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
-  if (h > 0)
-    return `${h}:${m.toString().padStart(2, "0")}:${s
-      .toString()
-      .padStart(2, "0")}`;
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
 export function TechTestSession({ state }: TechTestSessionProps) {
   const test = state.activeTest;
   const [showBrief, setShowBrief] = useState(false);
@@ -34,51 +22,15 @@ export function TechTestSession({ state }: TechTestSessionProps) {
   if (!test) return null;
 
   const scenario = test.scenario as TechTestScenario;
-  const totalSeconds = test.timeLimit * 60;
-  const progress =
-    totalSeconds > 0
-      ? ((totalSeconds - state.timeRemaining) / totalSeconds) * 100
-      : 0;
-  const isLow = state.timeRemaining <= 300;
-  const isCritical = state.timeRemaining <= 60;
   const wordCount = state.submission.split(/\s+/).filter(Boolean).length;
-
-  const timerColor = isCritical
-    ? "text-red-600 dark:text-red-400"
-    : isLow
-      ? "text-amber-600 dark:text-amber-400"
-      : "text-gray-700 dark:text-gray-300";
-
-  const progressColor = isCritical
-    ? "bg-red-500"
-    : isLow
-      ? "bg-amber-500"
-      : "bg-violet-600";
 
   return (
     <div className="w-full space-y-4">
-      {/* ── Sticky timer bar ── */}
+      {/* ── Sticky session header ── */}
       <div className="sticky top-0 z-20 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-sm overflow-hidden">
-        <div className="h-1 bg-gray-100 dark:bg-gray-800">
-          <div
-            className={`h-full ${progressColor} transition-all duration-1000 ease-linear`}
-            style={{ width: `${Math.min(progress, 100)}%` }}
-          />
-        </div>
         <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div
-              className={`flex items-center gap-1.5 ${timerColor} ${
-                isCritical ? "animate-pulse" : ""
-              }`}
-            >
-              <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 shrink-0" />
-              <span className="text-base sm:text-lg font-mono font-bold tabular-nums">
-                {formatTime(state.timeRemaining)}
-              </span>
-            </div>
-            <div className="hidden sm:block h-4 w-px bg-gray-200 dark:bg-gray-700" />
-            <p className="hidden md:block text-xs text-gray-400 dark:text-gray-500 truncate max-w-xs">
+            <p className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-xs">
               {scenario.title}
             </p>
           </div>

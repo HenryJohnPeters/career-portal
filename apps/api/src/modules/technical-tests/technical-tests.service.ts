@@ -129,7 +129,6 @@ export class TechnicalTestsService {
       difficulty: dto.difficulty,
       roleFocus: dto.roleFocus,
       tags,
-      timeLimit: dto.timeLimit ?? 60,
       scenario: this.toInputJson(scenario),
       status: "not_started",
     };
