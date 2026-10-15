@@ -24,6 +24,8 @@ import { ProgressRing, StatCard } from "../../shared";
 import { getInterviewerById } from "../interviewer-configs";
 import { SCORE_TONE_TEXT, clampPercent, formatShortDate, getTrackMeta, scoreTone } from "../meta";
 import { ActionError, BulletList, LevelBadge, ScoreBar, TrackBadge } from "./common";
+import { richTextSummary } from "../rich-text";
+import { InlineRichText } from "./RichText";
 
 interface InterviewReportViewProps {
   sessionId: string;
@@ -188,7 +190,8 @@ function InterviewReport({
                     <ScoreBar
                       label={
                         <>
-                          <span className="font-semibold text-text-primary">Q{i + 1}.</span> {q.prompt}
+                          <span className="font-semibold text-text-primary">Q{i + 1}.</span>{" "}
+                          <InlineRichText text={richTextSummary(q.prompt)} />
                         </>
                       }
                       percentage={q.maxScore > 0 ? (q.score / q.maxScore) * 100 : 0}

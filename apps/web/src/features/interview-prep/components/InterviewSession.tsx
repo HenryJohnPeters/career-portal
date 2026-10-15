@@ -12,6 +12,8 @@ import { ActionError, LevelBadge, TrackBadge, requestQuotaUpgrade } from "./comm
 import { AnswerChoices } from "./AnswerChoices";
 import { AnswerFeedbackPanel } from "./AnswerFeedbackPanel";
 import { InterviewerAvatar, type InterviewerAvatarHandle } from "./InterviewerAvatar";
+import { toSpeakableText } from "../rich-text";
+import { RichText } from "./RichText";
 
 interface InterviewSessionProps {
   sessionId: string;
@@ -110,7 +112,7 @@ function SessionRunner({
   onLeave: () => void;
 }) {
   const avatarRef = useRef<InterviewerAvatarHandle>(null);
-  const questionHeadingRef = useRef<HTMLHeadingElement>(null);
+  const questionHeadingRef = useRef<HTMLDivElement>(null);
   const feedbackHeadingRef = useRef<HTMLHeadingElement>(null);
   const spokenIdRef = useRef<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -128,7 +130,7 @@ function SessionRunner({
     if (!questionId || !question || voiceMuted || !withPersona) return;
     if (spokenIdRef.current === questionId) return;
     spokenIdRef.current = questionId;
-    avatarRef.current?.speak(question.question.prompt);
+    avatarRef.current?.speak(toSpeakableText(question.question.prompt));
   }, [questionId, question, voiceMuted, withPersona]);
 
   // Move focus to the new question / the feedback so keyboard and screen-reader users follow along.
@@ -143,7 +145,7 @@ function SessionRunner({
   }, [answered]);
 
   const replay = () => {
-    if (question) avatarRef.current?.speak(question.question.prompt);
+    if (question) avatarRef.current?.speak(toSpeakableText(question.question.prompt));
   };
 
   const canEndEarly = answeredCount > 0 && !run.isCompleted;
@@ -258,14 +260,17 @@ function SessionRunner({
                       </span>
                     ))}
                   </div>
-                  <h2
+                  {/* A div, not <h2>: prompts can contain code blocks (<pre>). */}
+                  <div
                     id="question-heading"
                     ref={questionHeadingRef}
                     tabIndex={-1}
+                    role="heading"
+                    aria-level={2}
                     className="text-lg font-semibold text-text-primary leading-relaxed focus:outline-none"
                   >
-                    {question.question.prompt}
-                  </h2>
+                    <RichText text={question.question.prompt} />
+                  </div>
                   {withPersona && (
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Button size="sm" variant="ghost" onClick={onToggleVoiceMute} aria-pressed={voiceMuted}>

@@ -14,6 +14,7 @@ import { correctIndicesOf, formatOptionLetters, selectedIndicesOf } from "../ans
 import type { AnsweredQuestion } from "../hooks/useInterviewRun";
 import { ReviewedChoices } from "./AnswerChoices";
 import { BulletList, ScoreBar } from "./common";
+import { RichText } from "./RichText";
 
 interface AnswerFeedbackPanelProps {
   answered: AnsweredQuestion;
@@ -70,7 +71,7 @@ export const AnswerFeedbackPanel = forwardRef<HTMLHeadingElement, AnswerFeedback
         </div>
 
         <div className="rounded-2xl border border-border bg-bg-elevated p-5 space-y-3">
-          <p className="text-sm font-medium text-text-primary leading-relaxed">{answered.prompt}</p>
+          <RichText text={answered.prompt} className="text-sm font-medium text-text-primary leading-relaxed" />
           <ReviewedChoices options={answered.options} correct={correct} selected={selected} />
         </div>
 

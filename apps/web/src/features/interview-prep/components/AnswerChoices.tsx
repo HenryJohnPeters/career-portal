@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { Check, X } from "lucide-react";
 import { optionLetter } from "../answer";
+import { InlineRichText } from "./RichText";
 
 interface AnswerChoicesProps {
   options: readonly string[];
@@ -61,7 +62,7 @@ export function AnswerChoices({
               {optionLetter(index)}
             </span>
             <span className={`text-sm text-text-primary leading-relaxed pt-0.5 ${isEliminated ? "line-through decoration-2" : ""}`}>
-              {text}
+              <InlineRichText text={text} />
               {isEliminated && <span className="sr-only"> (eliminated by the 50/50 hint)</span>}
             </span>
           </label>
@@ -105,7 +106,7 @@ export function ReviewedChoices({
               {optionLetter(index)}
             </span>
             <span className="flex-1 text-sm text-text-primary leading-relaxed">
-              {text}
+              <InlineRichText text={text} />
               {note && <span className="sr-only"> ({note})</span>}
             </span>
             {isCorrect && <Check className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" aria-hidden="true" />}
