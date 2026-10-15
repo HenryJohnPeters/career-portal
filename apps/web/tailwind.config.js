@@ -8,6 +8,13 @@ export default {
   darkMode: "class",
   theme: {
     extend: {
+      // Half-steps used across the app (h-4.5 = 18px icons, bg-accent/8 tints).
+      spacing: {
+        4.5: "1.125rem",
+      },
+      opacity: {
+        8: "0.08",
+      },
       fontFamily: {
         sans: [
           "Inter",
@@ -110,6 +117,8 @@ export default {
         "slide-down": "slideDown 0.3s ease-out",
         "scale-in": "scaleIn 0.2s ease-out",
         "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        // Interviewer "speaking" rings; stagger with an inline animation-delay.
+        ripple: "ripple 2s ease-out infinite",
       },
       keyframes: {
         fadeIn: {
@@ -131,6 +140,10 @@ export default {
         scaleIn: {
           "0%": { transform: "scale(0.95)", opacity: "0" },
           "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        ripple: {
+          "0%": { transform: "scale(0.9)", opacity: "0.5" },
+          "100%": { transform: "scale(1.3)", opacity: "0" },
         },
       },
     },

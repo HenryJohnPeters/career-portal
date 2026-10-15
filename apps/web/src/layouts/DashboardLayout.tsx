@@ -1,244 +1,29 @@
-import { useState, useEffect } from "react";
-import { Outlet, NavLink, useLocation } from "react-router-dom";
-import { useAuth } from "../lib/auth";
+import { Suspense, useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { ChevronLeft, Code2, Crown, Menu, Moon, Sun, X } from "lucide-react";
 import { isActivePremium } from "@careerportal/shared/types";
+import { useDashboardSummary } from "@careerportal/web/data-access";
+import { IconButton, useBodyScrollLock, useFocusTrap } from "@careerportal/web/ui";
+import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
-import {
-  LayoutDashboard,
-  FileText,
-  Mail,
-  Briefcase,
-  Menu,
-  Sun,
-  Moon,
-  LogOut,
-  ChevronLeft,
-  ChevronDown,
-  ClipboardList,
-  CreditCard,
-  Crown,
-  Sparkles,
-  Brain,
-  Code2,
-  X,
-} from "lucide-react";
+import { countOverdueFollowUps } from "../lib/follow-ups";
+import { NOT_FOUND_TITLE, getAppPageTitle } from "../lib/page-titles";
+import { PageLoader } from "../components/PageLoader";
+import { RouteErrorBoundary } from "../components/RouteErrorBoundary";
+import { JOB_TRACKER_PATH, SidebarNav, type NavBadges } from "./SidebarNav";
+import { SidebarUpgradeBox } from "./SidebarUpgradeBox";
+import { UserMenu } from "./UserMenu";
 
-type NavItem = {
-  to: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-  beta?: boolean;
-};
-type NavGroup = {
-  label: string;
-  icon: typeof LayoutDashboard;
-  children: NavItem[];
-};
-type NavEntry =
-  | { type: "item"; item: NavItem }
-  | { type: "group"; group: NavGroup }
-  | { type: "separator" };
+const SUPPORT_EMAIL = "support@career-repo.com";
+const DESKTOP_QUERY = "(min-width: 1024px)";
 
-const NAV_ENTRIES: NavEntry[] = [
-  {
-    type: "item",
-    item: { to: "/app/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  },
-  { type: "separator" },
-  {
-    type: "group",
-    group: {
-      label: "Applications",
-      icon: Briefcase,
-      children: [
-        { to: "/app/cv", label: "CV Builder", icon: FileText },
-        { to: "/app/cover-letters", label: "Cover Letters", icon: Mail },
-        { to: "/app/jobs", label: "Job Tracker", icon: ClipboardList },
-      ],
-    },
-  },
-  { type: "separator" },
-  {
-    type: "group",
-    group: {
-      label: "Interview Prep",
-      icon: Brain,
-      children: [
-        {
-          to: "/app/practice",
-          label: "Practice Questions",
-          icon: Brain,
-          beta: true,
-        },
-        {
-          to: "/app/technical-tests",
-          label: "Mock Tests",
-          icon: Code2,
-          beta: true,
-        },
-      ],
-    },
-  },
-  { type: "separator" },
-  {
-    type: "item",
-    item: { to: "/app/billing", label: "Billing", icon: CreditCard },
-  },
-];
-
-const PAGE_TITLES: Record<string, string> = {
-  "/app/dashboard": "Dashboard",
-  "/app/cv": "CV Builder",
-  "/app/cover-letters": "Cover Letters",
-  "/app/jobs": "Job Tracker",
-  "/app/billing": "Billing & Plans",
-  "/app/practice": "Practice",
-  "/app/technical-tests": "Technical Tests",
-};
-
-function NavItemLink({
-  item,
-  collapsed,
-  onNavigate,
-}: {
-  item: NavItem;
-  collapsed: boolean;
-  onNavigate?: () => void;
-}) {
-  const Icon = item.icon;
+function Brand() {
   return (
-    <NavLink
-      to={item.to}
-      onClick={onNavigate}
-      className={({ isActive }) =>
-        `group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
-          isActive
-            ? "bg-primary-600 text-white shadow-sm"
-            : "text-text-secondary hover:bg-neutral-100 dark:hover:bg-white/5 hover:text-text-primary"
-        }`
-      }
-    >
-      {({ isActive }) => (
-        <>
-          <Icon
-            className={`h-4 w-4 shrink-0 transition-transform duration-150 ${
-              isActive
-                ? "text-white"
-                : "text-text-tertiary group-hover:text-text-primary"
-            }`}
-          />
-          {!collapsed && (
-            <span className="truncate flex items-center gap-2 flex-1">
-              {item.label}
-              {item.beta && (
-                <span className="ml-auto text-[9px] font-bold uppercase tracking-widest bg-primary-100 text-primary-600 dark:bg-primary-900/40 dark:text-primary-400 px-1.5 py-0.5 rounded-md">
-                  Beta
-                </span>
-              )}
-            </span>
-          )}
-        </>
-      )}
-    </NavLink>
-  );
-}
-
-function NavGroupSection({
-  group,
-  collapsed,
-  expanded,
-  onToggle,
-  pathname,
-  onNavigate,
-}: {
-  group: NavGroup;
-  collapsed: boolean;
-  expanded: boolean;
-  onToggle: () => void;
-  pathname: string;
-  onNavigate?: () => void;
-}) {
-  const Icon = group.icon;
-  const isGroupActive = group.children.some((child) =>
-    pathname.startsWith(child.to),
-  );
-
-  if (collapsed) {
-    return (
-      <div className="space-y-1">
-        {group.children.map((child) => (
-          <NavItemLink
-            key={child.to}
-            item={child}
-            collapsed={collapsed}
-            onNavigate={onNavigate}
-          />
-        ))}
+    <div className="flex items-center gap-2.5">
+      <div aria-hidden="true" className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 shadow-sm">
+        <Code2 className="h-3.5 w-3.5 text-white" />
       </div>
-    );
-  }
-
-  return (
-    <div>
-      <button
-        onClick={onToggle}
-        className={`flex w-full items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
-          isGroupActive
-            ? "text-text-primary"
-            : "text-text-tertiary hover:bg-neutral-100 dark:hover:bg-white/5 hover:text-text-secondary"
-        }`}
-      >
-        <Icon className="h-4 w-4 shrink-0" />
-        <span className="truncate flex-1 text-left text-xs font-semibold uppercase tracking-widest">
-          {group.label}
-        </span>
-        <ChevronDown
-          className={`h-3.5 w-3.5 transition-transform duration-200 ${
-            expanded ? "" : "-rotate-90"
-          }`}
-        />
-      </button>
-      {expanded && (
-        <div className="mt-1 space-y-0.5 pl-3">
-          {group.children.map((child) => {
-            const ChildIcon = child.icon;
-            return (
-              <NavLink
-                key={child.to}
-                to={child.to}
-                onClick={onNavigate}
-                className={({ isActive }) =>
-                  `group flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-150 ${
-                    isActive
-                      ? "bg-primary-600 text-white shadow-sm"
-                      : "text-text-secondary hover:bg-neutral-100 dark:hover:bg-white/5 hover:text-text-primary"
-                  }`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <ChildIcon
-                      className={`h-3.5 w-3.5 shrink-0 ${
-                        isActive
-                          ? "text-white"
-                          : "text-text-tertiary group-hover:text-text-primary"
-                      }`}
-                    />
-                    <span className="truncate flex items-center gap-2 flex-1 text-[13px]">
-                      {child.label}
-                      {child.beta && (
-                        <span className="ml-auto text-[9px] font-bold uppercase tracking-widest bg-primary-100 text-primary-600 dark:bg-primary-900/40 dark:text-primary-400 px-1.5 py-0.5 rounded-md">
-                          Beta
-                        </span>
-                      )}
-                    </span>
-                  </>
-                )}
-              </NavLink>
-            );
-          })}
-        </div>
-      )}
+      <span className="text-sm font-bold tracking-tight text-text-primary">careerRepo</span>
     </div>
   );
 }
@@ -246,224 +31,204 @@ function NavGroupSection({
 export function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(
-    {
-      Applications: true,
-      "Interview Prep": true,
-    },
-  );
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    Applications: true,
+    "Interview Prep": true,
+  });
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const location = useLocation();
-  const pageTitle = PAGE_TITLES[location.pathname] || "careerRepo";
+  const premium = isActivePremium(user);
+  const pageTitle = getAppPageTitle(location.pathname) ?? NOT_FOUND_TITLE;
+
+  const mobileNavRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+
+  const summary = useDashboardSummary();
+  const overdueFollowUps = countOverdueFollowUps(summary.data?.data?.actionCentre?.followUps);
+  const badges: NavBadges = {
+    [JOB_TRACKER_PATH]: {
+      count: overdueFollowUps,
+      label: overdueFollowUps === 1 ? "overdue follow-up" : "overdue follow-ups",
+    },
+  };
+
+  const closeMobileNav = useCallback(() => setMobileOpen(false), []);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [location.pathname]);
+
+  // The drawer is a modal on small screens: trap focus, Escape closes, lock scroll.
+  useFocusTrap(mobileNavRef, mobileOpen, { onEscape: closeMobileNav });
+  useBodyScrollLock(mobileOpen);
+
   useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
+    if (!mobileOpen) return;
+    const media = window.matchMedia(DESKTOP_QUERY);
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileOpen(false);
     };
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
   }, [mobileOpen]);
 
   const toggleGroup = (label: string) =>
-    setExpandedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
-  const closeMobileSidebar = () => setMobileOpen(false);
+    setExpandedGroups((prev) => ({ ...prev, [label]: !(prev[label] ?? true) }));
 
-  const sidebarContent = (isMobile = false) => (
+  const skipToContent = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    mainRef.current?.focus();
+    mainRef.current?.scrollIntoView({ block: "start" });
+  };
+
+  const sidebar = (isMobile: boolean) => (
     <>
-      {/* Logo */}
-      {!collapsed && !isMobile && (
-        <div className="flex items-center gap-3 px-4 h-14 shrink-0 border-b border-border">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 shadow-sm">
-            <Code2 className="h-3.5 w-3.5 text-white" />
-          </div>
-          <span className="text-sm font-bold tracking-tight text-text-primary">
-            careerRepo
-          </span>
-        </div>
-      )}
-
-      <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-        {NAV_ENTRIES.map((entry, idx) => {
-          if (entry.type === "separator") {
-            return (
-              <div
-                key={`sep-${idx}`}
-                className="!my-3 mx-1 border-t border-border"
-              />
-            );
-          }
-          if (entry.type === "item") {
-            return (
-              <NavItemLink
-                key={entry.item.to}
-                item={entry.item}
-                collapsed={collapsed}
-                onNavigate={closeMobileSidebar}
-              />
-            );
-          }
-          if (entry.type === "group") {
-            return (
-              <NavGroupSection
-                key={entry.group.label}
-                group={entry.group}
-                collapsed={collapsed}
-                expanded={expandedGroups[entry.group.label] ?? true}
-                onToggle={() => toggleGroup(entry.group.label)}
-                pathname={location.pathname}
-                onNavigate={closeMobileSidebar}
-              />
-            );
-          }
-          return null;
-        })}
-      </nav>
-
-      {/* Upgrade CTA */}
-      {!isActivePremium(user) && !collapsed && (
-        <div className="px-3 pb-4 shrink-0">
-          <NavLink
-            to="/app/billing"
-            onClick={closeMobileSidebar}
-            className="group flex items-center gap-3 rounded-xl bg-gradient-to-r from-accent-500/10 to-accent-400/5 border border-accent-400/20 p-3.5 hover:border-accent-400/40 hover:from-accent-500/15 transition-all duration-200"
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent-400 shadow-sm">
-              <Crown className="h-4 w-4 text-white" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-accent-700 dark:text-accent-400">
-                Upgrade to Premium
-              </p>
-              <p className="text-[11px] text-accent-600/70 dark:text-accent-500/70 truncate">
-                Unlock all AI features · £9.99/mo
-              </p>
-            </div>
-            <Sparkles className="h-3.5 w-3.5 text-accent-500 shrink-0 ml-auto" />
-          </NavLink>
-        </div>
+      <SidebarNav
+        collapsed={!isMobile && collapsed}
+        pathname={location.pathname}
+        expandedGroups={expandedGroups}
+        onToggleGroup={toggleGroup}
+        badges={badges}
+        onNavigate={isMobile ? closeMobileNav : undefined}
+      />
+      {!premium && (isMobile || !collapsed) && (
+        <SidebarUpgradeBox onNavigate={isMobile ? closeMobileNav : undefined} />
       )}
     </>
   );
 
   return (
     <div className="min-h-screen flex flex-col bg-bg-primary">
-      {/* Header */}
+      <a
+        href="#main-content"
+        onClick={skipToContent}
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[70] focus:rounded-lg focus:bg-primary-600 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg"
+      >
+        Skip to main content
+      </a>
+
       <header className="h-14 glass glass-border flex items-center justify-between px-4 shrink-0 z-30 sticky top-0">
-        <div className="flex items-center gap-3">
-          <button
+        <div className="flex items-center gap-2 min-w-0">
+          <IconButton
+            label="Open navigation"
             onClick={() => setMobileOpen(true)}
-            className="lg:hidden p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-white/5 text-text-tertiary hover:text-text-primary transition-all"
-            aria-label="Open menu"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation"
+            className="lg:hidden"
           >
-            <Menu className="h-4.5 w-4.5" />
-          </button>
-          <button
-            onClick={() => setCollapsed(!collapsed)}
-            className="hidden lg:flex p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-white/5 text-text-tertiary hover:text-text-primary transition-all"
-            aria-label="Toggle sidebar"
+            <Menu className="h-[18px] w-[18px]" aria-hidden="true" />
+          </IconButton>
+          <IconButton
+            label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => setCollapsed((value) => !value)}
+            aria-expanded={!collapsed}
+            className="hidden lg:inline-flex"
           >
             {collapsed ? (
-              <Menu className="h-4 w-4" />
+              <Menu className="h-4 w-4" aria-hidden="true" />
             ) : (
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             )}
-          </button>
-          <div className="h-4 w-px bg-border hidden sm:block" />
-          <h1 className="text-sm font-semibold text-text-primary tracking-tight truncate">
-            {pageTitle}
-          </h1>
+          </IconButton>
+          <div className="h-4 w-px bg-border hidden sm:block" aria-hidden="true" />
+          <h1 className="text-sm font-semibold text-text-primary tracking-tight truncate">{pageTitle}</h1>
         </div>
 
         <div className="flex items-center gap-1">
-          {isActivePremium(user) && (
-            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-accent-50 dark:bg-accent-900/20 border border-accent-200/70 dark:border-accent-700/40 px-2.5 py-1 text-[11px] font-semibold text-accent-700 dark:text-accent-400 mr-1">
-              <Crown className="h-3 w-3" />
-              Premium
+          {premium && (
+            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-lg bg-accent-50 dark:bg-accent-900/20 border border-accent-200/70 dark:border-accent-700/40 px-2.5 py-1 text-[11px] font-semibold text-accent-800 dark:text-accent-300 mr-1">
+              <Crown className="h-3 w-3" aria-hidden="true" />
+              {user?.isTrialing ? "Premium trial" : "Premium"}
             </span>
           )}
-          <button
+          <IconButton
+            label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
             onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            className="p-2 rounded-lg hover:bg-neutral-100 dark:hover:bg-white/5 text-text-tertiary hover:text-text-primary transition-all"
-            aria-label="Toggle theme"
           >
             {theme === "light" ? (
-              <Moon className="h-4 w-4" />
+              <Moon className="h-4 w-4" aria-hidden="true" />
             ) : (
-              <Sun className="h-4 w-4" />
+              <Sun className="h-4 w-4" aria-hidden="true" />
             )}
-          </button>
-          <div className="h-4 w-px bg-border mx-1 hidden sm:block" />
-          <div className="flex items-center gap-2 px-1">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 text-white text-xs font-bold shadow-sm select-none">
-              {user?.name?.charAt(0).toUpperCase() ?? "U"}
-            </div>
-            <span className="text-sm font-medium text-text-primary hidden sm:inline">
-              {user?.name}
-            </span>
-          </div>
-          <button
-            onClick={logout}
-            className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-text-tertiary hover:text-red-500 transition-all ml-1"
-            aria-label="Logout"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          </IconButton>
+          <div className="h-4 w-px bg-border mx-1 hidden sm:block" aria-hidden="true" />
+          <UserMenu user={user} premium={premium} onLogout={() => void logout()} />
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Mobile overlay */}
         {mobileOpen && (
           <div
+            aria-hidden="true"
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
-            onClick={closeMobileSidebar}
+            onClick={closeMobileNav}
           />
         )}
 
-        {/* Mobile sidebar */}
-        <aside
-          className={`fixed inset-y-0 left-0 z-50 w-64 bg-bg-secondary border-r border-border transition-transform duration-300 ease-in-out flex flex-col lg:hidden ${
-            mobileOpen ? "translate-x-0" : "-translate-x-full"
+        {/* Mobile drawer: invisible (neither focusable nor announced) when closed. It
+            becomes visible at once on open, so focus can move in, and is hidden only
+            after the slide-out transition. */}
+        <div
+          ref={mobileNavRef}
+          id="mobile-navigation"
+          role="dialog"
+          aria-modal={mobileOpen || undefined}
+          aria-label="Navigation"
+          tabIndex={-1}
+          className={`fixed inset-y-0 left-0 z-50 w-64 bg-bg-secondary border-r border-border flex flex-col lg:hidden duration-300 ease-in-out motion-reduce:transition-none focus:outline-none ${
+            mobileOpen
+              ? "translate-x-0 visible transition-transform"
+              : "-translate-x-full invisible transition-[transform,visibility]"
           }`}
         >
           <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 shadow-sm">
-                <Code2 className="h-3.5 w-3.5 text-white" />
-              </div>
-              <span className="text-sm font-bold text-text-primary">
-                careerRepo
-              </span>
-            </div>
-            <button
-              onClick={closeMobileSidebar}
-              className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-white/5 text-text-tertiary transition-all"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <Brand />
+            <IconButton label="Close navigation" size="sm" onClick={closeMobileNav}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </IconButton>
           </div>
-          {sidebarContent(true)}
-        </aside>
+          {sidebar(true)}
+        </div>
 
-        {/* Desktop sidebar */}
         <aside
+          aria-label="Sidebar"
           className={`${
             collapsed ? "w-16" : "w-60"
-          } bg-bg-secondary border-r border-border transition-all duration-300 ease-in-out shrink-0 flex-col hidden lg:flex`}
+          } bg-bg-secondary border-r border-border transition-all duration-300 ease-in-out motion-reduce:transition-none shrink-0 flex-col hidden lg:flex`}
         >
-          {sidebarContent()}
+          {!collapsed && (
+            <div className="flex items-center px-4 h-14 shrink-0 border-b border-border">
+              <Brand />
+            </div>
+          )}
+          {sidebar(false)}
         </aside>
 
-        {/* Main content */}
-        <main className="flex-1 overflow-auto flex flex-col min-w-0">
+        <main
+          ref={mainRef}
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 overflow-auto flex flex-col min-w-0 focus:outline-none"
+        >
           <div className="flex-1 p-4 sm:p-6 flex flex-col">
-            <Outlet />
+            <RouteErrorBoundary resetKey={location.pathname}>
+              <Suspense fallback={<PageLoader />}>
+                <Outlet />
+              </Suspense>
+            </RouteErrorBoundary>
           </div>
-          <footer className="border-t border-border py-3 px-6 text-center text-xs text-text-tertiary">
-            careerRepo &copy; {new Date().getFullYear()}
+          <footer className="border-t border-border py-3 px-6 text-xs text-text-tertiary flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+            <span>careerRepo &copy; {new Date().getFullYear()}</span>
+            <Link to="/privacy" className="hover:text-text-primary hover:underline">
+              Privacy
+            </Link>
+            <Link to="/terms" className="hover:text-text-primary hover:underline">
+              Terms
+            </Link>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="hover:text-text-primary hover:underline">
+              {SUPPORT_EMAIL}
+            </a>
           </footer>
         </main>
       </div>

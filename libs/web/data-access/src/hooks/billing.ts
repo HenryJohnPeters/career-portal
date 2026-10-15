@@ -8,11 +8,12 @@ import { api } from "../api-client";
 import { invalidateUsage, queryKeys } from "../query-keys";
 
 /** GET /billing/status */
-export function useSubscriptionStatus() {
+export function useSubscriptionStatus(enabled = true) {
   return useQuery({
     queryKey: queryKeys.subscriptionStatus,
     queryFn: ({ signal }) =>
       api.get<ApiResponse<SubscriptionStatus>>("/billing/status", { signal }),
+    enabled,
   });
 }
 
@@ -24,8 +25,9 @@ export function useCreateCheckoutSession() {
 }
 
 /**
- * POST /billing/checkout/verify. AuthProvider holds the user outside React
- * Query, so callers should also call `refreshUser()` on success.
+ * POST /billing/checkout/verify. On success the subscription, the signed-in
+ * user (`me`, observed by AuthProvider) and usage meters refresh in the
+ * background; no extra refreshUser() call is needed.
  */
 export function useVerifyCheckoutSession() {
   const qc = useQueryClient();

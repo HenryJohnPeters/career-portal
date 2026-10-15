@@ -1,15 +1,53 @@
+/* Inter, self-hosted (SIL OFL 1.1, see /fonts/Inter-OFL.txt): no third-party
+   requests, and the browser downloads a file only when its glyphs are used. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("/fonts/inter-latin-v20.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("/fonts/inter-latin-ext-v20.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/inter-italic-latin-v20.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/inter-italic-latin-ext-v20.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+    U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020,
+    U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* ══════════════════════════════════════════════════════
-       🎨 PRIMARY BRAND COLOR — Modern Indigo-Blue
-       Inspired by linear.app / railway / vercel dev-tool palette
-       Base: blue-500 (#3B82F6) lightened to sky-blue territory
-       with cyan-400 (#22D3EE) as the pop accent
-       ══════════════════════════════════════════════════════ */
+    /* Primary brand colour: blue (CTA default is 600). */
     --color-primary-50: 239 246 255; /* blue-50  */
     --color-primary-100: 219 234 254; /* blue-100 */
     --color-primary-200: 191 219 254; /* blue-200 */
@@ -22,11 +60,7 @@
     --color-primary-900: 30 58 138; /* blue-900 */
     --color-primary-950: 23 37 84; /* blue-950 */
 
-    /* ══════════════════════════════════════════════════════
-       🌊 ACCENT COLOR — Cyan (electric pop for hover/focus/highlights)
-       cyan-400 (#22D3EE) — pairs perfectly with blue for a
-       modern dev-tool two-tone scheme
-       ══════════════════════════════════════════════════════ */
+    /* Accent: cyan, for highlights and the Premium upsell. */
     --color-accent-50: 236 254 255;
     --color-accent-100: 207 250 254;
     --color-accent-200: 165 243 252;
@@ -38,9 +72,7 @@
     --color-accent-800: 21 94 117;
     --color-accent-900: 22 78 99;
 
-    /* ══════════════════════════════════════════════════════
-       ⚪ NEUTRAL COLORS — Slate (cooler, more modern)
-       ══════════════════════════════════════════════════════ */
+    /* Neutrals: slate. */
     --color-neutral-50: 248 250 252;
     --color-neutral-100: 241 245 249;
     --color-neutral-200: 226 232 240;
@@ -53,17 +85,13 @@
     --color-neutral-900: 15 23 42;
     --color-neutral-950: 2 6 23;
 
-    /* ══════════════════════════════════════════════════════
-       ✅ SEMANTIC COLORS
-       ══════════════════════════════════════════════════════ */
+    /* Semantic colours. */
     --color-success: 34 197 94;
     --color-warning: 245 158 11;
     --color-error: 239 68 68;
     --color-info: 34 211 238;
 
-    /* ══════════════════════════════════════════════════════
-       🎭 LIGHT MODE SEMANTIC TOKENS
-       ══════════════════════════════════════════════════════ */
+    /* Light theme tokens. Text tokens meet WCAG AA (4.5:1) on every bg token. */
     --bg-primary: 245 248 255; /* very faint blue tint */
     --bg-secondary: 255 255 255;
     --bg-tertiary: 241 245 249;
@@ -71,7 +99,7 @@
 
     --text-primary: 15 23 42;
     --text-secondary: 71 85 105;
-    --text-tertiary: 148 163 184;
+    --text-tertiary: 95 110 132; /* ≥4.7:1 on light backgrounds */
     --text-inverse: 255 255 255;
 
     --border-primary: 214 228 255; /* subtle blue-tinted border */
@@ -95,9 +123,7 @@
   }
 
   .dark {
-    /* ══════════════════════════════════════════════════════
-       🌙 DARK MODE SEMANTIC TOKENS — deep navy base
-       ══════════════════════════════════════════════════════ */
+    /* Dark theme tokens (deep navy). Text tokens meet WCAG AA on every bg token. */
     --bg-primary: 7 12 24; /* deep navy */
     --bg-secondary: 10 18 36;
     --bg-tertiary: 15 26 50;
@@ -105,7 +131,7 @@
 
     --text-primary: 241 245 249;
     --text-secondary: 148 163 184;
-    --text-tertiary: 71 85 105;
+    --text-tertiary: 120 136 160; /* ≥4.8:1 on dark backgrounds */
     --text-inverse: 15 23 42;
 
     --border-primary: 25 45 90; /* blue-tinted dark border */
@@ -123,9 +149,7 @@
     --color-accent-muted: var(--color-primary-900);
   }
 
-  /* ══════════════════════════════════════════════════════
-     🎯 BASE STYLES
-     ══════════════════════════════════════════════════════ */
+  /* Base styles */
   *,
   *::before,
   *::after {
@@ -161,6 +185,23 @@
   @media (prefers-reduced-motion: no-preference) {
     html {
       scroll-behavior: smooth;
+    }
+  }
+
+  /* Keyboard focus is always visible; components with their own ring override this. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--border-focus));
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
     }
   }
 }

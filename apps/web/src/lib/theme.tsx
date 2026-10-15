@@ -1,33 +1,74 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
+import { readStorage, writeStorage } from "./storage";
 
-type Theme = "light" | "dark";
+export type Theme = "light" | "dark";
 
 interface ThemeContextType {
   theme: Theme;
-  setTheme: (t: Theme) => void;
+  setTheme: (theme: Theme) => void;
+}
+
+/** Same key and logic as public/theme-init.js, which applies the theme before first paint. */
+const STORAGE_KEY = "theme";
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+export function parseTheme(value: unknown): Theme | null {
+  return value === "light" || value === "dark" ? value : null;
+}
+
+function systemTheme(): Theme {
+  try {
+    return window.matchMedia(DARK_QUERY).matches ? "dark" : "light";
+  } catch {
+    return "light";
+  }
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored) return stored;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  });
+  // An explicit choice wins; otherwise follow the OS setting, including live changes.
+  const [chosen, setChosen] = useState<Theme | null>(() =>
+    parseTheme(readStorage(STORAGE_KEY)),
+  );
+  const [system, setSystem] = useState<Theme>(systemTheme);
+  const theme = chosen ?? system;
 
   useEffect(() => {
-    localStorage.setItem("theme", theme);
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    let media: MediaQueryList;
+    try {
+      media = window.matchMedia(DARK_QUERY);
+    } catch {
+      return;
+    }
+    const onChange = (event: MediaQueryListEvent) =>
+      setSystem(event.matches ? "dark" : "light");
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("dark", theme === "dark");
+    root.style.colorScheme = theme;
   }, [theme]);
 
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  const setTheme = useCallback((next: Theme) => {
+    setChosen(next);
+    writeStorage(STORAGE_KEY, next);
+  }, []);
+
+  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

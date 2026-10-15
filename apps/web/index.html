@@ -1,17 +1,47 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Career Portal</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400&display=swap"
-      rel="stylesheet"
+    <title>careerRepo — CV builder, job tracker &amp; interview practice</title>
+    <meta
+      name="description"
+      content="Build tailored CVs and cover letters, track every job application, check your CV against job descriptions and practise interviews. Free to start."
     />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f5f8ff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#070c18" media="(prefers-color-scheme: dark)" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="careerRepo" />
+    <meta property="og:title" content="careerRepo — CV builder, job tracker & interview practice" />
+    <meta
+      property="og:description"
+      content="Tailored CVs and cover letters, a job application tracker, CV-to-job match scores and interview practice in one place. Free to start."
+    />
+    <meta property="og:locale" content="en_GB" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="careerRepo — CV builder, job tracker & interview practice" />
+    <meta
+      name="twitter:description"
+      content="Tailored CVs and cover letters, a job application tracker, CV-to-job match scores and interview practice in one place."
+    />
+
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Self-hosted Inter (no third-party font requests); the latin subset is needed on every page. -->
+    <link rel="preload" href="/fonts/inter-latin-v20.woff2" as="font" type="font/woff2" crossorigin />
+
+    <!-- Applies the dark theme before first paint (external because the CSP blocks inline scripts). -->
+    <script src="/theme-init.js"></script>
   </head>
-  <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+  <body>
+    <noscript>
+      <div style="padding: 2rem; font-family: system-ui, sans-serif; text-align: center">
+        careerRepo needs JavaScript to run. Please enable it in your browser and reload the page.
+      </div>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

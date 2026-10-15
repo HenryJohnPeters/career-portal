@@ -12,8 +12,8 @@ import { AI_TIMEOUT_MS, api } from "../api-client";
 import { queryKeys } from "../query-keys";
 
 /**
- * PATCH /account/profile. Updates the cached `me` query; AuthProvider keeps
- * its own copy, so call `refreshUser()` after success to update the header.
+ * PATCH /account/profile. Writes the response into the `me` query, which
+ * AuthProvider observes, so the header and every useAuth() caller update.
  */
 export function useUpdateProfile() {
   const qc = useQueryClient();
@@ -41,8 +41,9 @@ export function useExportAccount() {
 }
 
 /**
- * DELETE /account { confirmEmail }. On success the caller must sign out
- * (supabase.auth.signOut) and clear the query cache before navigating away.
+ * DELETE /account { confirmEmail }. On success call
+ * `logout({ redirectTo: "/?deleted=1" })` from useAuth(): it ends the local
+ * session, clears the query cache and navigates away.
  */
 export function useDeleteAccount() {
   return useMutation({
