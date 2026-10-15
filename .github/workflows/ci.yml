@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm version comes from package.json "packageManager".
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @careerportal/api exec prisma generate --schema prisma/schema.prisma
+
+      - run: pnpm typecheck
+
+      - run: pnpm test:api
+
+      - run: pnpm test:web
+
+      - run: pnpm build:api
+
+      - name: Build web
+        run: pnpm build:web
+        env:
+          # Placeholders: the production build refuses to run without them.
+          VITE_API_URL: https://api.example.com
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+
+      - name: Smoke-test the web server
+        run: |
+          PORT=4173 node server.js &
+          for _ in $(seq 1 20); do curl -fsS http://127.0.0.1:4173/healthz && break; sleep 0.5; done
+          curl -fsS -o /dev/null http://127.0.0.1:4173/
+          curl -fsS -o /dev/null http://127.0.0.1:4173/app/dashboard
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4173/assets/missing.js)" = 404
+
+  api-image:
+    name: API image (build, migrate, boot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.api
+          tags: career-portal-api:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Migrate, boot and probe
+        run: |
+          cat > api.env <<'EOF'
+          DATABASE_URL=postgresql://ci:ci@127.0.0.1:5432/ci
+          SUPABASE_JWT_SECRET=ci-jwt-secret
+          OPENAI_API_KEY=sk-ci
+          STRIPE_SECRET_KEY=sk_test_ci
+          STRIPE_PRICE_ID=price_ci
+          STRIPE_WEBHOOK_SECRET=whsec_ci
+          CLIENT_URL=https://app.example.com
+          EOF
+          # The same command railway.api.json runs before each deploy.
+          docker run --rm --network host --env-file api.env career-portal-api:ci \
+            node apps/api/node_modules/prisma/build/index.js migrate deploy --schema apps/api/prisma/schema.prisma
+          # Chromium headless shell and its libraries are present (PDF export).
+          docker run --rm career-portal-api:ci \
+            node -e "require('playwright').chromium.launch().then((b) => b.close())"
+          docker run -d --name api --network host --env-file api.env career-portal-api:ci
+          for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/health/live && break; sleep 1; done
+          curl -fsS http://127.0.0.1:3000/health | grep -q '"db":"ok"'
+          # Requests without an Origin (Stripe) reach the controller: 400, not a CORS 500.
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:3000/billing/webhook)" = 400
+          # SIGTERM through tini shuts down gracefully (137 would mean it had to be killed).
+          docker stop -t 20 api
+          test "$(docker inspect -f '{{.State.ExitCode}}' api)" != 137
+
+      - name: API logs
+        if: always()
+        run: docker logs api 2>&1 | tail -50 || true

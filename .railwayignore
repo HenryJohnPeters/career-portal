@@ -1,13 +1,15 @@
-node_modules
-.nx
-dist
+# Files `railway up` does not upload (GitHub deploys use the repository as-is).
+**/node_modules
+**/dist
+**/.nx
+**/coverage
+**/.cache
+**/tmp
+**/*.log
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
 .git
 .vscode
-*.log
-.env
-.env.local
-apps/web/.env
-apps/api/.env
-coverage
-.cache
-tmp
+.idea

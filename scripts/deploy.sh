@@ -1,43 +1,37 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Deploy the current working tree to Railway with the CLI (v3+).
+# Usually unnecessary: with the GitHub integration Railway deploys on push.
+#
+#   ./scripts/deploy.sh            # API, then web
+#   ./scripts/deploy.sh api        # one service
+#
+# Prerequisites: `railway login` and `railway link` (pick the project), and
+# services named "api" and "web" configured as described in DEPLOYMENT.md.
+set -euo pipefail
 
-echo "🚀 Deploying Career Portal"
-echo "=========================="
-echo ""
-
-# Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-# Check for Railway CLI
-if ! command -v railway &> /dev/null; then
-    echo -e "${RED}❌ Railway CLI not found. Run ./scripts/deploy-setup.sh first${NC}"
-    exit 1
+if ! command -v railway >/dev/null 2>&1; then
+  echo "Railway CLI not found. Install it: npm install -g @railway/cli" >&2
+  exit 1
 fi
 
-echo -e "${BLUE}📦 Deploying API service...${NC}"
-railway service api
-railway up --detach
+services=("$@")
+if [ ${#services[@]} -eq 0 ]; then
+  services=(api web)
+fi
 
-echo ""
-echo -e "${YELLOW}⏳ Waiting for API to be ready (30s)...${NC}"
-sleep 30
+for service in "${services[@]}"; do
+  case "$service" in
+    api | web) ;;
+    *)
+      echo "Unknown service '$service' (expected api or web)" >&2
+      exit 1
+      ;;
+  esac
+  echo "Deploying $service..."
+  # Uploads the repo (minus .railwayignore) and builds it with the service's
+  # config file. The API runs migrations in its pre-deploy step.
+  railway up --service "$service" --detach
+done
 
-echo ""
-echo -e "${BLUE}🎨 Deploying Web service...${NC}"
-railway service web
-railway up --detach
-
-echo ""
-echo -e "${GREEN}✅ Deployment initiated!${NC}"
-echo ""
-echo -e "${BLUE}📊 Check deployment status:${NC}"
-echo "  railway service api"
-echo "  railway logs"
-echo ""
-echo "  railway service web"
-echo "  railway logs"
-echo ""
-echo -e "${YELLOW}🌐 Your app will be available at the domains shown in the Railway dashboard${NC}"
+echo "Deployment started. Follow it with: railway logs --service <api|web>"
+echo "Then verify: ./scripts/health-check.sh <api-url> <web-url>"

@@ -1,48 +1,34 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
-import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 import { validateEnv } from "./common/env.config";
-import { PrismaModule } from "./common/prisma.module";
 import { HttpExceptionFilter } from "./common/http-exception.filter";
-import { AuthModule } from "./modules/auth/auth.module";
-import { DashboardModule } from "./modules/dashboard/dashboard.module";
-import { CvModule } from "./modules/cv/cv.module";
-import { CoverLettersModule } from "./modules/cover-letters/cover-letters.module";
-import { JobsModule } from "./modules/jobs/jobs.module";
-import { InterviewPrepModule } from "./modules/interview-prep/interview-prep.module";
-import { TechnicalTestsModule } from "./modules/technical-tests/technical-tests.module";
+import { PrismaModule } from "./common/prisma.module";
+import { THROTTLERS } from "./common/throttler.config";
+import { AccountModule } from "./modules/account/account.module";
 import { AiModule } from "./modules/ai/ai.module";
-import { PdfModule } from "./modules/pdf/pdf.module";
+import { AuthModule } from "./modules/auth/auth.module";
 import { BillingModule } from "./modules/billing/billing.module";
+import { CoverLettersModule } from "./modules/cover-letters/cover-letters.module";
+import { CvModule } from "./modules/cv/cv.module";
+import { DashboardModule } from "./modules/dashboard/dashboard.module";
 import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
+import { HealthModule } from "./modules/health/health.module";
+import { InterviewPrepModule } from "./modules/interview-prep/interview-prep.module";
+import { JobsModule } from "./modules/jobs/jobs.module";
+import { PdfModule } from "./modules/pdf/pdf.module";
+import { TechnicalTestsModule } from "./modules/technical-tests/technical-tests.module";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validate: validateEnv,
-    }),
-    ThrottlerModule.forRoot([
-      {
-        name: "short",
-        ttl: 1000, // 1 second
-        limit: 3, // 3 requests per second
-      },
-      {
-        name: "medium",
-        ttl: 10000, // 10 seconds
-        limit: 20, // 20 requests per 10s
-      },
-      {
-        name: "long",
-        ttl: 60000, // 1 minute
-        limit: 100, // 100 requests per minute
-      },
-    ]),
+    ConfigModule.forRoot({ isGlobal: true, cache: true, validate: validateEnv }),
+    ThrottlerModule.forRoot(THROTTLERS),
     PrismaModule,
     EntitlementsModule,
+    HealthModule,
     AuthModule,
+    AccountModule,
     DashboardModule,
     CvModule,
     CoverLettersModule,

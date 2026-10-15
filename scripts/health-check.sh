@@ -1,64 +1,60 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+# Post-deploy smoke check for the API and web services.
+#
+#   ./scripts/health-check.sh https://api.example.com https://example.com
+#   API_URL=... WEB_URL=... ./scripts/health-check.sh
+#
+# Exits non-zero if any check fails.
+set -uo pipefail
 
-echo "🔍 Career Portal - Health Check"
-echo "================================"
-echo ""
-
-# Colors
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-# Get API service URL
-railway service api
-API_URL=$(railway variables get RAILWAY_PUBLIC_DOMAIN 2>/dev/null || echo "")
-
-if [ -z "$API_URL" ]; then
-    echo -e "${RED}❌ Could not get API URL${NC}"
-    exit 1
+API_URL="${1:-${API_URL:-}}"
+WEB_URL="${2:-${WEB_URL:-}}"
+if [ -z "$API_URL" ] || [ -z "$WEB_URL" ]; then
+  echo "Usage: $0 <api-url> <web-url>" >&2
+  exit 2
 fi
+API_URL="${API_URL%/}"
+WEB_URL="${WEB_URL%/}"
 
-API_URL="https://$API_URL"
+failures=0
 
-echo -e "${BLUE}Testing API: ${API_URL}${NC}"
-echo ""
+# check <description> <expected-status> <curl args...>
+check() {
+  local description="$1" expected="$2"
+  shift 2
+  local status
+  status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$@" || echo "000")
+  if [ "$status" = "$expected" ]; then
+    echo "ok    $description ($status)"
+  else
+    echo "FAIL  $description (expected $expected, got $status)"
+    failures=$((failures + 1))
+  fi
+}
 
-# Test API health
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL" || echo "000")
+check "API liveness        GET /health/live" 200 "$API_URL/health/live"
+check "API + database      GET /health" 200 "$API_URL/health"
+check "API auth required   GET /auth/me" 401 "$API_URL/auth/me"
+# Stripe calls without an Origin header: must reach the controller (400), never a CORS 500.
+check "Stripe webhook path POST /billing/webhook" 400 -X POST "$API_URL/billing/webhook"
+check "Web liveness        GET /healthz" 200 "$WEB_URL/healthz"
+check "Web app shell       GET /" 200 "$WEB_URL/"
+check "Web SPA route       GET /app/dashboard" 200 "$WEB_URL/app/dashboard"
+check "Missing asset 404   GET /assets/missing.js" 404 "$WEB_URL/assets/missing.js"
 
-if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "404" ]; then
-    echo -e "${GREEN}✅ API is responding (HTTP $HTTP_CODE)${NC}"
+# The web origin must be allowed by the API's CORS (CLIENT_URL / CORS_ORIGINS).
+allow_origin=$(curl -s -o /dev/null -D - --max-time 15 -X OPTIONS \
+  -H "Origin: $WEB_URL" -H "Access-Control-Request-Method: GET" \
+  "$API_URL/auth/me" | tr -d '\r' | awk -F': ' 'tolower($1)=="access-control-allow-origin" {print $2}')
+if [ "$allow_origin" = "$WEB_URL" ]; then
+  echo "ok    CORS allows $WEB_URL"
 else
-    echo -e "${RED}❌ API health check failed (HTTP $HTTP_CODE)${NC}"
+  echo "FAIL  CORS does not allow $WEB_URL (check CLIENT_URL / CORS_ORIGINS on the API)"
+  failures=$((failures + 1))
 fi
 
-# Get Web service URL
-railway service web
-WEB_URL=$(railway variables get RAILWAY_PUBLIC_DOMAIN 2>/dev/null || echo "")
-
-if [ -z "$WEB_URL" ]; then
-    echo -e "${RED}❌ Could not get Web URL${NC}"
-    exit 1
+if [ "$failures" -gt 0 ]; then
+  echo "$failures check(s) failed"
+  exit 1
 fi
-
-WEB_URL="https://$WEB_URL"
-
-echo -e "${BLUE}Testing Web: ${WEB_URL}${NC}"
-echo ""
-
-# Test Web health
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$WEB_URL" || echo "000")
-
-if [ "$HTTP_CODE" = "200" ]; then
-    echo -e "${GREEN}✅ Web is responding (HTTP $HTTP_CODE)${NC}"
-else
-    echo -e "${RED}❌ Web health check failed (HTTP $HTTP_CODE)${NC}"
-fi
-
-echo ""
-echo -e "${YELLOW}📊 Service URLs:${NC}"
-echo -e "  API: ${API_URL}"
-echo -e "  Web: ${WEB_URL}"
+echo "All checks passed"

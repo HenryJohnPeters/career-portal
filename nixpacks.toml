@@ -1,16 +1,17 @@
+# Railway "web" service (railway.json): builds the SPA, serves it with server.js.
+# The VITE_* variables must be set on the service; the build fails without them.
+
 [phases.setup]
-nixPkgs = ['nodejs_20', 'pnpm']
+nixPkgs = ["nodejs_22"]
 
 [phases.install]
-cmds = ['pnpm install --frozen-lockfile', 'pnpm add express -w']
+# pnpm pinned to package.json "packageManager" (npx avoids writing global
+# shims into the read-only Nix store). NODE_ENV=development so the build
+# tooling (vite, a devDependency) is installed.
+cmds = ["NODE_ENV=development npx --yes pnpm@9.15.0 install --frozen-lockfile"]
 
 [phases.build]
-cmds = [
-  'echo "Building with environment variables..."',
-  'echo "VITE_API_URL=$VITE_API_URL"',
-  'echo "VITE_SUPABASE_URL=$VITE_SUPABASE_URL"',
-  'pnpm nx build web --prod --verbose'
-]
+cmds = ["npx --yes pnpm@9.15.0 --filter @careerportal/web build"]
 
 [start]
-cmd = 'node server.js'
+cmd = "node server.js"

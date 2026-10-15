@@ -1,19 +1,24 @@
-# ⚠️  LOCAL DEVELOPMENT ONLY — do NOT use in production.
-# Production database is managed by Railway's Postgres plugin.
-# These credentials are intentionally weak for local dev convenience.
+# LOCAL DEVELOPMENT ONLY. Production uses Railway's Postgres.
+# The credentials are deliberately weak and the port is bound to localhost.
+#   pnpm db:up   (docker compose up -d)
 services:
   postgres:
     image: postgres:16-alpine
     container_name: careerportal-db
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5432:5432" # bind to localhost only — never expose to 0.0.0.0
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: careerportal
       POSTGRES_PASSWORD: careerportal
       POSTGRES_DB: careerportal
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U careerportal -d careerportal"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   pgdata:

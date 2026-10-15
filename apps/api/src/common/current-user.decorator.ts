@@ -5,8 +5,8 @@ import {
 } from "@nestjs/common";
 
 /**
- * Extract the authenticated userId from the request object.
- * The AuthGuard sets `request.userId` after verifying the JWT.
+ * The local User id resolved by AuthGuard (`request.userId`). Only use it on
+ * routes behind `@UseGuards(AuthGuard)`; without the guard it throws 401.
  *
  * Usage:
  *   @Get() getStuff(@CurrentUserId() userId: string) { ... }

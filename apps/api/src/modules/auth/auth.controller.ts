@@ -1,9 +1,9 @@
 import { Controller, Get, UseGuards } from "@nestjs/common";
-import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
-import { AuthService } from "./auth.service";
-import { AuthGuard } from "./auth.guard";
-import { AiUsageService } from "../ai/ai-usage.service";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUserId } from "../../common/current-user.decorator";
+import { EntitlementsService } from "../entitlements/entitlements.service";
+import { AuthGuard } from "./auth.guard";
+import { AuthService } from "./auth.service";
 
 @ApiTags("auth")
 @ApiBearerAuth()
@@ -12,18 +12,17 @@ import { CurrentUserId } from "../../common/current-user.decorator";
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly aiUsage: AiUsageService
+    private readonly entitlements: EntitlementsService,
   ) {}
 
   @Get("me")
   async me(@CurrentUserId() userId: string) {
-    const user = await this.authService.getUserById(userId);
-    return { data: user };
+    return { data: await this.authService.getProfile(userId) };
   }
 
+  /** Legacy AI usage shape; the web now reads GET /account/usage. */
   @Get("ai-usage")
   async aiUsageStatus(@CurrentUserId() userId: string) {
-    const status = await this.aiUsage.getUsageStatus(userId);
-    return { data: status };
+    return { data: await this.entitlements.getLegacyAiUsageStatus(userId) };
   }
 }

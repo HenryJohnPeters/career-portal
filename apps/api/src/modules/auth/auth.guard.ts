@@ -1,42 +1,36 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
+  Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
-import { Request } from "express";
+import type { Request } from "express";
 import { AuthService } from "./auth.service";
 
 export interface AuthenticatedRequest extends Request {
+  /** Local User id, set by AuthGuard. */
   userId: string;
 }
 
+/**
+ * Requires `Authorization: Bearer <Supabase access token>` and sets
+ * `request.userId`. 401 for a missing, invalid or expired token; 503 when
+ * the signing keys cannot be fetched (clients should retry, not sign out).
+ */
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(private readonly authService: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const authHeader = request.headers["authorization"];
-    if (!authHeader?.startsWith("Bearer ")) {
-      throw new UnauthorizedException("Missing token");
-    }
-
-    const token = authHeader.slice(7);
-    let payload: Awaited<ReturnType<AuthService["verifyToken"]>>;
-    try {
-      payload = await this.authService.verifyToken(token);
-    } catch {
-      throw new UnauthorizedException("Invalid or expired token");
-    }
-
-    // Resolve Supabase user to local Prisma User (find-or-create)
-    const user = await this.authService.findOrCreateUser(
-      payload.sub,
-      payload.email,
-      payload.user_metadata?.name,
-    );
-    request.userId = user.id;
+    const token = bearerToken(request.headers.authorization);
+    if (!token) throw new UnauthorizedException("Missing token");
+    request.userId = await this.authService.authenticate(token);
     return true;
   }
+}
+
+function bearerToken(header: string | undefined): string | null {
+  const match = header ? /^Bearer +(\S+)$/i.exec(header.trim()) : null;
+  return match ? match[1] : null;
 }
