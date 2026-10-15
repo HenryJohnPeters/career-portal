@@ -122,9 +122,15 @@ jobs:
           STRIPE_WEBHOOK_SECRET=whsec_ci
           CLIENT_URL=https://app.example.com
           EOF
-          # The same command railway.api.json runs before each deploy.
-          docker run --rm --network host --env-file api.env career-portal-api:ci \
-            node apps/api/node_modules/prisma/build/index.js migrate deploy --schema apps/api/prisma/schema.prisma
+          # Exactly what railway.api.json runs before each deploy: migrations, then
+          # the interview question bank sync.
+          predeploy=$(jq -r '.deploy.preDeployCommand[0]' railway.api.json)
+          docker run --rm --network host --env-file api.env career-portal-api:ci sh -c "$predeploy"
+          # The sync is idempotent: a second run writes nothing.
+          resync=$(docker run --rm --network host --env-file api.env career-portal-api:ci \
+            node dist/apps/api/scripts/sync-question-bank.js)
+          echo "$resync"
+          grep -q '(0 created, 0 updated, ' <<< "$resync"
           # Chromium headless shell and its libraries are present (PDF export).
           docker run --rm career-portal-api:ci \
             node -e "require('playwright').chromium.launch().then((b) => b.close())"

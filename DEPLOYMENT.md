@@ -10,9 +10,10 @@ careerRepo runs on [Railway](https://railway.app) as two services plus a databas
 
 External services: Supabase (sign-in), Stripe (payments), OpenAI (AI features).
 
-On every API deploy Railway runs `prisma migrate deploy` (the `preDeployCommand`) before the new
-container takes traffic, and only switches traffic once `GET /health` (which checks the database)
-answers 200. A failed migration or health check leaves the previous deployment serving.
+On every API deploy Railway runs `prisma migrate deploy` and then syncs the interview question bank
+(the `preDeployCommand`) before the new container takes traffic, and only switches traffic once
+`GET /health` (which checks the database) answers 200. A failed migration, bank sync or health check
+leaves the previous deployment serving.
 
 ## 1. First-time setup
 
@@ -27,8 +28,9 @@ answers 200. A failed migration or health check leaves the previous deployment s
    - Networking: attach your public domain.
 4. Set `CLIENT_URL` on `api` to the web origin (e.g. `https://your-domain.com`), and
    `VITE_API_URL` on `web` to the API origin. Redeploy both.
-5. Seed the interview question bank once (see [Migrations and seed data](#5-migrations-and-seed-data)).
-6. Configure Supabase and Stripe (sections below), then run the [post-deploy check](#7-verify-a-deploy).
+5. Configure Supabase and Stripe (sections below), then run the [post-deploy check](#7-verify-a-deploy).
+   The interview question bank needs no manual step: every deploy syncs it (see
+   [Migrations and the question bank](#5-migrations-and-the-question-bank)).
 
 Each service's `watchPatterns` limit rebuilds to the files it uses, so a web-only change does not
 redeploy the API.
@@ -110,18 +112,36 @@ The webhook is authenticated by its signature, is never rate-limited, and does n
 header. Non-2xx responses are deliberate: `409` while the same event is still being processed and
 `5xx` when processing failed both make Stripe retry.
 
-## 5. Migrations and seed data
+## 5. Migrations and the question bank
 
-- Production migrations run automatically (`railway.api.json` → `preDeployCommand`):
-  `node apps/api/node_modules/prisma/build/index.js migrate deploy --schema apps/api/prisma/schema.prisma`.
-  Prisma takes a lock, so concurrent deploys are safe. Migrations are forward-only.
+The `preDeployCommand` (`railway.api.json`) runs two steps in the built image; if either fails the
+deploy stops and the previous deployment keeps serving:
+
+1. **Migrations**: `node apps/api/node_modules/prisma/build/index.js migrate deploy --schema apps/api/prisma/schema.prisma`.
+   Prisma takes a lock, so concurrent deploys are safe. Migrations are forward-only.
+2. **Question bank sync**: `node dist/apps/api/scripts/sync-question-bank.js`. Writes the reference
+   interview questions (`apps/api/src/modules/interview-prep/question-bank/data/*.ts`) into the
+   database. Free users never trigger AI generation, so these are all the questions they get.
+   - It validates every question first and fails the deploy on bad data, before writing anything.
+   - Rows are upserted by id and only rewritten when they changed; a re-run reports every question
+     `unchanged`. It logs one summary line (created, updated, unchanged, archived, removed).
+   - A question removed from the bank (or replaced by a new id) is archived, i.e. moved out of every
+     pool, when a session used it, and deleted otherwise. AI-generated questions keep only catalog
+     tags. Nothing a session references is ever deleted.
+
+Other notes:
+
 - A database created earlier with `prisma db push` fails the first `migrate deploy` with `P3005`.
   Baseline it once: `prisma migrate resolve --applied <migration>` for each existing migration.
 - New migrations are created locally with `pnpm db:migrate` and committed.
-- **Question bank**: seed it once (and after changing seeded questions), from a machine with the
-  repo, against the production database (Railway Postgres → Connect → public URL):
-  `DATABASE_URL="<public url>" NODE_ENV=production pnpm db:seed`.
-  With `NODE_ENV=production` the seed loads reference data only and skips the dev accounts.
+- To change the bank, edit or add questions in the data files (a new file must be listed in
+  `question-bank/index.ts`) and deploy. Changing a question's options or meaning needs a new id, so
+  answered sessions keep the version they were graded against. `pnpm test:api` checks the bank:
+  schema, unique ids and prompts, catalog tags, at least 8 questions for every track, level and
+  difficulty, and balanced answer positions.
+- To sync by hand (normally unnecessary): `node dist/apps/api/scripts/sync-question-bank.js` in the
+  API container, or locally `DATABASE_URL="<url>" NODE_ENV=production pnpm db:seed`, which with
+  `NODE_ENV=production` syncs the bank only and skips the dev accounts.
 
 ## 6. Health checks and operations
 
@@ -161,8 +181,9 @@ using the GitHub integration.
 
 CI (`.github/workflows/ci.yml`) runs the typecheck, API and web tests and both builds, smoke-tests
 `server.js`, checks that `.dockerignore` keeps every web file in the build context, and builds the
-API image (checking it carries no build tooling), migrates a fresh Postgres with it, boots it and
-probes it.
+API image (checking it carries no build tooling), runs the `preDeployCommand` with it against a fresh
+Postgres (migrations and question bank sync, then a second sync that must change nothing), boots it
+and probes it.
 
 `.dockerignore` applies to both services: Nixpacks builds the web service with the repository
 root as its Docker context. Never exclude anything under `apps/web` or `libs` there.

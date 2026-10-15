@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import * as apiConstants from "./constants";
 import * as apiTags from "./tech-tags";
 import { SCENARIO_TEMPLATES } from "../modules/technical-tests/engine/templates";
+import { REFERENCE_QUESTIONS } from "../modules/interview-prep/question-bank";
 
 /*
  * The API cannot import libs/shared/types at runtime, so plan limits and the
@@ -110,18 +111,9 @@ test("expandTagAliases includes legacy stored spellings", () => {
   assert.ok(expanded.includes("scalability"));
 });
 
-/** String literals inside every `<key>: [ ... ]` / `findTag(tags, [ ... ])` array of a source file. */
-function literalsIn(file: string, pattern: RegExp): string[] {
-  const source = readFileSync(resolve(repoRoot, file), "utf8");
-  const out: string[] = [];
-  for (const match of source.matchAll(pattern)) {
-    for (const literal of match[1].matchAll(/"([^"]+)"/g)) out.push(literal[1]);
-  }
-  return out;
-}
-
-test("every question-bank seed tag is in the catalog", () => {
-  const tags = literalsIn("apps/api/prisma/seed.ts", /tags:\s*\[([\s\S]*?)\]/g);
+test("every question-bank tag is in the catalog", () => {
+  const tags = REFERENCE_QUESTIONS.flatMap((q) => q.tags);
+  assert.ok(tags.length > 0, "the question bank declares no tags");
   const unknown = tags.filter((t) => !apiTags.isKnownTag(t));
   assert.deepStrictEqual(unknown, []);
 });

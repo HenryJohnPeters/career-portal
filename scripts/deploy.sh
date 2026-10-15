@@ -29,7 +29,8 @@ for service in "${services[@]}"; do
   esac
   echo "Deploying $service..."
   # Uploads the repo (minus .railwayignore) and builds it with the service's
-  # config file. The API runs migrations in its pre-deploy step.
+  # config file. The API runs migrations and syncs the interview question
+  # bank in its pre-deploy step.
   railway up --service "$service" --detach
 done
 

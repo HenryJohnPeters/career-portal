@@ -22,7 +22,7 @@ cp apps/api/.env.example apps/api/.env   # fill in Supabase, OpenAI, Stripe
 cp apps/web/.env.example apps/web/.env
 pnpm db:generate                 # Prisma client
 pnpm db:migrate                  # apply migrations
-pnpm db:seed                     # interview question bank (+ dev rows outside production)
+pnpm db:seed                     # interview question bank + dev accounts (deploys sync the bank on their own)
 pnpm api                         # http://localhost:3000 (Swagger at /docs)
 pnpm web                         # http://localhost:4200
 ```
