@@ -10,10 +10,11 @@
     "db:seed": "nx run api:prisma-seed",
     "db:generate": "nx run api:prisma-generate",
     "typecheck": "tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json",
-    "test": "pnpm run test:api",
+    "test": "pnpm test:api && pnpm test:web",
     "test:api": "TS_NODE_TRANSPILE_ONLY=1 TS_NODE_PROJECT=apps/api/tsconfig.json node --test --require ts-node/register \"apps/api/src/**/*.spec.ts\"",
     "build:api": "tsc -p apps/api/tsconfig.build.json",
-    "build:web": "pnpm --filter @careerportal/web build"
+    "build:web": "pnpm --filter @careerportal/web build",
+    "test:web": "pnpm --filter @careerportal/web test"
   },
   "devDependencies": {
     "nx": "20.3.0",

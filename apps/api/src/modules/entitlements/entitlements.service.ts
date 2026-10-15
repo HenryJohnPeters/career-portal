@@ -21,6 +21,7 @@ const PLAN_USER_SELECT = {
   isPremium: true,
   stripeCurrentPeriodEnd: true,
   subscriptionStatus: true,
+  cancelAtPeriodEnd: true,
 } as const satisfies Prisma.UserSelect;
 
 /**

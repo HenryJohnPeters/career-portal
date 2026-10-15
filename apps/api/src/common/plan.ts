@@ -50,6 +50,8 @@ export interface PlanUserFields {
   isPremium: boolean;
   stripeCurrentPeriodEnd: Date | null;
   subscriptionStatus: string | null;
+  /** A subscription set to cancel gets no renewal grace (see isActivePremium). */
+  cancelAtPeriodEnd?: boolean;
 }
 
 export interface ResolvedPlan {
@@ -134,7 +136,7 @@ export function resolvePlan(user: PlanUserFields): ResolvedPlan {
   return {
     plan: isPremium ? "premium" : "free",
     isPremium,
-    isTrialing: user.subscriptionStatus === "trialing",
+    isTrialing: isPremium && user.subscriptionStatus === "trialing",
     limits: limitsFor(isPremium),
     modelTier: modelTierFor(isPremium),
   };
