@@ -1,150 +1,174 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { AlertCircle, Clock, MailCheck } from "lucide-react";
 import { supabase } from "@careerportal/web/data-access";
-import { Code2, Loader2, AlertCircle } from "lucide-react";
+import { Spinner } from "@careerportal/web/ui";
+import { AUTH_LINK_CLASS, AuthLayout } from "./auth/AuthLayout";
+import { ResendConfirmation } from "./auth/ResendConfirmation";
+import { SUPPORT_EMAIL, authLinkErrorMessage } from "./auth/auth-errors";
+import {
+  markPasswordRecovery,
+  parseAuthCallbackParams,
+  resolvePostAuthPath,
+  takePremiumIntent,
+  type AuthCallbackParams,
+  type RecoveryNavigationState,
+} from "./auth/auth-redirect";
+
+/** How long to wait for Supabase to turn the link into a session. */
+const SESSION_TIMEOUT_MS = 10_000;
+
+type ViewState =
+  | { kind: "verifying" }
+  | { kind: "link-error"; message: string; recovery: boolean; premiumIntent: boolean }
+  | { kind: "timeout"; recovery: boolean; premiumIntent: boolean }
+  | { kind: "message" };
 
 /**
- * Handles Supabase auth redirects (email confirmation, password recovery).
- *
- * Supabase appends tokens as a hash fragment (e.g. #access_token=...&type=recovery).
- * The Supabase client automatically picks these up via `onAuthStateChange`,
- * so we just need to wait for the session to be established and then route
- * the user to the right place.
+ * Landing page for Supabase email links (sign-up confirmation, password
+ * recovery, email change). The Supabase client exchanges the link's tokens
+ * for a session on load; this page waits for that session, then routes the
+ * user on, or explains what went wrong.
  */
 export function AuthCallbackPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<ViewState>({ kind: "verifying" });
 
   useEffect(() => {
-    let cancelled = false;
+    // Read once: query values survive the token exchange; a link error stays in the hash.
+    const params: AuthCallbackParams = parseAuthCallbackParams(window.location.search, window.location.hash);
+    const recovery = params.type === "recovery";
 
-    async function handleCallback() {
-      try {
-        // Give Supabase a moment to process the hash fragment tokens
-        // and establish the session via onAuthStateChange
-        const { data, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) {
-          setError(sessionError.message);
-          return;
-        }
-
-        if (!data.session) {
-          // No session yet — wait for onAuthStateChange to fire
-          const timeout = setTimeout(() => {
-            if (!cancelled) {
-              setError(
-                "Unable to verify your session. The link may have expired — please try again."
-              );
-            }
-          }, 10000);
-
-          const { data: listener } = supabase.auth.onAuthStateChange(
-            (event, session) => {
-              if (cancelled) return;
-              clearTimeout(timeout);
-
-              if (
-                event === "PASSWORD_RECOVERY" ||
-                searchParams.get("type") === "recovery"
-              ) {
-                navigate("/reset-password", { replace: true });
-              } else if (session) {
-                navigate("/app/dashboard", { replace: true });
-              }
-
-              listener.subscription.unsubscribe();
-            }
-          );
-
-          return () => {
-            clearTimeout(timeout);
-            listener.subscription.unsubscribe();
-          };
-        }
-
-        // Session already exists
-        // Check the hash fragment for the type
-        const hashParams = new URLSearchParams(
-          window.location.hash.substring(1)
-        );
-        const type = hashParams.get("type") || searchParams.get("type");
-
-        if (type === "recovery") {
-          navigate("/reset-password", { replace: true });
-        } else {
-          navigate("/app/dashboard", { replace: true });
-        }
-      } catch {
-        if (!cancelled) {
-          setError("Something went wrong. Please try again.");
-        }
-      }
+    if (params.errorCode) {
+      setView({
+        kind: "link-error",
+        message: authLinkErrorMessage(params.errorCode),
+        recovery,
+        premiumIntent: params.premiumIntent,
+      });
+      return;
+    }
+    // A notice without tokens, e.g. the first half of a secure email change. It
+    // usually opens where the user is already signed in, so don't wait for (or
+    // act on) a session: that would skip straight past the notice.
+    if (params.hasMessage) {
+      setView({ kind: "message" });
+      return;
     }
 
-    handleCallback();
-
-    return () => {
-      cancelled = true;
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let unsubscribe: (() => void) | undefined;
+    const settle = () => {
+      settled = true;
+      clearTimeout(timer);
+      unsubscribe?.();
     };
-  }, [navigate, searchParams]);
 
-  if (error) {
+    const finish = (isRecovery: boolean) => {
+      if (settled) return;
+      settle();
+      if (isRecovery) {
+        markPasswordRecovery();
+        const state: RecoveryNavigationState = { recovery: true };
+        navigate("/reset-password", { replace: true, state });
+        return;
+      }
+      const premiumIntent = takePremiumIntent() || params.premiumIntent;
+      navigate(resolvePostAuthPath({ requested: params.next, premiumIntent }), { replace: true });
+    };
+
+    const fail = () => {
+      if (settled) return;
+      settle();
+      setView({ kind: "timeout", recovery, premiumIntent: params.premiumIntent });
+    };
+
+    timer = setTimeout(fail, SESSION_TIMEOUT_MS);
+    // INITIAL_SESSION fires right away for a new listener. A null one doesn't
+    // end the wait; the timeout does.
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (settled) return;
+      if (event === "PASSWORD_RECOVERY") finish(true);
+      else if (session) finish(recovery);
+    });
+    unsubscribe = () => listener.subscription.unsubscribe();
+    if (settled) unsubscribe();
+
+    return settle;
+  }, [navigate]);
+
+  if (view.kind === "verifying") {
     return (
-      <div className="min-h-screen bg-bg-primary flex flex-col">
-        <header className="h-16 bg-bg-secondary/80 backdrop-blur-xl border-b border-border flex items-center px-6">
-          <Link
-            to="/"
-            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 shadow-sm">
-              <Code2 className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-sm font-bold text-text-primary">
-              careerRepo
-            </span>
-          </Link>
-        </header>
-
-        <div className="flex-1 flex items-center justify-center px-4 py-12">
-          <div className="w-full max-w-md text-center">
-            <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/30 mb-6">
-              <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-text-primary mb-3">
-              Verification failed
-            </h1>
-            <p className="text-sm text-text-secondary mb-6">{error}</p>
-            <div className="flex items-center justify-center gap-4">
-              <Link
-                to="/login"
-                className="text-sm text-primary-600 dark:text-primary-400 font-semibold hover:underline"
-              >
-                Sign in
-              </Link>
-              <span className="text-text-tertiary">·</span>
-              <Link
-                to="/register"
-                className="text-sm text-primary-600 dark:text-primary-400 font-semibold hover:underline"
-              >
-                Create account
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AuthLayout title="Verifying your link" card={false}>
+        <Spinner label="Verifying your link" className="py-8" />
+      </AuthLayout>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-bg-primary flex items-center justify-center">
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-600 mx-auto mb-4" />
-        <p className="text-sm text-text-secondary font-medium">
-          Verifying your account…
+  if (view.kind === "message") {
+    return (
+      <AuthLayout
+        title="Link confirmed"
+        icon={<MailCheck />}
+        iconTone="success"
+        subtitle="If you're changing your email address, also open the confirmation link we sent to your other address. The change completes once both are confirmed."
+        card={false}
+      >
+        <p className="text-center text-sm">
+          <Link to="/app/settings#profile" className={AUTH_LINK_CLASS}>
+            Continue to Settings
+          </Link>
         </p>
-      </div>
-    </div>
+      </AuthLayout>
+    );
+  }
+
+  const recovery = view.recovery;
+  const timedOut = view.kind === "timeout";
+
+  return (
+    <AuthLayout
+      title={timedOut ? "We couldn't verify your link" : "This link didn't work"}
+      icon={timedOut ? <Clock /> : <AlertCircle />}
+      iconTone="error"
+      subtitle={
+        timedOut
+          ? "It may have expired, already been used, or been opened in a different browser."
+          : view.message
+      }
+      footer={
+        <>
+          Still stuck? Email{" "}
+          <a href={`mailto:${SUPPORT_EMAIL}`} className={AUTH_LINK_CLASS}>
+            {SUPPORT_EMAIL}
+          </a>
+        </>
+      }
+    >
+      {recovery ? (
+        <div className="space-y-3 text-center text-sm text-text-secondary">
+          <p>Request a fresh password reset link and open it in this browser.</p>
+          <Link
+            to="/forgot-password"
+            className="inline-flex h-10 w-full items-center justify-center rounded-xl bg-primary-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+          >
+            Request a new reset link
+          </Link>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-text-secondary">
+            Confirming your account? Enter your email and we'll send a new confirmation link. If your account is
+            already confirmed, just{" "}
+            <Link to="/login" className={AUTH_LINK_CLASS}>
+              sign in
+            </Link>
+            .
+          </p>
+          <ResendConfirmation premiumIntent={view.premiumIntent} />
+        </div>
+      )}
+    </AuthLayout>
   );
 }

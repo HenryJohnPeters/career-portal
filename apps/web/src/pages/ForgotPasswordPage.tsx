@@ -1,137 +1,128 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { ArrowLeft, KeyRound, Mail, MailCheck } from "lucide-react";
 import { supabase } from "@careerportal/web/data-access";
-import { Button } from "@careerportal/web/ui";
-import { useState } from "react";
-import { Mail, AlertCircle, Code2, ArrowLeft, CheckCircle2, KeyRound } from "lucide-react";
+import { Alert, Button, TextField } from "@careerportal/web/ui";
+import { AUTH_LINK_CLASS, AuthLayout } from "./auth/AuthLayout";
+import { authErrorMessage } from "./auth/auth-errors";
+import { authCallbackUrl } from "./auth/auth-redirect";
+import { emailSchema } from "./auth/password-rules";
 
-const schema = z.object({ email: z.string().email("Valid email required") });
+const schema = z.object({ email: emailSchema });
 type FormData = z.infer<typeof schema>;
+
+/*
+ * Only these errors are shown: they don't depend on whether the address has
+ * an account. Anything else ends on the same "if an account exists" screen
+ * as a success, so the form can't be used to discover who is registered.
+ */
+const SHOWN_ERROR_CODES = new Set([
+  "over_email_send_rate_limit",
+  "over_request_rate_limit",
+  "email_address_invalid",
+  "captcha_failed",
+]);
+
+function isShownError(error: { code?: string; status?: number; name?: string }): boolean {
+  return (
+    SHOWN_ERROR_CODES.has(error.code ?? "") ||
+    error.status === 429 ||
+    error.status === 0 ||
+    error.name === "AuthRetryableFetchError"
+  );
+}
+
+const backToSignIn = (
+  <Link to="/login" className={`inline-flex items-center gap-1.5 ${AUTH_LINK_CLASS}`}>
+    <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+    Back to sign in
+  </Link>
+);
 
 export function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [sentEmail, setSentEmail] = useState("");
+  const [sentTo, setSentTo] = useState<string | null>(null);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormData>({ resolver: zodResolver(schema) });
 
   const onSubmit = async (data: FormData) => {
     setError(null);
     setLoading(true);
     try {
-      const siteUrl = window.location.origin;
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${siteUrl}/auth/callback?type=recovery`,
+        redirectTo: authCallbackUrl(window.location.origin, { type: "recovery" }),
       });
-      if (resetError) {
-        setError(resetError.message.includes("Too many requests")
-          ? "Too many attempts. Please wait and try again."
-          : resetError.message);
+      if (resetError && isShownError(resetError)) {
+        setError(authErrorMessage(resetError, "resetRequest"));
         return;
       }
-      setSentEmail(data.email);
-      setEmailSent(true);
-    } catch { setError("An unexpected error occurred."); }
-    finally { setLoading(false); }
+      setSentTo(data.email);
+    } catch (err) {
+      setError(authErrorMessage(err, "resetRequest"));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const navBar = (
-    <header className="relative z-10 h-14 flex items-center px-6 border-b border-border/50">
-      <Link to="/" className="flex items-center gap-2.5 hover:opacity-75 transition-opacity">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary-600 shadow-sm">
-          <Code2 className="h-3.5 w-3.5 text-white" />
-        </div>
-        <span className="text-sm font-bold tracking-tight text-text-primary">careerRepo</span>
-      </Link>
-    </header>
-  );
-
-  if (emailSent) {
+  if (sentTo) {
     return (
-      <div className="min-h-screen bg-bg-primary flex flex-col">
-        <div className="fixed inset-0 bg-gradient-mesh pointer-events-none" />
-        {navBar}
-        <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-12">
-          <div className="w-full max-w-sm text-center">
-            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-emerald-200 dark:ring-emerald-800/50 mb-6">
-              <CheckCircle2 className="h-7 w-7 text-emerald-500" />
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-text-primary mb-2">Check your email</h1>
-            <p className="text-sm text-text-tertiary mb-1">We sent a password reset link to</p>
-            <p className="text-sm font-semibold text-text-primary mb-7">{sentEmail}</p>
-            <div className="bg-bg-elevated border border-border rounded-2xl shadow-sm p-6 mb-7">
-              <p className="text-sm text-text-secondary leading-relaxed">
-                Click the link in the email to reset your password. It may take a minute to arrive — check your spam folder if you don't see it.
-              </p>
-            </div>
-            <Link to="/login" className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline">
-              <ArrowLeft className="h-3.5 w-3.5" />Back to sign in
-            </Link>
-          </div>
+      <AuthLayout
+        title="Check your email"
+        icon={<MailCheck />}
+        iconTone="success"
+        subtitle={
+          <>
+            If an account exists for <span className="font-semibold text-text-primary break-all">{sentTo}</span>, we've
+            sent it a link to reset your password.
+          </>
+        }
+        footer={backToSignIn}
+      >
+        <div className="space-y-3 text-sm text-text-secondary leading-relaxed">
+          <p>The link works once and expires after a while. It can take a minute to arrive, so check your spam folder too.</p>
+          <p>
+            Nothing arrived?{" "}
+            <button type="button" onClick={() => setSentTo(null)} className={AUTH_LINK_CLASS}>
+              Try again
+            </button>{" "}
+            or check you used the address you signed up with.
+          </p>
         </div>
-      </div>
+      </AuthLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-bg-primary flex flex-col">
-      <div className="fixed inset-0 bg-gradient-mesh pointer-events-none" />
-      {navBar}
-      <div className="relative z-10 flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-sm">
-          <div className="text-center mb-8">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-600 shadow-sm mb-5">
-              <KeyRound className="h-5 w-5 text-white" />
-            </div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-text-primary mb-1.5">Reset your password</h1>
-            <p className="text-sm text-text-tertiary">Enter your email and we'll send you a reset link</p>
-          </div>
-
-          <div className="bg-bg-elevated rounded-2xl border border-border shadow-lg p-7">
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div>
-                <label className="label">Email address</label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary pointer-events-none" />
-                  <input
-                    type="email"
-                    {...register("email")}
-                    className="input-base input-icon"
-                    placeholder="you@example.com"
-                    autoFocus
-                    autoComplete="email"
-                  />
-                </div>
-                {errors.email && (
-                  <p className="flex items-center gap-1 mt-1.5 text-xs text-red-500 font-medium">
-                    <AlertCircle className="h-3 w-3 shrink-0" />{errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              {error && (
-                <div className="flex items-center gap-2.5 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/60 px-4 py-3">
-                  <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                  <p className="text-xs text-red-600 dark:text-red-400 font-medium">{error}</p>
-                </div>
-              )}
-
-              <Button type="submit" className="w-full !h-10 !text-sm" loading={loading}>
-                {!loading && "Send Reset Link"}
-              </Button>
-            </form>
-          </div>
-
-          <p className="text-center mt-5">
-            <Link to="/login" className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline">
-              <ArrowLeft className="h-3.5 w-3.5" />Back to sign in
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+    <AuthLayout
+      title="Reset your password"
+      subtitle="Enter your email and we'll send you a reset link"
+      icon={<KeyRound />}
+      footer={backToSignIn}
+    >
+      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+        <TextField
+          label="Email address"
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          autoFocus
+          icon={<Mail />}
+          error={errors.email?.message}
+          {...register("email")}
+        />
+        {error && <Alert variant="error">{error}</Alert>}
+        <Button type="submit" className="w-full !h-10 !text-sm" loading={loading}>
+          Send reset link
+        </Button>
+      </form>
+    </AuthLayout>
   );
 }

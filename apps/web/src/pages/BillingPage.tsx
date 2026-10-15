@@ -1,403 +1,419 @@
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { useAuth } from "../lib/auth";
-import { isActivePremium, FREE_TIER } from "@careerportal/shared/types";
-import {
-  useSubscriptionStatus,
-  useCreateCheckoutSession,
-  useVerifyCheckoutSession,
-  useCreatePortalSession,
-  queryKeys,
-} from "@careerportal/web/data-access";
-import { Button, Card, Spinner } from "@careerportal/web/ui";
-import {
-  Crown,
-  Check,
-  Sparkles,
-  CreditCard,
-  ArrowRight,
-  ExternalLink,
-  CheckCircle2,
-  XCircle,
-  Shield,
-  Zap,
-  Star,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { CreditCard, Crown, ExternalLink, Loader2, RefreshCw, Shield, Sparkles, Star } from "lucide-react";
+import { PREMIUM_FAIR_USE, PREMIUM_PRICE, isActivePremium } from "@careerportal/shared/types";
+import {
+  getErrorMessage,
+  invalidateUsage,
+  isApiError,
+  useCreateCheckoutSession,
+  useCreatePortalSession,
+  useSubscriptionStatus,
+} from "@careerportal/web/data-access";
+import { Alert, Badge, Button, Card } from "@careerportal/web/ui";
+import { useAuth } from "../lib/auth";
+import { PlanUsageCard } from "../components/PlanUsageCard";
+import { PlanComparison } from "./shared/PlanComparison";
+import {
+  describeSubscription,
+  isCheckoutSessionId,
+  isSafeBillingRedirect,
+  upgradeLabel,
+} from "./billing/billing-status";
+import { useCheckoutActivation } from "./billing/useCheckoutActivation";
 
-const FREE_FEATURES = [
-  `CV Builder — ${FREE_TIER.cvVersions} CV version`,
-  `Cover Letter Editor — ${FREE_TIER.coverLetters} letters`,
-  "Job Tracker — Kanban board",
-  "Basic templates",
-];
+const SUPPORT_EMAIL = "support@career-repo.com";
+/** Query params set by Stripe's redirects and by the sign-up premium intent. */
+const ENTRY_PARAMS = ["success", "session_id", "cancelled", "upgrade"] as const;
 
-const PREMIUM_FEATURES = [
-  "Unlimited CV versions",
-  "Unlimited cover letters",
-  "All premium templates",
-  "AI-powered CV rewriting",
-  "AI cover letter generation",
-  "AI job description analysis",
-  "AI interview prep & scoring",
-  "Priority support",
-];
+const supportLink = (
+  <a href={`mailto:${SUPPORT_EMAIL}`} className="font-semibold underline">
+    {SUPPORT_EMAIL}
+  </a>
+);
+
+function isAlreadySubscribedError(error: unknown): boolean {
+  return isApiError(error) && error.status === 400 && /active subscription/i.test(error.message);
+}
 
 export function BillingPage() {
   const { user, refreshUser } = useAuth();
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const success = searchParams.get("success") === "true";
-  const cancelled = searchParams.get("cancelled") === "true";
-  const checkoutSessionId = searchParams.get("session_id");
+  // Captured once, so cleaning the URL later doesn't restart or cancel anything.
+  const [entry] = useState(() => {
+    const sessionId = searchParams.get("session_id");
+    return {
+      success: searchParams.get("success") === "true",
+      sessionId: isCheckoutSessionId(sessionId) ? sessionId : null,
+      cancelled: searchParams.get("cancelled") === "true",
+      upgrade: searchParams.get("upgrade") === "1",
+    };
+  });
 
-  const { data: statusData, isLoading: statusLoading } =
-    useSubscriptionStatus();
-  const checkoutMut = useCreateCheckoutSession();
-  const { mutate: verifyCheckout } = useVerifyCheckoutSession();
-  const portalMut = useCreatePortalSession();
+  const statusQuery = useSubscriptionStatus();
+  const { refetch: refetchStatus } = statusQuery;
+  const status = statusQuery.data?.data;
+  const isPremium = status?.isPremium ?? isActivePremium(user);
 
-  const subscription = statusData?.data;
-  const isPremium = subscription?.isPremium ?? isActivePremium(user);
+  const activation = useCheckoutActivation({
+    enabled: entry.success,
+    sessionId: entry.sessionId,
+    refetchStatus: () => refetchStatus().then((result) => result.data?.data),
+  });
 
-  const [showSuccessBanner, setShowSuccessBanner] = useState(false);
-  const [showCancelBanner, setShowCancelBanner] = useState(false);
+  const checkout = useCreateCheckoutSession();
+  const portal = useCreatePortalSession();
+  const [redirecting, setRedirecting] = useState<"checkout" | "portal" | null>(null);
+  const [redirectError, setRedirectError] = useState<string | null>(null);
 
-  // After Stripe checkout success, poll until the webhook has activated premium.
-  // The Stripe redirect arrives before the webhook fires, so we poll briefly.
+  // Remove Stripe's params once the return has been handled (kept while activation runs, so a reload resumes it).
+  const activationSettled = activation.phase !== "confirming";
   useEffect(() => {
-    let isCancelled = false;
+    if (!activationSettled || !ENTRY_PARAMS.some((key) => searchParams.has(key))) return;
+    setSearchParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        for (const key of ENTRY_PARAMS) next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [activationSettled, searchParams, setSearchParams]);
 
-    if (success) {
-      setShowSuccessBanner(true);
-      queryClient.invalidateQueries({ queryKey: queryKeys.me });
-      queryClient.invalidateQueries({ queryKey: queryKeys.subscriptionStatus });
-      queryClient.invalidateQueries({ queryKey: queryKeys.aiUsage });
-
-      if (checkoutSessionId) {
-        verifyCheckout(checkoutSessionId);
-      }
-
-      // Poll user status for up to 15 seconds to wait for webhook
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        if (isCancelled) {
-          clearInterval(poll);
-          return;
-        }
-        attempts++;
-        await refreshUser();
-        queryClient.invalidateQueries({
-          queryKey: queryKeys.subscriptionStatus,
-        });
-        if (attempts >= 5) clearInterval(poll);
-      }, 3000);
-
-      const t = setTimeout(
-        () => navigate("/app/billing", { replace: true }),
-        500,
-      );
-      return () => {
-        isCancelled = true;
-        clearTimeout(t);
-        clearInterval(poll);
-      };
-    }
-    if (cancelled) {
-      setShowCancelBanner(true);
-      const t = setTimeout(
-        () => navigate("/app/billing", { replace: true }),
-        500,
-      );
-      return () => clearTimeout(t);
-    }
-  }, [
-    success,
-    cancelled,
-    checkoutSessionId,
-    verifyCheckout,
-    queryClient,
-    navigate,
-    refreshUser,
-  ]);
-
-  // If billing status confirms premium but auth context is stale, refresh it
-  // so premium UI unlocks consistently across the app.
+  // Keep the signed-in user (header badge, gating) in step with Stripe: at most once per status change.
+  const reconciledRef = useRef<boolean | null>(null);
   useEffect(() => {
-    if (!subscription?.isPremium) return;
-    if (isActivePremium(user)) return;
+    if (!status || reconciledRef.current === status.isPremium) return;
+    reconciledRef.current = status.isPremium;
+    if (status.isPremium !== isActivePremium(user)) {
+      void refreshUser();
+      void invalidateUsage(queryClient);
+    }
+  }, [status, user, refreshUser, queryClient]);
 
-    void refreshUser();
-  }, [subscription?.isPremium, user, refreshUser]);
+  // Back from Stripe via the back button (page restored from the bfcache): re-enable the buttons.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setRedirecting(null);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
-  const handleUpgrade = async () => {
+  const followRedirect = (url: unknown, kind: "checkout" | "portal") => {
+    if (!isSafeBillingRedirect(url)) {
+      setRedirectError("We couldn't open the secure Stripe page. Please try again.");
+      return;
+    }
+    setRedirecting(kind);
+    window.location.assign(url);
+  };
+
+  const startCheckout = async () => {
+    portal.reset();
+    setRedirectError(null);
     try {
-      const res = await checkoutMut.mutateAsync();
-      window.location.href = res.data.url;
+      const res = await checkout.mutateAsync();
+      followRedirect(res.data.url, "checkout");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "";
-
-      // Stripe state can be ahead of local auth context. If checkout says the
-      // user is already subscribed, refresh local user/billing caches.
-      if (message.toLowerCase().includes("active subscription")) {
-        await Promise.all([
-          refreshUser(),
-          queryClient.invalidateQueries({ queryKey: queryKeys.me }),
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.subscriptionStatus,
-          }),
-          queryClient.invalidateQueries({ queryKey: queryKeys.aiUsage }),
-        ]);
+      // Stripe can be ahead of our records: refresh so the page shows Premium.
+      if (isAlreadySubscribedError(error)) {
+        await Promise.all([refetchStatus(), refreshUser(), invalidateUsage(queryClient)]);
       }
     }
   };
 
-  const handleManage = async () => {
+  const openPortal = async () => {
+    checkout.reset();
+    setRedirectError(null);
     try {
-      const res = await portalMut.mutateAsync();
-      window.location.href = res.data.url;
+      const res = await portal.mutateAsync();
+      followRedirect(res.data.url, "portal");
     } catch {
-      /* handled by mutation */
+      // Shown below (and as a toast by the global mutation handler).
     }
   };
 
-  const periodEnd = subscription?.stripeCurrentPeriodEnd
-    ? new Date(subscription.stripeCurrentPeriodEnd)
-    : null;
-  const premiumConfirmed = subscription?.isPremium ?? isPremium;
+  const checkoutError =
+    checkout.error && !(isPremium && isAlreadySubscribedError(checkout.error)) ? checkout.error : null;
+  const actionError =
+    redirectError ??
+    (checkoutError ? getErrorMessage(checkoutError) : null) ??
+    (portal.error ? getErrorMessage(portal.error) : null);
 
-  if (statusLoading) return <Spinner />;
+  const summary = status ? describeSubscription(status) : null;
+  const ctaLabel = upgradeLabel(status);
+  const checkoutBusy = checkout.isPending || redirecting === "checkout";
+  const portalBusy = portal.isPending || redirecting === "portal";
+  const paymentIssue = status?.paymentIssue ?? false;
+  const showUpgradePrompt = entry.upgrade && status !== undefined && !isPremium && !paymentIssue;
+  const trialDays = status?.trialEligible ? status.trialDays : 0;
+
+  const upgradeButton = (className = "") => (
+    <Button onClick={() => void startCheckout()} loading={checkoutBusy} disabled={portalBusy} className={className}>
+      <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+      {ctaLabel}
+    </Button>
+  );
+
+  const manageButton = (label = "Manage billing") => (
+    <Button variant="outline" onClick={() => void openPortal()} loading={portalBusy} disabled={checkoutBusy}>
+      <CreditCard className="h-3.5 w-3.5" aria-hidden="true" />
+      {label}
+      <ExternalLink className="h-3 w-3 opacity-60" aria-hidden="true" />
+    </Button>
+  );
 
   return (
-    <div className="w-full space-y-6 animate-fade-in-up">
-      {/* Success banner */}
-      {showSuccessBanner && (
-        <div className="flex items-center gap-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/60 px-5 py-4 animate-fade-in">
-          <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
-              {premiumConfirmed
-                ? "Welcome to Premium! 🎉"
-                : "Payment received. Finalising your subscription..."}
-            </p>
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">
-              {premiumConfirmed
-                ? "Your subscription is active. All AI features are now unlocked."
-                : "We are confirming your billing status with Stripe. This usually takes a few seconds."}
+    <div className="w-full max-w-5xl mx-auto space-y-6 animate-fade-in-up">
+      {activation.phase !== "idle" && (
+        <ActivationBanner
+          phase={activation.phase}
+          trialing={status?.status === "trialing"}
+          onRetry={activation.retry}
+        />
+      )}
+
+      {entry.cancelled && activation.phase === "idle" && (
+        <Alert variant="info" title="Checkout cancelled">
+          You haven't been charged. You can upgrade whenever you're ready.
+        </Alert>
+      )}
+
+      {paymentIssue && (
+        <Alert
+          variant="error"
+          title="There's a problem with your payment"
+          action={
+            status?.hasBillingAccount ? (
+              manageButton("Update payment method")
+            ) : (
+              <Button size="sm" onClick={() => void startCheckout()} loading={checkoutBusy}>
+                Fix payment
+              </Button>
+            )
+          }
+        >
+          {summary?.detail}
+        </Alert>
+      )}
+
+      {actionError && (
+        <Alert variant="error" title="That didn't work">
+          {actionError} If it keeps happening, email {supportLink}.
+        </Alert>
+      )}
+
+      {showUpgradePrompt && (
+        <div className="rounded-2xl border border-accent-300/70 dark:border-accent-700/50 bg-accent-50/70 dark:bg-accent-900/15 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-text-primary">Finish setting up Premium</p>
+            <p className="text-xs text-text-secondary mt-0.5">
+              You chose Premium when you signed up. Continue to Stripe's secure checkout to activate it
+              {trialDays > 0 ? ` — your first ${trialDays} days are free.` : "."}
             </p>
           </div>
+          {upgradeButton("w-full sm:w-auto")}
         </div>
       )}
 
-      {/* Cancelled banner */}
-      {showCancelBanner && (
-        <div className="flex items-center gap-3 rounded-xl bg-accent-50 dark:bg-accent-900/20 border border-accent-200 dark:border-accent-800/60 px-5 py-4 animate-fade-in">
-          <XCircle className="h-5 w-5 text-accent-500 shrink-0" />
-          <p className="text-xs text-accent-700 dark:text-accent-300">
-            Checkout was cancelled. No charges were made. You can upgrade any
-            time.
-          </p>
-        </div>
-      )}
-
-      {/* Current plan card */}
-      <div
-        className={`rounded-2xl border shadow-sm overflow-hidden ${isPremium ? "border-accent-200/70 dark:border-accent-700/40" : "border-border"}`}
+      {/* Current plan */}
+      <section
+        aria-labelledby="current-plan-heading"
+        className={`rounded-2xl border shadow-sm overflow-hidden ${
+          isPremium ? "border-accent-200/70 dark:border-accent-700/40" : "border-border"
+        }`}
       >
         <div
-          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 py-5 ${isPremium ? "bg-accent-50/60 dark:bg-accent-900/10" : "bg-bg-elevated"}`}
+          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 py-5 ${
+            isPremium ? "bg-accent-50/60 dark:bg-accent-900/10" : "bg-bg-elevated"
+          }`}
         >
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-start gap-3.5 min-w-0">
             <div
-              className={`flex h-10 w-10 items-center justify-center rounded-xl shadow-sm ${isPremium ? "bg-accent-400" : "bg-neutral-200 dark:bg-neutral-700"}`}
+              aria-hidden="true"
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-sm ${
+                isPremium ? "bg-accent-700" : "bg-neutral-200 dark:bg-neutral-700"
+              }`}
             >
-              {isPremium ? (
-                <Crown className="h-5 w-5 text-white" />
-              ) : (
-                <Star className="h-5 w-5 text-neutral-500 dark:text-neutral-400" />
-              )}
+              {isPremium ? <Crown className="h-5 w-5 text-white" /> : <Star className="h-5 w-5 text-neutral-500 dark:text-neutral-400" />}
             </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-0.5">
+            <div className="min-w-0">
+              <p aria-hidden="true" className="text-xs font-semibold uppercase tracking-widest text-text-tertiary mb-0.5">
                 Current plan
               </p>
-              <h2 className="text-base font-bold text-text-primary">
-                {isPremium ? "Premium" : "Free"}
-              </h2>
-              {isPremium && periodEnd && (
-                <p className="text-xs text-text-secondary mt-0.5">
-                  Renews{" "}
-                  {periodEnd.toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })}
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 id="current-plan-heading" className="text-base font-bold text-text-primary">
+                  <span className="sr-only">Current plan: </span>
+                  {summary?.plan ?? (isPremium ? "Premium" : "Free")}
+                </h2>
+                {summary?.chip && <Badge variant={summary.chip.tone}>{summary.chip.label}</Badge>}
+              </div>
+              {statusQuery.isPending ? (
+                <p className="text-xs text-text-tertiary mt-1">Checking your subscription…</p>
+              ) : summary?.detail && !paymentIssue ? (
+                <p className="text-xs text-text-secondary mt-1">{summary.detail}</p>
+              ) : !isPremium && !paymentIssue ? (
+                <p className="text-xs text-text-secondary mt-1">
+                  Upgrade for unlimited CVs, cover letters and practice, plus unlimited AI (fair use) on our
+                  higher-quality model.
                 </p>
-              )}
-              {!isPremium && (
-                <p className="text-xs text-text-tertiary mt-0.5">
-                  Upgrade to unlock AI-powered features
-                </p>
-              )}
+              ) : null}
             </div>
           </div>
-          {isPremium ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleManage}
-              loading={portalMut.isPending}
-              className="w-full sm:w-auto"
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+            {!isPremium && !paymentIssue && upgradeButton("w-full sm:w-auto")}
+            {status?.hasBillingAccount &&
+              manageButton(isPremium && status.cancelAtPeriodEnd ? "Resume or manage" : "Manage billing")}
+          </div>
+        </div>
+        {statusQuery.isError && (
+          <div className="border-t border-border bg-bg-elevated px-6 py-4">
+            <Alert
+              variant="warning"
+              action={
+                <Button size="sm" variant="outline" onClick={() => void refetchStatus()} loading={statusQuery.isRefetching}>
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+                  Try again
+                </Button>
+              }
             >
-              <CreditCard className="h-3.5 w-3.5" />
-              Manage subscription
-              <ExternalLink className="h-3 w-3 opacity-50" />
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              onClick={handleUpgrade}
-              loading={checkoutMut.isPending}
-              className="w-full sm:w-auto"
-            >
-              <Zap className="h-3.5 w-3.5" />
-              Upgrade to Premium
-            </Button>
-          )}
-        </div>
-      </div>
+              We couldn't load your subscription details. {getErrorMessage(statusQuery.error)}
+            </Alert>
+          </div>
+        )}
+      </section>
 
-      {/* Pricing cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Free */}
-        <div
-          className={`rounded-2xl border bg-bg-elevated shadow-sm p-6 ${!isPremium ? "border-primary-200 dark:border-primary-800/60 ring-1 ring-primary-500/20" : "border-border"}`}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <Star className="h-4 w-4 text-text-tertiary" />
-            <h3 className="text-sm font-bold text-text-primary">Free</h3>
-            {!isPremium && (
-              <span className="ml-auto text-[10px] font-bold uppercase tracking-widest bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400 px-2 py-0.5 rounded-md ring-1 ring-primary-200/60 dark:ring-primary-700/30">
-                Current
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-text-tertiary mb-5">
-            Get started with the essentials
-          </p>
-          <div className="mb-6">
-            <span className="text-3xl font-extrabold tracking-tight text-text-primary">
-              £0
-            </span>
-            <span className="text-xs text-text-tertiary ml-1">/ month</span>
-          </div>
-          <ul className="space-y-2.5 mb-6">
-            {FREE_FEATURES.map((f) => (
-              <li key={f} className="flex items-start gap-2">
-                <Check className="h-3.5 w-3.5 text-text-tertiary mt-0.5 shrink-0" />
-                <span className="text-xs text-text-secondary">{f}</span>
-              </li>
-            ))}
-          </ul>
-          {!isPremium && (
-            <div className="rounded-lg bg-bg-tertiary border border-border py-2 text-center text-xs font-medium text-text-tertiary">
-              Current plan
-            </div>
-          )}
-        </div>
+      <PlanUsageCard />
 
-        {/* Premium */}
-        <div
-          className={`relative rounded-2xl border bg-bg-elevated shadow-sm p-6 ${isPremium ? "border-accent-300/70 dark:border-accent-700/50 ring-1 ring-accent-400/20" : "border-accent-200/70 dark:border-accent-700/30"}`}
-        >
-          {/* Badge */}
-          <div className="absolute -top-px -right-px">
-            <div className="bg-accent-400 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-bl-xl rounded-tr-2xl">
-              Popular
-            </div>
+      <section aria-labelledby="compare-plans-heading" className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+          <div>
+            <h2 id="compare-plans-heading" className="text-base font-bold text-text-primary">
+              Compare plans
+            </h2>
+            <p className="text-xs text-text-secondary mt-0.5">
+              Premium is {PREMIUM_PRICE.label} a month. Cancel any time and keep Premium until the end of the period
+              you've paid for.
+            </p>
           </div>
-          <div className="flex items-center gap-2 mb-1">
-            <Crown className="h-4 w-4 text-accent-500" />
-            <h3 className="text-sm font-bold text-text-primary">Premium</h3>
-            {isPremium && (
-              <span className="ml-auto text-[10px] font-bold uppercase tracking-widest bg-accent-50 text-accent-700 dark:bg-accent-900/30 dark:text-accent-400 px-2 py-0.5 rounded-md ring-1 ring-accent-200/60 dark:ring-accent-700/30">
-                Current
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-text-tertiary mb-5">
-            AI-powered tools for your job search
-          </p>
-          <div className="mb-6">
-            <span className="text-3xl font-extrabold tracking-tight text-text-primary">
-              £9.99
-            </span>
-            <span className="text-xs text-text-tertiary ml-1">/ month</span>
-          </div>
-          <ul className="space-y-2.5 mb-6">
-            {PREMIUM_FEATURES.map((f) => (
-              <li key={f} className="flex items-start gap-2">
-                <Check className="h-3.5 w-3.5 text-accent-500 mt-0.5 shrink-0" />
-                <span className="text-xs text-text-primary">{f}</span>
-              </li>
-            ))}
-          </ul>
-          {isPremium ? (
-            <div className="rounded-lg bg-accent-50 dark:bg-accent-900/20 border border-accent-200/60 dark:border-accent-700/30 py-2 text-center text-xs font-semibold text-accent-700 dark:text-accent-400">
-              ✓ Active plan
-            </div>
-          ) : (
-            <Button
-              className="w-full !bg-accent-400 hover:!bg-accent-500 focus:!ring-accent-400"
-              onClick={handleUpgrade}
-              loading={checkoutMut.isPending}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Upgrade to Premium
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          )}
+          {!isPremium && !paymentIssue && upgradeButton("w-full sm:w-auto")}
         </div>
-      </div>
+        <PlanComparison current={isPremium ? "premium" : "free"} />
+      </section>
 
-      {/* FAQ */}
-      <div className="rounded-2xl border border-border bg-bg-elevated shadow-sm p-6">
-        <div className="flex items-center gap-2 mb-5">
-          <Shield className="h-4 w-4 text-text-tertiary" />
-          <h3 className="text-sm font-semibold text-text-primary">
-            Frequently Asked Questions
-          </h3>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
-          {[
-            {
-              q: "Can I cancel anytime?",
-              a: "Yes — cancel with one click from the billing portal. You keep Premium access until the end of your paid period.",
-            },
-            {
-              q: "What happens when I cancel?",
-              a: "Your account reverts to Free. All your data stays intact — you just lose AI features and premium limits.",
-            },
-            {
-              q: "Is my payment secure?",
-              a: "All payments are processed securely by Stripe. We never see or store your card details.",
-            },
-            {
-              q: "Can I switch plans?",
-              a: "Currently we offer Free and Premium. Manage your subscription via the Stripe billing portal at any time.",
-            },
-          ].map(({ q, a }) => (
+      <BillingFaq trialDays={trialDays} />
+    </div>
+  );
+}
+
+function ActivationBanner({
+  phase,
+  trialing,
+  onRetry,
+}: {
+  phase: "confirming" | "active" | "delayed";
+  trialing: boolean;
+  onRetry: () => void;
+}) {
+  if (phase === "confirming") {
+    return (
+      <Alert variant="info" title="Payment received — activating Premium…">
+        <span className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />
+          We're confirming your subscription with Stripe. This usually takes a few seconds.
+        </span>
+      </Alert>
+    );
+  }
+  if (phase === "active") {
+    return (
+      <Alert variant="success" title={trialing ? "Your Premium trial has started" : "Welcome to Premium"}>
+        Unlimited CVs, cover letters and practice, all templates and interviewers, and unlimited AI (fair use) are now
+        unlocked.
+      </Alert>
+    );
+  }
+  return (
+    <Alert
+      variant="warning"
+      title="We're still confirming your payment"
+      action={
+        <Button size="sm" variant="outline" onClick={onRetry}>
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+          Check again
+        </Button>
+      }
+    >
+      Stripe hasn't confirmed your subscription yet. This can take a minute, and there's no need to pay again. If
+      Premium isn't active within a few minutes, email {supportLink}.
+    </Alert>
+  );
+}
+
+function BillingFaq({ trialDays }: { trialDays: number }) {
+  const faqs: { q: string; a: ReactNode }[] = [
+    {
+      q: "Can I cancel any time?",
+      a: "Yes. Open Manage billing to cancel in Stripe's billing portal. You keep Premium until the end of the period you've paid for and won't be charged again.",
+    },
+    {
+      q: "What happens to my data if Premium ends?",
+      a: "Nothing is deleted. You move to the Free plan: everything you created stays and stays editable, Free limits apply to new items, and CVs that use a Premium template need a free template to download as PDF.",
+    },
+    {
+      q: "What does \"unlimited (fair use)\" mean?",
+      a: `There's no monthly AI allowance to manage on Premium. To keep the service fast for everyone, fair use is up to ${PREMIUM_FAIR_USE.dailyAiActions} AI actions a day and ${PREMIUM_FAIR_USE.monthlyAiActions} a month.`,
+    },
+    ...(trialDays > 0
+      ? [
+          {
+            q: "How does the free trial work?",
+            a: `Your first ${trialDays} days of Premium are free. Cancel before the trial ends and you won't be charged; otherwise it continues at ${PREMIUM_PRICE.label} a month.`,
+          },
+        ]
+      : []),
+    {
+      q: "Is my payment secure?",
+      a: "Payments are handled by Stripe. We never see or store your full card details.",
+    },
+    {
+      q: "Where are my invoices?",
+      a: "Manage billing opens Stripe's billing portal, where you can download invoices and update your payment method.",
+    },
+    {
+      q: "Can I get a refund?",
+      a: (
+        <>
+          Your cancellation rights are explained in our{" "}
+          <Link to="/terms" className="font-semibold text-primary-700 dark:text-primary-300 hover:underline">
+            Terms of Service
+          </Link>
+          . For anything else, email {supportLink}.
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <Card className="p-6">
+      <section aria-labelledby="billing-faq-heading">
+        <h2 id="billing-faq-heading" className="flex items-center gap-2 text-sm font-semibold text-text-primary mb-5">
+          <Shield className="h-4 w-4 text-text-tertiary" aria-hidden="true" />
+          Frequently asked questions
+        </h2>
+        <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+          {faqs.map(({ q, a }) => (
             <div key={q}>
-              <h4 className="text-xs font-semibold text-text-primary mb-1.5">
-                {q}
-              </h4>
-              <p className="text-xs text-text-secondary leading-relaxed">{a}</p>
+              <dt className="text-xs font-semibold text-text-primary mb-1.5">{q}</dt>
+              <dd className="text-xs text-text-secondary leading-relaxed">{a}</dd>
             </div>
           ))}
-        </div>
-      </div>
-    </div>
+        </dl>
+      </section>
+    </Card>
   );
 }
