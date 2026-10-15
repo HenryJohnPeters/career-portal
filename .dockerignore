@@ -1,4 +1,11 @@
-# Keep the build context small and free of secrets. Patterns match at any depth.
+# Keep the build context small and free of secrets. `**/` patterns match at
+# any depth; the others only at the repository root.
+#
+# Shared by both Railway builds: Dockerfile.api (api service) AND the Nixpacks
+# build of the web service, which also uses the repository root as its Docker
+# context. Never exclude anything the web build reads (apps/web/** including
+# public/, libs/**, root configs); CI checks every tracked apps/web and libs
+# file is still in the context.
 **/node_modules
 **/dist
 **/.nx
@@ -14,6 +21,5 @@
 .github
 .vscode
 .idea
-apps/web/public
 scripts
 *.md

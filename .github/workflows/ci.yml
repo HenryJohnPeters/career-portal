@@ -56,6 +56,29 @@ jobs:
           curl -fsS -o /dev/null http://127.0.0.1:4173/
           curl -fsS -o /dev/null http://127.0.0.1:4173/app/dashboard
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:4173/assets/missing.js)" = 404
+          # Every same-origin file the app shell references is served: bundles and
+          # the apps/web/public files (theme-init.js, the Inter font, favicons).
+          refs=$(curl -fsS http://127.0.0.1:4173/ | grep -oE '(src|href)="/[^/"][^"]*"' | cut -d'"' -f2 | sort -u)
+          grep -qx /theme-init.js <<< "$refs"
+          for ref in $refs; do curl -fsS -o /dev/null "http://127.0.0.1:4173$ref"; done
+          curl -fsS -o /dev/null http://127.0.0.1:4173/robots.txt
+
+      # Railway builds the web service with Nixpacks, a Docker build whose context
+      # is the repository root, so the root .dockerignore applies to it as well as
+      # to Dockerfile.api: every tracked web and libs file must stay in the context.
+      - name: Web files survive .dockerignore
+        run: |
+          docker build -q -o "type=local,dest=$RUNNER_TEMP/web-context" -f - . <<'EOF'
+          FROM scratch
+          COPY apps/web /apps/web
+          COPY libs /libs
+          EOF
+          missing=$(git ls-files apps/web libs | while read -r f; do [ -e "$RUNNER_TEMP/web-context/$f" ] || echo "$f"; done)
+          if [ -n "$missing" ]; then
+            echo "Left out of the Docker build context by .dockerignore:"
+            echo "$missing"
+            exit 1
+          fi
 
   api-image:
     name: API image (build, migrate, boot)
@@ -90,7 +113,9 @@ jobs:
         run: |
           cat > api.env <<'EOF'
           DATABASE_URL=postgresql://ci:ci@127.0.0.1:5432/ci
+          SUPABASE_URL=https://ci-placeholder.supabase.co
           SUPABASE_JWT_SECRET=ci-jwt-secret
+          SUPABASE_SERVICE_ROLE_KEY=ci-service-role-key
           OPENAI_API_KEY=sk-ci
           STRIPE_SECRET_KEY=sk_test_ci
           STRIPE_PRICE_ID=price_ci
@@ -103,6 +128,12 @@ jobs:
           # Chromium headless shell and its libraries are present (PDF export).
           docker run --rm career-portal-api:ci \
             node -e "require('playwright').chromium.launch().then((b) => b.close())"
+          # Production dependencies only: no build tooling in the runtime image.
+          docker run --rm career-portal-api:ci node -e "
+            const dev = ['typescript', 'ts-node', 'nx', '@types/express'].filter((m) => {
+              try { require.resolve(m + '/package.json'); return true; } catch { return false; }
+            });
+            if (dev.length) { console.error('devDependencies in the image: ' + dev.join(', ')); process.exit(1); }"
           docker run -d --name api --network host --env-file api.env career-portal-api:ci
           for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:3000/health/live && break; sleep 1; done
           curl -fsS http://127.0.0.1:3000/health | grep -q '"db":"ok"'

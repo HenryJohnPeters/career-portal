@@ -34,11 +34,15 @@ function originOf(value) {
   }
 }
 
-/** The API and Supabase origins the bundle talks to (same VITE_* values the build used). */
+/** The origins the bundle talks to (same VITE_* values the build used). */
 function connectSources() {
   const api = originOf(process.env.VITE_API_URL);
   const supabase = originOf(process.env.VITE_SUPABASE_URL);
-  return [api ?? "https://*.railway.app", supabase ?? "https://*.supabase.co"];
+  // Optional client error reports (apps/web/src/lib/report-error.ts).
+  const errorReports = originOf(process.env.VITE_ERROR_REPORT_URL);
+  const sources = [api ?? "https://*.railway.app", supabase ?? "https://*.supabase.co"];
+  if (errorReports && !sources.includes(errorReports)) sources.push(errorReports);
+  return sources;
 }
 
 const CONTENT_SECURITY_POLICY = [

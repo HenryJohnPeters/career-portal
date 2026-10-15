@@ -8,6 +8,7 @@
       "server.js",
       "nixpacks.toml",
       "railway.json",
+      ".dockerignore",
       "package.json",
       "pnpm-lock.yaml",
       "pnpm-workspace.yaml",

@@ -4,7 +4,7 @@ careerRepo runs on [Railway](https://railway.app) as two services plus a databas
 
 | Piece | Built from | Config | Serves |
 |---|---|---|---|
-| `api` service | `Dockerfile.api` (Node 22, Chromium headless shell for PDFs, runs as non-root under `tini`) | `railway.api.json` | NestJS API |
+| `api` service | `Dockerfile.api` (Node 22, production dependencies only, Chromium headless shell for PDFs, runs as non-root under `tini`) | `railway.api.json` | NestJS API |
 | `web` service | Nixpacks (`nixpacks.toml`), Vite build | `railway.json` | `server.js`: the SPA with security headers and caching |
 | Postgres | Railway Postgres plugin | | |
 
@@ -27,8 +27,8 @@ answers 200. A failed migration or health check leaves the previous deployment s
    - Networking: attach your public domain.
 4. Set `CLIENT_URL` on `api` to the web origin (e.g. `https://your-domain.com`), and
    `VITE_API_URL` on `web` to the API origin. Redeploy both.
-5. Seed the interview question bank once (see [Migrations and seed data](#migrations-and-seed-data)).
-6. Configure Supabase and Stripe (sections below), then run the [post-deploy check](#verify-a-deploy).
+5. Seed the interview question bank once (see [Migrations and seed data](#5-migrations-and-seed-data)).
+6. Configure Supabase and Stripe (sections below), then run the [post-deploy check](#7-verify-a-deploy).
 
 Each service's `watchPatterns` limit rebuilds to the files it uses, so a web-only change does not
 redeploy the API.
@@ -44,9 +44,9 @@ everything with comments.
 | Variable | Required | Notes |
 |---|---|---|
 | `DATABASE_URL` | yes | Reference the plugin: `${{Postgres.DATABASE_URL}}`. Prisma's pool defaults to `cpus * 2 + 1`; on small instances append `?connection_limit=10` (the dashboard runs its summary queries in parallel). |
-| `SUPABASE_URL` | one of these two | Project URL. Verifies ES256/RS256 tokens via the project's JWKS and checks the issuer. |
-| `SUPABASE_JWT_SECRET` | one of these two | Legacy HS256 secret; only if the project still signs tokens with it. |
-| `SUPABASE_SERVICE_ROLE_KEY` | no | Lets account deletion also delete the Supabase user. Server-side only. Needs `SUPABASE_URL`. |
+| `SUPABASE_URL` | yes (production) | Project URL. Verifies ES256/RS256 tokens via the project's JWKS and checks the issuer. Outside production, this or `SUPABASE_JWT_SECRET` is enough. |
+| `SUPABASE_JWT_SECRET` | no | Legacy HS256 secret; only if the project still signs tokens with it. |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes (production) | Account deletion also deletes the Supabase user. Server-side only. Needs `SUPABASE_URL`. |
 | `OPENAI_API_KEY` | yes | |
 | `OPENAI_MODEL_STANDARD` / `OPENAI_MODEL_LIGHT` | no | Default `gpt-4o` (premium) / `gpt-4o-mini` (free and background). Chat models with JSON mode. |
 | `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET` | yes | Live values in production. |
@@ -68,6 +68,10 @@ they are public: never put a secret in a `VITE_` variable. The production build 
 missing or not `https://`. `server.js` also reads the first two at runtime to build its
 Content-Security-Policy `connect-src`.
 
+Optional: `VITE_ERROR_REPORT_URL` receives unexpected client errors as small JSON reports
+(`navigator.sendBeacon`), and `VITE_RELEASE` (e.g. the commit) tags them. `server.js` adds the
+report URL's origin to `connect-src`.
+
 ## 3. Supabase
 
 - **Authentication → URL configuration**: Site URL = `CLIENT_URL`; add `CLIENT_URL/auth/callback**` to
@@ -81,9 +85,9 @@ Content-Security-Policy `connect-src`.
   *revoking* a key, redeploy the API to drop it from the cache at once. Legacy HS256 projects set
   `SUPABASE_JWT_SECRET` instead (or as well, during a migration).
 - **Anonymous sign-ins** stay disabled; the API rejects anonymous and email-less tokens anyway.
-- `SUPABASE_SERVICE_ROLE_KEY` (optional) goes on the API service only. Without it, deleting an
-  account removes all app data but the Supabase login survives, and signing in again starts a new,
-  empty account.
+- `SUPABASE_SERVICE_ROLE_KEY` goes on the API service only (never in a `VITE_` variable). In
+  production the API refuses to start without it, so deleting an account always deletes the
+  Supabase login too, not only the app data.
 
 ## 4. Stripe go-live checklist
 
@@ -150,12 +154,18 @@ Health endpoints need no auth or `Origin` header and are never rate-limited.
 ```
 
 It checks both health endpoints, that auth is enforced, that the Stripe webhook path is reachable
-without an `Origin` header, the SPA routes and asset 404s, and that the API's CORS allows the web
+without an `Origin` header, the SPA routes and asset 404s, that every file the app shell references
+(bundles, `theme-init.js`, the font, favicons) is served, and that the API's CORS allows the web
 origin. `./scripts/deploy.sh [api|web]` deploys the working tree with the Railway CLI if you are not
 using the GitHub integration.
 
 CI (`.github/workflows/ci.yml`) runs the typecheck, API and web tests and both builds, smoke-tests
-`server.js`, and builds the API image, migrates a fresh Postgres with it, boots it and probes it.
+`server.js`, checks that `.dockerignore` keeps every web file in the build context, and builds the
+API image (checking it carries no build tooling), migrates a fresh Postgres with it, boots it and
+probes it.
+
+`.dockerignore` applies to both services: Nixpacks builds the web service with the repository
+root as its Docker context. Never exclude anything under `apps/web` or `libs` there.
 
 ## 8. Troubleshooting
 
@@ -166,6 +176,7 @@ CI (`.github/workflows/ci.yml`) runs the typecheck, API and web tests and both b
 | Every request 401 | Wrong `SUPABASE_URL` project, or HS256 tokens without `SUPABASE_JWT_SECRET`. The API logs the reason, e.g. `Authentication failed: ERR_JWT_CLAIM_VALIDATION_FAILED`. |
 | `503 Sign-in is temporarily unavailable` | The API cannot reach the Supabase JWKS endpoint. |
 | PDF download 503 | Chromium could not start; check the API logs. |
+| Web pages lack the Inter font, favicon or dark-mode pre-paint (`/theme-init.js`, `/fonts/...` 404) | Files left out of the web build context; see the `.dockerignore` note in [Verify a deploy](#7-verify-a-deploy). |
 | Stripe dashboard shows webhook `400 Invalid signature` | `STRIPE_WEBHOOK_SECRET` belongs to a different endpoint or mode. |
 | Users throttled together | `TRUST_PROXY_HOPS` lower than the real number of proxies. |
 

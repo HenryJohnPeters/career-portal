@@ -4,8 +4,8 @@
 
 ARG NODE_IMAGE=node:22-slim
 
-# ── Build: API dependencies only, Prisma client, compiled JS ────────────────
-FROM ${NODE_IMAGE} AS build
+# ── Dependencies: the API's, including the build tooling ────────────────────
+FROM ${NODE_IMAGE} AS deps
 ENV CI=true
 RUN apt-get update \
  && apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -22,6 +22,18 @@ COPY libs/web/data-access/package.json libs/web/data-access/
 COPY libs/web/ui/package.json libs/web/ui/
 RUN pnpm install --frozen-lockfile --filter @careerportal/api
 
+# ── Production dependencies: no devDependencies (nx, typescript, ts-node) ───
+# Reinstalled from the store the previous install filled (no downloads). The
+# prisma CLI is a production dependency: the preDeployCommand runs it.
+FROM deps AS prod-deps
+RUN rm -rf node_modules apps/api/node_modules \
+ && pnpm install --frozen-lockfile --filter @careerportal/api --prod --offline
+COPY apps/api/prisma/schema.prisma apps/api/prisma/
+RUN DATABASE_URL="postgresql://build:build@localhost:5432/build" \
+    pnpm --filter @careerportal/api exec prisma generate --schema prisma/schema.prisma
+
+# ── Build: Prisma client, compiled JS ───────────────────────────────────────
+FROM deps AS build
 COPY tsconfig.base.json ./
 COPY apps/api apps/api
 # `prisma generate` never connects; the URL only has to parse (not kept in the image).
@@ -56,9 +68,9 @@ RUN groupadd --system app \
 WORKDIR /app
 # Root-owned and read-only for the runtime user.
 COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=prod-deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/apps/api/prisma ./apps/api/prisma
 COPY --from=build /app/dist ./dist
 RUN node -e "const v = require('playwright/package.json').version; if (v !== process.env.PLAYWRIGHT_VERSION) { console.error('playwright ' + v + ' != PLAYWRIGHT_VERSION ' + process.env.PLAYWRIGHT_VERSION); process.exit(1); }"
