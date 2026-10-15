@@ -1,7 +1,5 @@
 /**
- * Core interfaces for the Interview Engine.
- * All business logic depends on these abstractions, never on concrete implementations.
- * In v2, swap RuleBasedEvaluator for AIEvaluator without touching the engine.
+ * Data shapes for the deterministic interview engine (no AI, no DB access).
  */
 
 export interface RubricCriterion {
@@ -10,7 +8,37 @@ export interface RubricCriterion {
   keywords: string[];
 }
 
+/** The light bank-question fields used to pick a session's questions. */
+export interface CandidateQuestion {
+  id: string;
+  type: string;
+  difficulty: number;
+  tags: string[];
+}
+
+/** The bank-question fields needed to grade an answer. */
+export interface GradableQuestion {
+  options: string[];
+  correctOptionIndex: number;
+  correctOptionIndices: number[];
+  multiSelect: boolean;
+  expectedPoints: string[];
+  rubric: { criteria: RubricCriterion[] };
+  modelAnswer: string;
+}
+
+export interface SelectionSettings {
+  level: string;
+  difficulty: string;
+  tags: string[];
+  questionCount: number;
+  roleFocus: string;
+  interviewType: string;
+}
+
 export interface EvaluationResult {
+  isCorrect: boolean;
+  /** 0 or `maxScore` (all-or-nothing, including multi-select). */
   score: number;
   maxScore: number;
   pointsHit: string[];
@@ -20,72 +48,7 @@ export interface EvaluationResult {
   suggestions: string[];
   correctAnswer: string;
   correctOptionIndex: number;
+  correctOptionIndices: number[];
   selectedOptionIndex: number;
-  isCorrect: boolean;
-}
-
-export interface QuestionRecord {
-  id: string;
-  track: string;
-  tags: string[];
-  difficulty: number;
-  type: string;
-  level: string;
-  prompt: string;
-  options?: string[];
-  correctOptionIndex?: number;
-  expectedPoints: string[];
-  redFlags: string[];
-  rubric: { criteria: RubricCriterion[] };
-  modelAnswer: string;
-  followUpIds: string[];
-}
-
-export interface SessionSettings {
-  track: string;
-  level: string;
-  tags: string[];
-  questionCount: number;
-  persona: string;
-  roleFocus: string;
-  interviewType: string;
-  duration: number;
-  difficulty: string;
-  companyStyle: string;
-}
-
-/** Selects questions from the bank based on session settings and history */
-export interface IQuestionSelector {
-  select(
-    pool: QuestionRecord[],
-    settings: SessionSettings,
-    answeredIds: string[],
-    scores: number[],
-  ): QuestionRecord[];
-}
-
-/** Evaluates a user's answer against a question's rubric */
-export interface IAnswerEvaluator {
-  evaluate(question: QuestionRecord, userAnswer: string): EvaluationResult;
-}
-
-/** Determines whether and which follow-up to ask */
-export interface IFollowUpStrategy {
-  shouldFollowUp(evaluation: EvaluationResult): boolean;
-  selectFollowUp(
-    question: QuestionRecord,
-    evaluation: EvaluationResult,
-    pool: QuestionRecord[],
-  ): QuestionRecord | null;
-}
-
-/** Generates persona-flavored responses */
-export interface IPersonaResponder {
-  respond(
-    persona: string,
-    score: number,
-    maxScore: number,
-    pointsMissed: string[],
-    adviceLevel?: "minimal" | "standard" | "detailed",
-  ): string;
+  selectedOptionIndices: number[];
 }

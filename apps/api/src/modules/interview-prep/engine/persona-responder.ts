@@ -1,105 +1,59 @@
-import { IPersonaResponder } from "./interfaces";
-
-/**
- * Generates interviewer-persona-flavored response templates.
- * Simulates different interviewer styles: friendly, neutral, tough.
- */
-export class PersonaResponder implements IPersonaResponder {
-  respond(
-    persona: string,
-    score: number,
-    maxScore: number,
-    pointsMissed: string[],
-    adviceLevel: "minimal" | "standard" | "detailed" = "standard"
-  ): string {
-    const ratio = maxScore > 0 ? score / maxScore : 0;
-    const templates =
-      PERSONA_TEMPLATES[persona] ?? PERSONA_TEMPLATES["neutral"];
-
-    // Minimal advice: very brief responses
-    if (adviceLevel === "minimal") {
-      if (ratio >= 0.8) return "Good answer.";
-      if (ratio >= 0.6) return "Acceptable, but could be better.";
-      if (ratio >= 0.4) return "Needs improvement. Review the key concepts.";
-      return "Insufficient. Study this topic thoroughly.";
-    }
-
-    // Standard advice: current behavior
-    if (adviceLevel === "standard") {
-      if (ratio >= 0.8) return templates.excellent;
-      if (ratio >= 0.6) return templates.good;
-      if (ratio >= 0.4) {
-        const missed = pointsMissed.slice(0, 2).join(" and ");
-        return templates.partial.replace(
-          "{missed}",
-          missed || "some key concepts"
-        );
-      }
-      return templates.weak.replace(
-        "{missed}",
-        pointsMissed.slice(0, 3).join(", ") || "several important concepts"
-      );
-    }
-
-    // Detailed advice: expanded responses with extra tips
-    if (ratio >= 0.8) {
-      return (
-        templates.excellent +
-        " Pro tip: In a real interview, you'd want to also discuss potential edge cases and scalability considerations. Keep up the great work!"
-      );
-    }
-    if (ratio >= 0.6) {
-      return (
-        templates.good +
-        " For future answers, try to provide specific examples from your experience and mention any trade-offs you considered. This shows deeper understanding."
-      );
-    }
-    if (ratio >= 0.4) {
-      const missed = pointsMissed.slice(0, 2).join(" and ");
-      return (
-        templates.partial.replace("{missed}", missed || "some key concepts") +
-        " Remember: interviewers value clear communication just as much as technical knowledge. Try structuring your answer with 'what, why, and how' to make your points clearer."
-      );
-    }
-    const missed =
-      pointsMissed.slice(0, 3).join(", ") || "several important concepts";
-    return (
-      templates.weak.replace("{missed}", missed) +
-      " Here's what I'd recommend: review the fundamentals, practice explaining the concepts out loud, and try to connect the theory to real-world use cases. You'll get there!"
-    );
-  }
-}
+import type { AdviceLevel } from "../interviewer-traits";
 
 interface PersonaTemplate {
-  excellent: string;
-  good: string;
-  partial: string;
-  weak: string;
+  correct: string;
+  incorrect: string;
 }
 
+/** `{missed}` is replaced by the first missed points. */
 const PERSONA_TEMPLATES: Record<string, PersonaTemplate> = {
   friendly: {
-    excellent:
+    correct:
       "Great job! You really nailed that one. Your understanding is solid — let's keep the momentum going!",
-    good: "Nice work! You covered the main points well. A few small details could round it out, but overall solid.",
-    partial:
-      "Good effort! You're on the right track, but I'd love to hear more about {missed}. Want to give it another shot?",
-    weak: "I can see you're thinking about this, which is great! Let's dig deeper into {missed} — these are important areas to strengthen.",
+    incorrect:
+      "I can see you're thinking about this, which is great! Let's dig deeper into {missed} — these are important areas to strengthen.",
   },
   neutral: {
-    excellent:
-      "Correct. Your answer covers all the key points comprehensively. Moving on.",
-    good: "Your answer is mostly correct and covers the core concepts. Some areas could use more detail.",
-    partial:
-      "Partially correct. You missed {missed}. Let me ask a follow-up to explore this further.",
-    weak: "Your answer is incomplete. Key areas missed: {missed}. Let's revisit this topic.",
+    correct: "Correct. Your answer covers all the key points comprehensively. Moving on.",
+    incorrect: "Your answer is incomplete. Key areas missed: {missed}. Let's revisit this topic.",
   },
   tough: {
-    excellent:
+    correct:
       "Acceptable. You covered what was expected. In a real interview, I'd push for more depth. Next question.",
-    good: "You got the basics, but a senior candidate should go deeper. What about the edge cases?",
-    partial:
-      "That's not sufficient. You completely missed {missed}. Can you explain why those matter?",
-    weak: "I'm concerned about this gap. You missed {missed}. This is fundamental — you need to study this thoroughly.",
+    incorrect:
+      "I'm concerned about this gap. You missed {missed}. This is fundamental — you need to study this thoroughly.",
   },
 };
+
+const DETAILED_CORRECT_TIP =
+  " Pro tip: In a real interview, you'd want to also discuss potential edge cases and scalability considerations. Keep up the great work!";
+const DETAILED_INCORRECT_TIP =
+  " Here's what I'd recommend: review the fundamentals, practice explaining the concepts out loud, and try to connect the theory to real-world use cases. You'll get there!";
+
+/**
+ * Interviewer-flavoured reaction to an answer. Grading is all-or-nothing, so
+ * there are two outcomes; the advice level sets how much the interviewer says.
+ */
+export function personaResponse(
+  persona: string,
+  isCorrect: boolean,
+  pointsMissed: readonly string[],
+  adviceLevel: AdviceLevel = "standard",
+): string {
+  if (adviceLevel === "minimal") {
+    return isCorrect ? "Good answer." : "Not quite. Study this topic thoroughly.";
+  }
+
+  const templates = PERSONA_TEMPLATES[persona] ?? PERSONA_TEMPLATES.neutral;
+  const base = isCorrect
+    ? templates.correct
+    : templates.incorrect.replace(
+        "{missed}",
+        pointsMissed.slice(0, 3).join(", ") || "several important concepts",
+      );
+
+  if (adviceLevel === "detailed") {
+    return base + (isCorrect ? DETAILED_CORRECT_TIP : DETAILED_INCORRECT_TIP);
+  }
+  return base;
+}

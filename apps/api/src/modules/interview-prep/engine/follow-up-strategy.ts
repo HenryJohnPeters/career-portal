@@ -1,56 +1,41 @@
-import {
-  IFollowUpStrategy,
-  QuestionRecord,
-  EvaluationResult,
-} from "./interfaces";
+/**
+ * Follow-ups: after a wrong answer, a question may lead to one of its curated
+ * `followUpIds`, asked straight after it. Only seed questions declare them.
+ */
+
+/** At most this many follow-ups are added to one session. */
+export const MAX_FOLLOW_UPS_PER_SESSION = 5;
+
+export function shouldFollowUp(
+  isCorrect: boolean,
+  followUpIds: readonly string[],
+): boolean {
+  return !isCorrect && followUpIds.length > 0;
+}
 
 /**
- * Determines whether to ask a follow-up and selects the appropriate one.
- * Follow-ups are triggered when the user misses key points (score < 60%).
+ * Picks the follow-up whose expected points best cover what was missed;
+ * ties keep the declared order. `candidates` are the follow-ups that exist and
+ * are not already in the session.
  */
-export class FollowUpStrategy implements IFollowUpStrategy {
-  /** Trigger follow-up if score is below 60% of max */
-  shouldFollowUp(evaluation: EvaluationResult): boolean {
-    if (evaluation.maxScore === 0) return false;
-    const ratio = evaluation.score / evaluation.maxScore;
-    return ratio < 0.6 && evaluation.pointsMissed.length > 0;
-  }
+export function pickFollowUp(
+  followUpIds: readonly string[],
+  pointsMissed: readonly string[],
+  candidates: readonly { id: string; expectedPoints: string[] }[],
+): string | null {
+  const byId = new Map(candidates.map((c) => [c.id, c]));
+  const missed = new Set(pointsMissed.map((p) => p.toLowerCase()));
 
-  /**
-   * Select a follow-up from the question's declared followUpIds.
-   * Prefer follow-ups that target the missed points.
-   */
-  selectFollowUp(
-    question: QuestionRecord,
-    evaluation: EvaluationResult,
-    pool: QuestionRecord[]
-  ): QuestionRecord | null {
-    if (question.followUpIds.length === 0) return null;
-
-    const followUpPool = pool.filter((q) =>
-      question.followUpIds.includes(q.id)
-    );
-    if (followUpPool.length === 0) return null;
-
-    // Score each follow-up by how many missed points its expectedPoints cover
-    const missedSet = new Set(
-      evaluation.pointsMissed.map((p) => p.toLowerCase())
-    );
-
-    let best: QuestionRecord | null = null;
-    let bestOverlap = -1;
-
-    for (const fq of followUpPool) {
-      const overlap = fq.expectedPoints.filter((ep) =>
-        missedSet.has(ep.toLowerCase())
-      ).length;
-      if (overlap > bestOverlap) {
-        bestOverlap = overlap;
-        best = fq;
-      }
+  let bestId: string | null = null;
+  let bestOverlap = -1;
+  for (const id of followUpIds) {
+    const candidate = byId.get(id);
+    if (!candidate) continue;
+    const overlap = candidate.expectedPoints.filter((p) => missed.has(p.toLowerCase())).length;
+    if (overlap > bestOverlap) {
+      bestOverlap = overlap;
+      bestId = id;
     }
-
-    // Fall back to the first follow-up if none overlaps with missed points
-    return best ?? followUpPool[0];
   }
+  return bestId;
 }

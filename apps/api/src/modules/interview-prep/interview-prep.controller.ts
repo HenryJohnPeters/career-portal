@@ -1,130 +1,100 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
   Param,
+  ParseUUIDPipe,
+  Post,
   UseGuards,
-  Headers,
-  UnauthorizedException,
 } from "@nestjs/common";
-import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
+import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
-import { timingSafeEqual } from "crypto";
-import { AuthGuard } from "../auth/auth.guard";
-import { InterviewPrepService } from "./interview-prep.service";
-import {
-  CreateInterviewSessionDto,
-  SubmitAnswerDto,
-} from "./interview-prep.dto";
-import { AiQuestionGeneratorService } from "../ai/ai-question-generator.service";
 import { CurrentUserId } from "../../common/current-user.decorator";
-import { ConfigService } from "@nestjs/config";
+import { AuthGuard } from "../auth/auth.guard";
+import { InterviewAnswersService } from "./interview-answers.service";
+import { INTERVIEW_OPTIONS } from "./interview-options";
+import { CreateInterviewSessionDto, SubmitAnswerDto } from "./interview-prep.dto";
+import { InterviewProgressService } from "./interview-progress.service";
+import { InterviewSessionsService } from "./interview-sessions.service";
+
+const uuid = () => new ParseUUIDPipe({ version: "4" });
+
+/** Session creation can trigger pool work; well above any real practice pace. */
+const CREATE_SESSION_THROTTLE = { default: { limit: 10, ttl: 60_000 } } as const;
 
 @ApiTags("interview-prep")
 @ApiBearerAuth()
+@UseGuards(AuthGuard)
 @Controller("interview-prep")
 export class InterviewPrepController {
   constructor(
-    private readonly service: InterviewPrepService,
-    private readonly aiQuestionGenerator: AiQuestionGeneratorService,
-    private readonly config: ConfigService,
+    private readonly sessions: InterviewSessionsService,
+    private readonly answers: InterviewAnswersService,
+    private readonly progress: InterviewProgressService,
   ) {}
 
   @Get("options")
-  @UseGuards(AuthGuard)
-  async getOptions() {
-    const data = await this.service.getAvailableOptions();
+  getOptions() {
+    return { data: INTERVIEW_OPTIONS };
+  }
+
+  @Get("progress")
+  async getProgress(@CurrentUserId() userId: string) {
+    const data = await this.progress.getProgress(userId);
     return { data };
   }
 
   @Get("sessions")
-  @UseGuards(AuthGuard)
   async getSessions(@CurrentUserId() userId: string) {
-    const data = await this.service.getSessions(userId);
+    const data = await this.sessions.listSummaries(userId);
     return { data };
   }
 
   @Post("sessions")
-  @UseGuards(AuthGuard)
+  @Throttle(CREATE_SESSION_THROTTLE)
   async createSession(
     @CurrentUserId() userId: string,
     @Body() dto: CreateInterviewSessionDto,
   ) {
-    const data = await this.service.createSession(userId, dto);
+    const data = await this.sessions.createSession(userId, dto);
     return { data };
   }
 
   @Get("sessions/:id")
-  @UseGuards(AuthGuard)
-  async getSession(@CurrentUserId() userId: string, @Param("id") id: string) {
-    const data = await this.service.getSession(userId, id);
+  async getSession(
+    @CurrentUserId() userId: string,
+    @Param("id", uuid()) id: string,
+  ) {
+    const data = await this.sessions.getSession(userId, id);
     return { data };
   }
 
   @Get("sessions/:id/next")
-  @UseGuards(AuthGuard)
   async getNextQuestion(
     @CurrentUserId() userId: string,
-    @Param("id") id: string,
+    @Param("id", uuid()) id: string,
   ) {
-    const data = await this.service.getNextQuestion(userId, id);
+    const data = await this.answers.getNextQuestion(userId, id);
     return { data };
   }
 
   @Post("sessions/:id/questions/:questionId/answer")
-  @UseGuards(AuthGuard)
   async submitAnswer(
     @CurrentUserId() userId: string,
-    @Param("id") id: string,
-    @Param("questionId") questionId: string,
+    @Param("id", uuid()) id: string,
+    @Param("questionId", uuid()) questionId: string,
     @Body() dto: SubmitAnswerDto,
   ) {
-    const data = await this.service.submitAnswer(
-      userId,
-      id,
-      questionId,
-      dto.answer,
-    );
+    const data = await this.answers.submitAnswer(userId, id, questionId, dto.answer);
     return { data };
   }
 
   @Post("sessions/:id/complete")
-  @UseGuards(AuthGuard)
   async completeSession(
     @CurrentUserId() userId: string,
-    @Param("id") id: string,
+    @Param("id", uuid()) id: string,
   ) {
-    const data = await this.service.completeSession(userId, id);
+    const data = await this.sessions.completeSession(userId, id);
     return { data };
-  }
-
-  /**
-   * Background fill endpoint — called by cron or admin to fill thin question pools.
-   * Protected by a shared ADMIN_API_KEY.
-   * Rate-limited to 1 call per minute to prevent bill-spiking if the key leaks.
-   */
-  @Post("admin/background-fill")
-  @Throttle({ default: { ttl: 60000, limit: 1 } })
-  async backgroundFill(@Headers("x-admin-key") adminKey: string) {
-    const expectedKey = this.config.get<string>("ADMIN_API_KEY");
-    const provided = Buffer.from(adminKey ?? "");
-    const expected = Buffer.from(expectedKey ?? "");
-    const maxLen = Math.max(provided.length, expected.length, 1);
-    const paddedProvided = Buffer.alloc(maxLen);
-    const paddedExpected = Buffer.alloc(maxLen);
-    provided.copy(paddedProvided);
-    expected.copy(paddedExpected);
-
-    const keyMatches =
-      expected.length > 0 &&
-      provided.length === expected.length &&
-      timingSafeEqual(paddedProvided, paddedExpected);
-
-    if (!keyMatches) {
-      throw new UnauthorizedException("Invalid or missing admin API key");
-    }
-    const result = await this.aiQuestionGenerator.backgroundFill();
-    return { data: result };
   }
 }
