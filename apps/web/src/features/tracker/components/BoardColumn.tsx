@@ -1,36 +1,73 @@
+import { memo } from "react";
 import { Droppable } from "@hello-pangea/dnd";
 import { Inbox } from "lucide-react";
 import type { Job } from "@careerportal/shared/types";
-import type { PipelineColumn as ColumnDef } from "../constants";
+import type { PipelineColumn } from "../constants";
 import { ApplicationCard } from "./ApplicationCard";
 
-interface BoardColumnProps {
-  column: ColumnDef;
-  jobs: Job[];
-  onCardClick: (job: Job) => void;
+export interface LinkedTitles {
+  cv: ReadonlyMap<string, string>;
+  letters: ReadonlyMap<string, string>;
 }
 
-export function BoardColumn({ column, jobs, onCardClick }: BoardColumnProps) {
+interface CardListProps {
+  jobs: readonly Job[];
+  onOpen: (jobId: string) => void;
+  titles: LinkedTitles;
+  today: string;
+}
+
+/**
+ * The cards of one column, memoised so drag-over highlighting re-renders the
+ * column but not its cards (as @hello-pangea/dnd recommends).
+ */
+const CardList = memo(function CardList({ jobs, onOpen, titles, today }: CardListProps) {
+  return (
+    <>
+      {jobs.map((job, index) => (
+        <ApplicationCard
+          key={job.id}
+          job={job}
+          index={index}
+          onOpen={onOpen}
+          cvTitle={job.cvVersionId ? titles.cv.get(job.cvVersionId) ?? job.cvVersion?.title ?? "Linked CV" : null}
+          letterTitle={
+            job.coverLetterId
+              ? titles.letters.get(job.coverLetterId) ?? job.linkedCoverLetter?.title ?? "Linked letter"
+              : null
+          }
+          today={today}
+        />
+      ))}
+    </>
+  );
+});
+
+interface BoardColumnProps extends CardListProps {
+  column: PipelineColumn;
+}
+
+export const BoardColumn = memo(function BoardColumn({ column, jobs, onOpen, titles, today }: BoardColumnProps) {
   const Icon = column.icon;
 
   return (
-    <div className="flex flex-col min-w-[240px] w-[270px] sm:min-w-[260px] sm:w-[280px] shrink-0 h-full snap-start">
-      {/* Column header */}
-      <div
-        className={`flex items-center gap-2 rounded-t-xl border px-3.5 py-2.5 ${column.headerBg}`}
-      >
-        <Icon className={`h-4 w-4 ${column.color}`} />
-        <span className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
+    <section
+      aria-label={`${column.label}: ${jobs.length} application${jobs.length === 1 ? "" : "s"}`}
+      className="flex flex-col min-w-[240px] w-[270px] sm:min-w-[260px] sm:w-[280px] shrink-0 h-full snap-start"
+    >
+      <div className={`flex items-center gap-2 rounded-t-xl border px-3.5 py-2.5 ${column.headerBg}`}>
+        <Icon className={`h-4 w-4 ${column.color}`} aria-hidden="true" />
+        <h2 className="text-xs font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">
           {column.label}
-        </span>
+        </h2>
         <span
+          aria-hidden="true"
           className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${column.bg} ${column.color}`}
         >
           {jobs.length}
         </span>
       </div>
 
-      {/* Droppable area */}
       <Droppable droppableId={column.id}>
         {(provided, snapshot) => (
           <div
@@ -43,25 +80,16 @@ export function BoardColumn({ column, jobs, onCardClick }: BoardColumnProps) {
             }`}
           >
             {jobs.length === 0 && !snapshot.isDraggingOver && (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="flex flex-col items-center justify-center py-8 text-center" aria-hidden="true">
                 <Inbox className="h-5 w-5 text-gray-300 dark:text-gray-600 mb-1.5" />
-                <p className="text-[10px] text-gray-400 dark:text-gray-600">
-                  Drop applications here
-                </p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">Drop applications here</p>
               </div>
             )}
-            {jobs.map((job, idx) => (
-              <ApplicationCard
-                key={job.id}
-                job={job}
-                index={idx}
-                onClick={onCardClick}
-              />
-            ))}
+            <CardList jobs={jobs} onOpen={onOpen} titles={titles} today={today} />
             {provided.placeholder}
           </div>
         )}
       </Droppable>
-    </div>
+    </section>
   );
-}
+});

@@ -1,94 +1,95 @@
-import { useState, useCallback, useEffect } from "react";
-import { PIPELINE_COLUMNS } from "../constants";
-import type { PipelineStatus, PipelineColumn } from "../constants";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { JobStatus } from "@careerportal/shared/types";
+import { readStorage, writeStorage } from "../../../lib/storage";
+import { PIPELINE_COLUMNS, type PipelineColumn } from "../constants";
 
 const STORAGE_KEY = "tracker-column-config";
+const DEFAULT_IDS: readonly JobStatus[] = PIPELINE_COLUMNS.map((c) => c.id);
+const KNOWN_IDS: ReadonlySet<string> = new Set(DEFAULT_IDS);
 
-interface ColumnConfig {
-  /** Ordered list of visible column IDs */
-  visibleIds: PipelineStatus[];
-}
-
-function loadConfig(): ColumnConfig {
+/** Visible column ids from storage: known ids only, no duplicates; defaults otherwise. */
+export function parseColumnConfig(raw: string | null): JobStatus[] {
+  if (!raw) return [...DEFAULT_IDS];
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as ColumnConfig;
-      // Validate: keep only IDs that still exist in PIPELINE_COLUMNS
-      const validIds = new Set(PIPELINE_COLUMNS.map((c) => c.id));
-      const visibleIds = parsed.visibleIds.filter((id) => validIds.has(id));
-      if (visibleIds.length > 0) return { visibleIds };
-    }
+    const parsed: unknown = JSON.parse(raw);
+    const ids = (parsed as { visibleIds?: unknown } | null)?.visibleIds;
+    if (!Array.isArray(ids)) return [...DEFAULT_IDS];
+    const valid = [...new Set(ids.filter((id): id is JobStatus => typeof id === "string" && KNOWN_IDS.has(id)))];
+    return valid.length > 0 ? valid : [...DEFAULT_IDS];
   } catch {
-    // ignore
+    return [...DEFAULT_IDS];
   }
-  // Default: all columns in original order
-  return { visibleIds: PIPELINE_COLUMNS.map((c) => c.id) };
 }
 
-function saveConfig(config: ColumnConfig) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-}
-
+/** Which board columns are shown and in what order; remembered on this device. */
 export function useColumnConfig() {
-  const [config, setConfig] = useState<ColumnConfig>(loadConfig);
+  const [visibleIds, setVisibleIds] = useState<JobStatus[]>(() => parseColumnConfig(readStorage(STORAGE_KEY)));
 
+  const firstRun = useRef(true);
   useEffect(() => {
-    saveConfig(config);
-  }, [config]);
+    if (firstRun.current) {
+      firstRun.current = false;
+      return;
+    }
+    writeStorage(STORAGE_KEY, JSON.stringify({ visibleIds }));
+  }, [visibleIds]);
 
-  /** The currently visible columns in order */
-  const visibleColumns: PipelineColumn[] = config.visibleIds
-    .map((id) => PIPELINE_COLUMNS.find((c) => c.id === id)!)
-    .filter(Boolean);
-
-  /** Columns that have been hidden */
-  const hiddenColumns: PipelineColumn[] = PIPELINE_COLUMNS.filter(
-    (c) => !config.visibleIds.includes(c.id)
+  const visibleColumns = useMemo(
+    () =>
+      visibleIds
+        .map((id) => PIPELINE_COLUMNS.find((c) => c.id === id))
+        .filter((c): c is PipelineColumn => c !== undefined),
+    [visibleIds],
+  );
+  const hiddenColumns = useMemo(
+    () => PIPELINE_COLUMNS.filter((c) => !visibleIds.includes(c.id)),
+    [visibleIds],
   );
 
-  /** Remove a column from the board */
-  const removeColumn = useCallback((id: PipelineStatus) => {
-    setConfig((prev) => ({
-      visibleIds: prev.visibleIds.filter((v) => v !== id),
-    }));
+  /** Hide a column (the last visible one cannot be hidden). */
+  const removeColumn = useCallback((id: JobStatus) => {
+    setVisibleIds((prev) => (prev.length <= 1 ? prev : prev.filter((v) => v !== id)));
   }, []);
 
-  /** Add a column back (appended at end by default, or at a specific index) */
-  const addColumn = useCallback((id: PipelineStatus, atIndex?: number) => {
-    setConfig((prev) => {
-      if (prev.visibleIds.includes(id)) return prev;
-      const next = [...prev.visibleIds];
-      if (atIndex !== undefined) {
-        next.splice(atIndex, 0, id);
-      } else {
-        next.push(id);
-      }
-      return { visibleIds: next };
+  /** Show a column again (appended, or at `atIndex`). */
+  const addColumn = useCallback((id: JobStatus, atIndex?: number) => {
+    setVisibleIds((prev) => {
+      if (prev.includes(id)) return prev;
+      const next = [...prev];
+      next.splice(atIndex ?? next.length, 0, id);
+      return next;
     });
   }, []);
 
-  /** Move a column from one index to another */
+  /** Show several columns at once (e.g. those holding matching applications). */
+  const showColumns = useCallback((ids: readonly JobStatus[]) => {
+    setVisibleIds((prev) => {
+      const missing = ids.filter((id) => !prev.includes(id));
+      if (missing.length === 0) return prev;
+      // Restored columns are appended in pipeline order.
+      return [...prev, ...DEFAULT_IDS.filter((id) => missing.includes(id))];
+    });
+  }, []);
+
   const moveColumn = useCallback((fromIndex: number, toIndex: number) => {
-    setConfig((prev) => {
-      const next = [...prev.visibleIds];
+    setVisibleIds((prev) => {
+      if (fromIndex < 0 || fromIndex >= prev.length || toIndex < 0 || toIndex >= prev.length) return prev;
+      const next = [...prev];
       const [moved] = next.splice(fromIndex, 1);
       next.splice(toIndex, 0, moved);
-      return { visibleIds: next };
+      return next;
     });
   }, []);
 
-  /** Reset to default (all columns, original order) */
-  const resetColumns = useCallback(() => {
-    setConfig({ visibleIds: PIPELINE_COLUMNS.map((c) => c.id) });
-  }, []);
+  const resetColumns = useCallback(() => setVisibleIds([...DEFAULT_IDS]), []);
 
   return {
     visibleColumns,
     hiddenColumns,
-    visibleIds: config.visibleIds,
+    visibleIds,
     removeColumn,
     addColumn,
+    showColumns,
     moveColumn,
     resetColumns,
   };
