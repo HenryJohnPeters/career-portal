@@ -86,6 +86,10 @@ report URL's origin to `connect-src`.
   caches the public keys (cached for an hour, unknown key ids refetched at most every 30 s). After
   *revoking* a key, redeploy the API to drop it from the cache at once. Legacy HS256 projects set
   `SUPABASE_JWT_SECRET` instead (or as well, during a migration).
+- **PKCE sign-in flow**: the web app uses Supabase's PKCE flow (tokens never travel in URLs). Email
+  confirmation and password-reset links therefore complete only in the browser that requested them;
+  opened elsewhere, the app explains this and the user can request a new link. Keep the default
+  Supabase email templates (they use `{{ .ConfirmationURL }}`).
 - **Anonymous sign-ins** stay disabled; the API rejects anonymous and email-less tokens anyway.
 - `SUPABASE_SERVICE_ROLE_KEY` goes on the API service only (never in a `VITE_` variable). In
   production the API refuses to start without it, so deleting an account always deletes the
