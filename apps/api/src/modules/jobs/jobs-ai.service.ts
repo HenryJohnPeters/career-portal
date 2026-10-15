@@ -2,16 +2,18 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { CooldownException } from "../../common/errors";
-import { lockedTransaction, userLockKey } from "../../common/plan";
+import { lockedTransaction, userLockKey, withUserLock } from "../../common/plan";
 import { EntitlementsService } from "../entitlements/entitlements.service";
 import { AiService } from "../ai/ai.service";
 import type { JobDescriptionAnalysis } from "../ai/ai.types";
 import {
   CV_VERSION_SELECT,
   SECTION_ORDER,
+  cvVersionCapReached,
   toCvVersionPayload,
   type CvVersionPayload,
 } from "../cv/cv.queries";
+import { MAX_CV_VERSIONS_PER_USER } from "../cv/cv.rules";
 import {
   COVER_LETTER_LIMITS,
   COVER_LETTER_SELECT,
@@ -21,7 +23,8 @@ import {
   type CoverLetterPayload,
 } from "../cover-letters/cover-letters.queries";
 import type { TailorApplicationDto } from "./jobs.dto";
-import { cvVersionNotFound, jobNotFound } from "./jobs.queries";
+import { MATCH_CV_SELECT, cvVersionNotFound, jobNotFound } from "./jobs.queries";
+import { matchCvToJobDescription } from "./match/match-engine";
 
 export interface TailorApplicationResult {
   cvVersion: CvVersionPayload;
@@ -30,6 +33,8 @@ export interface TailorApplicationResult {
 
 /** Version title limit (CV_LIMITS.versionTitle). */
 const CV_TITLE_MAX = 120;
+/** Sections the keyword match reads (as MATCH_CV_SELECT). */
+const MATCH_SECTION_CAP = MATCH_CV_SELECT.sections.take;
 /** How long a second tailor request from the same user is told to wait. */
 const TAILOR_BUSY_RETRY_SECONDS = 15;
 
@@ -76,7 +81,12 @@ export class JobsAiService {
    * Premium tailor kit. The AI runs first, outside any transaction; then one
    * transaction creates the tailored CV version (a copy of the base with the
    * tailored sections), the optional cover letter, and links both to the
-   * job. A failure at any step leaves nothing half-created.
+   * job with the tailored CV's match score. A failure at any step leaves
+   * nothing half-created.
+   *
+   * The version is titled with the role only: most templates print the
+   * version title under the candidate's name, where "<role> @ <company>"
+   * would read as a claim to already work there.
    */
   async tailor(
     userId: string,
@@ -113,15 +123,18 @@ export class JobsAiService {
       throw new BadRequestException("Add the job description to this job before tailoring.");
     }
 
-    const [base, user, letterCount] = await Promise.all([
+    // Caps are checked before the AI call (fail fast) and again under the locks.
+    const [base, user, versionCount, letterCount] = await Promise.all([
       this.prisma.cvVersion.findFirst({
         where: { id: dto.cvVersionId, userId },
         select: BASE_CV_SELECT,
       }),
-      this.prisma.user.findUnique({ where: { id: userId }, select: { name: true } }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } }),
+      this.prisma.cvVersion.count({ where: { userId } }),
       dto.includeCoverLetter ? this.prisma.coverLetter.count({ where: { userId } }) : 0,
     ]);
     if (!base) throw cvVersionNotFound();
+    if (versionCount >= MAX_CV_VERSIONS_PER_USER) throw cvVersionCapReached();
     if (letterCount >= MAX_COVER_LETTERS_PER_USER) throw coverLetterCapReached();
 
     const result = await this.aiService.tailorApplication(userId, {
@@ -135,8 +148,28 @@ export class JobsAiService {
     });
     const tailored = new Map(result.sections.map((s) => [s.id, s.content]));
     const { sections, themeConfig, ...copied } = base;
+    const tailoredSections = sections.map((section, order) => ({
+      title: section.title,
+      sectionType: section.sectionType,
+      content: tailored.get(section.id) ?? section.content,
+      order,
+    }));
+    // CPU only: the job's score now describes the CV it links to.
+    const match = matchCvToJobDescription(
+      {
+        email: copied.email || user?.email || null,
+        phone: copied.phone,
+        photoUrl: copied.photoUrl,
+        sections: tailoredSections.slice(0, MATCH_SECTION_CAP),
+      },
+      jobDescription,
+    );
 
+    // Lock order: "cover-letter" then "cv" (no other path takes both).
     return lockedTransaction(this.prisma, userLockKey("cover-letter", userId), async (tx) => {
+      await withUserLock(tx, userLockKey("cv", userId));
+      const versions = await tx.cvVersion.count({ where: { userId } });
+      if (versions >= MAX_CV_VERSIONS_PER_USER) throw cvVersionCapReached();
       if (result.coverLetter !== null) {
         const letters = await tx.coverLetter.count({ where: { userId } });
         if (letters >= MAX_COVER_LETTERS_PER_USER) throw coverLetterCapReached();
@@ -146,19 +179,10 @@ export class JobsAiService {
         data: {
           ...copied,
           userId,
-          title: clamp(`${job.role} @ ${job.company}`, CV_TITLE_MAX),
+          title: clamp(job.role, CV_TITLE_MAX),
           isActive: false,
           themeConfig: (themeConfig ?? {}) as Prisma.InputJsonValue,
-          sections: {
-            createMany: {
-              data: sections.map((section, order) => ({
-                title: section.title,
-                sectionType: section.sectionType,
-                content: tailored.get(section.id) ?? section.content,
-                order,
-              })),
-            },
-          },
+          sections: { createMany: { data: tailoredSections } },
         },
         select: CV_VERSION_SELECT,
       });
@@ -178,7 +202,12 @@ export class JobsAiService {
 
       const linked = await tx.job.updateMany({
         where: { id: job.id, userId },
-        data: { cvVersionId: version.id, ...(letter && { coverLetterId: letter.id }) },
+        data: {
+          cvVersionId: version.id,
+          ...(letter && { coverLetterId: letter.id }),
+          matchScore: match.score,
+          matchCheckedAt: new Date(),
+        },
       });
       if (linked.count === 0) throw jobNotFound();
 

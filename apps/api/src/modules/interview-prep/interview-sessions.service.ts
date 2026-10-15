@@ -15,6 +15,7 @@ import type { CreateInterviewSessionDto } from "./interview-prep.dto";
 import {
   MIN_SESSION_QUESTIONS,
   NOT_ENOUGH_QUESTIONS_MESSAGE,
+  NO_TAG_MATCH_MESSAGE,
   QUESTION_MAX_SCORE,
   resolveSessionShape,
   resolveSessionTags,
@@ -108,7 +109,7 @@ export class InterviewSessionsService {
     const difficulty = dto.difficulty ?? "medium";
     const roleFocus = dto.roleFocus ?? "fullstack";
     const interviewType = dto.interviewType ?? "coding";
-    const questionIds = await this.pool.pickQuestions({
+    const { questionIds, noTagMatch } = await this.pool.pickQuestions({
       userId,
       isPremium: plan.isPremium,
       track: dto.track,
@@ -119,6 +120,7 @@ export class InterviewSessionsService {
       roleFocus,
       interviewType,
     });
+    if (noTagMatch) throw new UnprocessableEntityException(NO_TAG_MATCH_MESSAGE);
     if (questionIds.length < MIN_SESSION_QUESTIONS) {
       throw new UnprocessableEntityException(NOT_ENOUGH_QUESTIONS_MESSAGE);
     }

@@ -128,6 +128,37 @@ describe("evaluateAnswer", () => {
     assert.equal(superset.isCorrect, false);
   });
 
+  test("a partly right multi-select answer gets per-option feedback, not a contradiction", () => {
+    const partial = evaluateAnswer(multi, [0, 1], 10);
+    assert.equal(partial.score, 0);
+    assert.deepEqual(partial.pointsHit, ["useState", "useEffect"]);
+    assert.deepEqual(partial.pointsMissed, ["useMemo", "useCallback"]);
+    // No zeroed "False positives" criterion when nothing wrong was picked.
+    assert.deepEqual(partial.criteriaScores, []);
+
+    const withWrongPick = evaluateAnswer(multi, [0, 1, 2, 3, 5], 10);
+    assert.deepEqual(withWrongPick.pointsHit, ["useState", "useEffect", "useMemo", "useCallback"]);
+    assert.deepEqual(withWrongPick.pointsMissed, ['why "useQuery" is not correct']);
+
+    const allWrong = evaluateAnswer(multi, [2, 4], 10);
+    assert.deepEqual(allWrong.pointsHit, []);
+    assert.deepEqual(allWrong.pointsMissed, [
+      "useState",
+      "useEffect",
+      "useMemo",
+      "useCallback",
+      'why "useQuery" is not correct',
+      'why "useThread" is not correct',
+    ]);
+  });
+
+  test("a correct multi-select answer keeps the full breakdown", () => {
+    const exact = evaluateAnswer(multi, [0, 1, 3, 5], 10);
+    assert.deepEqual(exact.pointsHit, ["point one", "point two"]);
+    assert.equal(exact.criteriaScores.length, 3);
+    assert.ok(exact.criteriaScores.every((c) => c.score === c.maxScore));
+  });
+
   test("picking one correct option of a multi-select question is not graded as the old index-0 answer", () => {
     // The pre-fix evaluator compared against correctOptionIndex (0) only.
     assert.equal(evaluateAnswer(multi, [0], 10).isCorrect, false);

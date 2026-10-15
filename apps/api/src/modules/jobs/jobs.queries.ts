@@ -82,6 +82,8 @@ export const MATCH_CV_SELECT = {
   email: true,
   phone: true,
   photoUrl: true,
+  /** The PDF falls back to the account email when the CV's is blank. */
+  user: { select: { email: true } },
   sections: {
     select: { title: true, sectionType: true, content: true },
     orderBy: [{ order: "asc" }, { createdAt: "asc" }],

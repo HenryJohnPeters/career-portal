@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { isKnownTag, normalizeTag, normalizeTags } from "../src/common/tech-tags";
 
@@ -24,6 +25,16 @@ const DEV_USERS = [
 /** Level given to AI questions taken out of every pool (rows stay for session history). */
 const ARCHIVED_LEVEL = "archived";
 
+/**
+ * One bank question. Authoring conventions:
+ * - The correct option is written first (index 0), and for multi-select the
+ *   correct options are listed in correctOptionIndices. The seed stores the
+ *   options in a fixed shuffled order per question (see storedOptionOrder),
+ *   so the answer is not always "A".
+ * - Ids are versioned: changing a question's options or meaning needs a new
+ *   id. The old row is then archived (or deleted when no session used it),
+ *   so answered sessions keep the version they were graded against.
+ */
 interface SeedQuestion {
   id: string;
   track: string;
@@ -48,7 +59,7 @@ interface SeedQuestion {
 const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   // --- Frontend / React / Junior ---
   {
-    id: "iq-fe-react-jr-1",
+    id: "iq-fe-react-jr-1-v2",
     track: "frontend",
     tags: ["react", "javascript", "components"],
     difficulty: 1,
@@ -109,10 +120,10 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
     },
     modelAnswer:
       "A React component is a reusable building block of UI that accepts props and returns JSX describing what should appear on screen. Functional components are plain JavaScript functions that return JSX and use hooks like useState and useEffect for state and lifecycle. Class components extend React.Component, use a render() method, and manage state via this.state. Modern React strongly favors functional components with hooks due to simpler syntax and better composability.",
-    followUpIds: ["iq-fe-react-jr-2"],
+    followUpIds: ["iq-fe-react-jr-2-v2"],
   },
   {
-    id: "iq-fe-react-jr-2",
+    id: "iq-fe-react-jr-2-v2",
     track: "frontend",
     tags: ["react", "hooks", "state"],
     difficulty: 2,
@@ -170,7 +181,7 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Frontend / TypeScript / Mid ---
   {
-    id: "iq-fe-ts-mid-1",
+    id: "iq-fe-ts-mid-1-v2",
     track: "frontend",
     tags: ["typescript", "types", "generics"],
     difficulty: 3,
@@ -220,10 +231,10 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
     },
     modelAnswer:
       "Generics allow you to write reusable, type-safe code by parameterizing types. Instead of using 'any', you declare a type parameter like <T> that gets filled in when the function or type is used. For example, function identity<T>(arg: T): T returns the same type that was passed in. You can constrain generics with 'extends' to ensure certain properties exist. Generic interfaces and classes work similarly, enabling containers like Array<T> or Promise<T>.",
-    followUpIds: ["iq-fe-ts-mid-2"],
+    followUpIds: ["iq-fe-ts-mid-2-v2"],
   },
   {
-    id: "iq-fe-ts-mid-2",
+    id: "iq-fe-ts-mid-2-v2",
     track: "frontend",
     tags: ["typescript", "types"],
     difficulty: 3,
@@ -275,7 +286,7 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Backend / Node / Junior ---
   {
-    id: "iq-be-node-jr-1",
+    id: "iq-be-node-jr-1-v2",
     track: "backend",
     tags: ["node.js", "javascript", "event-loop"],
     difficulty: 1,
@@ -336,17 +347,16 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
     },
     modelAnswer:
       "Node.js runs on a single thread with an event loop that continuously checks for pending events and executes callbacks. Instead of blocking on I/O operations (like reading a file or making a network request), Node offloads them to the OS or thread pool and registers a callback. When the operation completes, the callback is placed in the queue and processed by the event loop. This non-blocking model allows Node to handle many concurrent connections efficiently, making it ideal for I/O-bound applications.",
-    followUpIds: ["iq-be-node-jr-2"],
+    followUpIds: ["iq-be-node-jr-2-v2"],
   },
   {
-    id: "iq-be-node-jr-2",
+    id: "iq-be-node-jr-2-v2",
     track: "backend",
     tags: ["node.js", "javascript", "async"],
     difficulty: 2,
     type: "coding",
     level: "junior",
-    prompt:
-      "What is the difference between callbacks, Promises, and async/await in Node.js? When would you use each?",
+    prompt: "What is async/await in JavaScript and Node.js?",
     options: [
       "Syntactic sugar over Promises that lets you write asynchronous code in a synchronous-looking style using try/catch",
       "A way to run code synchronously by blocking the event loop until the operation completes",
@@ -355,11 +365,10 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
     ],
     correctOptionIndex: 0,
     expectedPoints: [
-      "callbacks are oldest pattern",
-      "promise chains",
-      "async/await is syntactic sugar",
-      "error handling differences",
-      "readability",
+      "async/await is syntactic sugar over Promises",
+      "await pauses the async function, not the event loop",
+      "errors are handled with try/catch",
+      "more readable than callbacks or promise chains",
     ],
     redFlags: ["they are all the same thing", "async/await is synchronous"],
     rubric: {
@@ -407,28 +416,25 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Backend / SQL / Mid ---
   {
-    id: "iq-be-sql-mid-1",
+    id: "iq-be-sql-mid-1-v2",
     track: "backend",
     tags: ["postgresql", "sql", "database"],
     difficulty: 3,
     type: "theory",
     level: "mid",
-    prompt:
-      "Explain database indexing. When should you add an index and when might an index hurt performance?",
+    prompt: "When can adding a database index hurt overall performance?",
     options: [
-      "On tables with heavy write traffic, because every INSERT/UPDATE/DELETE must also update the index",
-      "On tables that are read frequently using WHERE clauses",
-      "On columns with high cardinality that are used in JOIN operations",
-      "On the primary key column of a frequently queried table",
+      "On a table with heavy write traffic, because every INSERT/UPDATE/DELETE must also update the index",
+      "On a column that queries frequently filter on in WHERE clauses",
+      "On a high-cardinality column used to JOIN two large tables",
+      "On a large table that is read far more often than it is written",
     ],
     correctOptionIndex: 0,
     expectedPoints: [
-      "B-tree structure",
-      "speeds up reads",
-      "slows down writes",
-      "query planner",
-      "covering index",
-      "cardinality matters",
+      "indexes speed up reads",
+      "every write must also update each index",
+      "extra storage and maintenance",
+      "avoid over-indexing write-heavy tables",
     ],
     redFlags: ["always add indexes on every column", "indexes have no cost"],
     rubric: {
@@ -475,14 +481,13 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Fullstack / Mid ---
   {
-    id: "iq-fs-api-mid-1",
+    id: "iq-fs-api-mid-1-v2",
     track: "fullstack",
     tags: ["api", "rest", "http"],
     difficulty: 2,
     type: "theory",
     level: "mid",
-    prompt:
-      "Design a RESTful API for a blog platform. What endpoints would you create and what HTTP methods would you use?",
+    prompt: "In a RESTful API for a blog, how should a client create a new post?",
     options: [
       "POST /posts with the post data in the request body",
       "GET /posts/create?title=Hello&body=World",
@@ -543,14 +548,14 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Fullstack / Senior / System Design ---
   {
-    id: "iq-fs-sd-sr-1",
+    id: "iq-fs-sd-sr-1-v2",
     track: "fullstack",
     tags: ["system design", "architecture", "scaling"],
     difficulty: 4,
     type: "system-design",
     level: "senior",
     prompt:
-      "Design a URL shortener service like bit.ly. Walk through the high-level architecture, data model, and key design decisions.",
+      "Designing a URL shortener like bit.ly: which way of generating the short codes is the most robust?",
     options: [
       "Counter-based approach with base62 encoding to convert an auto-incrementing ID into a short string, avoiding collisions",
       "Use the full URL as the short code but remove the protocol prefix",
@@ -619,7 +624,7 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- DevOps / Junior ---
   {
-    id: "iq-do-docker-jr-1",
+    id: "iq-do-docker-jr-1-v2",
     track: "devops",
     tags: ["docker", "containers", "devops"],
     difficulty: 1,
@@ -688,14 +693,13 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- DevOps / Mid / Ops ---
   {
-    id: "iq-do-k8s-mid-1",
+    id: "iq-do-k8s-mid-1-v2",
     track: "devops",
     tags: ["kubernetes", "orchestration", "devops"],
     difficulty: 3,
     type: "ops",
     level: "mid",
-    prompt:
-      "Explain Kubernetes pods, deployments, and services. How do they relate to each other?",
+    prompt: "In Kubernetes, what does a Service provide?",
     options: [
       "A stable network endpoint with load balancing to access a set of Pods selected by labels",
       "A way to build Docker images directly inside the cluster",
@@ -704,11 +708,10 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
     ],
     correctOptionIndex: 0,
     expectedPoints: [
-      "pod is smallest unit",
-      "deployment manages replicas",
-      "service provides stable networking",
-      "rolling updates",
-      "labels and selectors",
+      "stable virtual IP and DNS name",
+      "load balancing across matching pods",
+      "pods selected by labels",
+      "service types: ClusterIP, NodePort, LoadBalancer",
     ],
     redFlags: [
       "pod is the same as a container",
@@ -758,7 +761,7 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Behavioral / All tracks ---
   {
-    id: "iq-beh-all-1",
+    id: "iq-beh-all-1-v2",
     track: "frontend",
     tags: ["behavioral", "communication", "teamwork"],
     difficulty: 1,
@@ -828,7 +831,7 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
     followUpIds: [],
   },
   {
-    id: "iq-beh-all-2",
+    id: "iq-beh-all-2-v2",
     track: "backend",
     tags: ["behavioral", "conflict", "teamwork"],
     difficulty: 2,
@@ -896,13 +899,14 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Frontend / CSS / Junior ---
   {
-    id: "iq-fe-css-jr-1",
+    id: "iq-fe-css-jr-1-v2",
     track: "frontend",
-    tags: ["css", "layout", "flexbox"],
+    tags: ["css", "layout"],
     difficulty: 1,
     type: "theory",
     level: "junior",
-    prompt: "Explain the CSS Box Model. How does it affect layout?",
+    prompt:
+      "In the CSS box model, what does `box-sizing: border-box` do?",
     options: [
       "Makes width and height include padding and border, so the total size is more predictable",
       "Adds a visible border around every element on the page",
@@ -910,7 +914,12 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
       "Removes all margins and padding from the element",
     ],
     correctOptionIndex: 0,
-    expectedPoints: ["content", "padding", "border", "margin", "box-sizing"],
+    expectedPoints: [
+      "box model layers: content, padding, border, margin",
+      "border-box: width includes padding and border",
+      "content-box (default): padding and border add to the width",
+      "margin is never part of the element's size",
+    ],
     redFlags: [
       "box model only applies to divs",
       "margin is part of the element size",
@@ -957,7 +966,7 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Backend / Senior ---
   {
-    id: "iq-be-arch-sr-1",
+    id: "iq-be-arch-sr-1-v2",
     track: "backend",
     tags: ["architecture", "patterns", "scaling"],
     difficulty: 4,
@@ -1026,28 +1035,26 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // Extra fullstack questions
   {
-    id: "iq-fs-auth-mid-1",
+    id: "iq-fs-auth-mid-1-v2",
     track: "fullstack",
     tags: ["authentication", "security", "jwt"],
     difficulty: 2,
     type: "theory",
     level: "mid",
     prompt:
-      "Explain how JWT-based authentication works. What are the security considerations?",
+      "Where should a browser app keep its JWT so that a cross-site scripting (XSS) bug cannot steal it?",
     options: [
-      "In an httpOnly, Secure, SameSite cookie to prevent XSS and CSRF attacks",
+      "In an httpOnly, Secure, SameSite cookie, which page scripts cannot read",
       "In localStorage because it persists across browser sessions",
       "In a global JavaScript variable so it's easily accessible",
       "In the URL query string so it's included in every request automatically",
     ],
     correctOptionIndex: 0,
     expectedPoints: [
-      "token structure",
-      "stateless",
-      "signing",
-      "expiration",
-      "refresh tokens",
-      "XSS and CSRF risks",
+      "httpOnly cookies cannot be read by JavaScript",
+      "localStorage is readable by any script on the page",
+      "SameSite and CSRF protection for cookies",
+      "short expiry and refresh tokens",
     ],
     redFlags: [
       "JWT is encrypted",
@@ -1099,19 +1106,19 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
     followUpIds: [],
   },
   {
-    id: "iq-fs-testing-jr-1",
+    id: "iq-fs-testing-jr-1-v2",
     track: "fullstack",
     tags: ["testing", "quality", "javascript"],
     difficulty: 1,
     type: "theory",
     level: "junior",
     prompt:
-      "What are the different types of software testing? Explain unit, integration, and end-to-end tests.",
+      "Which kind of test checks a single function or component in isolation, with its dependencies mocked?",
     options: [
-      "Unit tests — they test single functions in isolation, are fast, and form the base of the test pyramid",
-      "End-to-end tests — they simulate real user interactions through the entire stack",
-      "Integration tests — they verify multiple modules working together with real dependencies",
-      "Manual tests — a QA tester clicks through the application by hand",
+      "A unit test",
+      "An end-to-end test",
+      "An integration test",
+      "A load test",
     ],
     correctOptionIndex: 0,
     expectedPoints: [
@@ -1180,7 +1187,7 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   // === Multi-select questions ===
   // --- Frontend / React / Mid / Multi-select ---
   {
-    id: "iq-fe-react-mid-ms-1",
+    id: "iq-fe-react-mid-ms-1-v2",
     track: "frontend",
     tags: ["react", "hooks", "performance"],
     difficulty: 3,
@@ -1225,14 +1232,14 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
     followUpIds: [],
   },
   {
-    id: "iq-fe-css-mid-ms-1",
+    id: "iq-fe-css-mid-ms-1-v2",
     track: "frontend",
     tags: ["css", "layout", "responsive design"],
     difficulty: 2,
     type: "theory",
     level: "mid",
     prompt:
-      "Which of the following CSS properties can be used to create a responsive layout? (Select all that apply)",
+      "Which of the following CSS features can be used to create a responsive layout? (Select all that apply)",
     options: [
       "display: flex",
       "display: grid",
@@ -1274,7 +1281,7 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Backend / Node / Mid / Multi-select ---
   {
-    id: "iq-be-node-mid-ms-1",
+    id: "iq-be-node-mid-ms-1-v2",
     track: "backend",
     tags: ["node.js", "security", "best-practices"],
     difficulty: 3,
@@ -1328,7 +1335,7 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
   },
   // --- Fullstack / Mid / Multi-select ---
   {
-    id: "iq-fs-http-mid-ms-1",
+    id: "iq-fs-http-mid-ms-1-v2",
     track: "fullstack",
     tags: ["http", "api", "web"],
     difficulty: 2,
@@ -1376,7 +1383,831 @@ const INTERVIEW_QUESTIONS: SeedQuestion[] = [
       "HTTP status codes in the 2xx range indicate success: 200 OK (general success), 201 Created (resource successfully created, e.g., after POST), and 204 No Content (success with no response body, e.g., after DELETE). 301 Moved Permanently is a redirect (3xx), 400 Bad Request is a client error (4xx), and 404 Not Found is also a client error.",
     followUpIds: [],
   },
+  // === Reference questions so every track/level the app offers has a pool ===
+  // --- Frontend / Senior ---
+  {
+    id: "iq-fe-perf-sr-1",
+    track: "frontend",
+    tags: ["performance", "web vitals", "browser apis"],
+    difficulty: 4,
+    type: "theory",
+    level: "senior",
+    prompt:
+      "A page's Largest Contentful Paint (LCP) is slow because the browser discovers its hero image late. Which change most directly improves LCP?",
+    options: [
+      'Preload the hero image (or give it fetchpriority="high") and serve it at the size it is displayed',
+      'Add loading="lazy" to the hero image',
+      "Merge all JavaScript into one larger bundle",
+      "Debounce the page's scroll handlers",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "LCP measures when the largest above-the-fold element renders",
+      "late discovery delays the image request",
+      "preload or fetchpriority starts the download early",
+      "right-sized, modern image formats",
+    ],
+    redFlags: ["lazy-load the LCP image", "LCP depends on scroll handlers"],
+    rubric: {
+      criteria: [
+        { name: "LCP causes", weight: 5, keywords: ["discovery", "request", "render", "largest"] },
+        { name: "Fixes", weight: 5, keywords: ["preload", "fetchpriority", "image size", "avif", "webp"] },
+      ],
+    },
+    modelAnswer:
+      "LCP is the time until the largest element in the viewport renders, often a hero image. If the image is only discovered after CSS or JavaScript runs, its download starts late. Preloading it (<link rel=\"preload\" as=\"image\">) or marking it fetchpriority=\"high\" starts the request early, and serving it at its display size in a modern format shortens the download. Lazy-loading the hero image delays it further and makes LCP worse.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-fe-react-sr-1",
+    track: "frontend",
+    tags: ["react", "performance", "hooks"],
+    difficulty: 4,
+    type: "debugging",
+    level: "senior",
+    prompt:
+      "A child wrapped in React.memo still re-renders every time its parent renders. The parent passes `onSelect={() => setId(item.id)}` and `style={{ margin: 8 }}`. Why?",
+    options: [
+      "The parent creates a new function and a new object on every render, so the props are never shallow-equal",
+      "React.memo only works for class components",
+      "The setId function returned by useState changes on every render",
+      "React.memo compares props deeply, and skips memoising when that is too slow",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "React.memo compares props shallowly",
+      "inline functions and objects are new references each render",
+      "useCallback and useMemo keep references stable",
+      "state setters from useState are stable",
+    ],
+    redFlags: ["React.memo deep-compares props", "useState setters change every render"],
+    rubric: {
+      criteria: [
+        { name: "Cause", weight: 5, keywords: ["shallow", "reference", "new function", "new object"] },
+        { name: "Fix", weight: 5, keywords: ["useCallback", "useMemo", "hoist", "stable"] },
+      ],
+    },
+    modelAnswer:
+      "React.memo skips a re-render only when every prop is shallowly equal to the previous one. An inline arrow function and an inline object literal are new references on every parent render, so the comparison always fails. Wrap the callback in useCallback and the style object in useMemo (or hoist the constant object outside the component). The setter returned by useState is already stable.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-fe-a11y-sr-1",
+    track: "frontend",
+    tags: ["accessibility", "browser apis"],
+    difficulty: 4,
+    type: "theory",
+    level: "senior",
+    prompt:
+      "Which approach gives a modal dialog correct keyboard and screen-reader behaviour with the least custom code?",
+    options: [
+      "The native <dialog> element opened with showModal(), which makes the rest of the page inert and closes on Escape",
+      "A <div> with a high z-index and a click handler on the backdrop to close it",
+      'Setting tabindex="-1" on a few elements behind the modal',
+      'Putting aria-hidden="true" on the modal itself',
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "focus must stay inside the open modal",
+      "the background must be inert for assistive technology",
+      "Escape closes the dialog and focus returns to the trigger",
+      "native <dialog> with showModal() provides this",
+    ],
+    redFlags: ["aria-hidden on the dialog itself", "z-index makes a modal accessible"],
+    rubric: {
+      criteria: [
+        { name: "Requirements", weight: 5, keywords: ["focus", "inert", "escape", "screen reader"] },
+        { name: "Approach", weight: 5, keywords: ["dialog", "showModal", "native", "role=dialog"] },
+      ],
+    },
+    modelAnswer:
+      "An accessible modal keeps focus inside itself, hides the rest of the page from keyboard and assistive technology, closes on Escape and returns focus to the element that opened it. The native <dialog> element opened with showModal() makes the rest of the document inert and handles Escape, so little custom code is needed. A styled <div> needs all of that built by hand, and aria-hidden on the dialog would hide it from screen readers entirely.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-fe-ts-sr-1",
+    track: "frontend",
+    tags: ["typescript", "types"],
+    difficulty: 4,
+    type: "coding",
+    level: "senior",
+    prompt:
+      "What does `const config = { ... } satisfies Config` give you that `const config: Config = { ... }` does not?",
+    options: [
+      "It checks the object against Config but keeps its narrower inferred type, such as the exact keys and literal values",
+      "It casts the object to Config without any type checking",
+      "It makes every property of config readonly at runtime",
+      "It turns the Config type into a runtime validator",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "satisfies validates without widening",
+      "a type annotation widens the variable to Config",
+      "literal types and exact keys are preserved",
+      "types are erased at runtime",
+    ],
+    redFlags: ["satisfies is a type assertion", "TypeScript types exist at runtime"],
+    rubric: {
+      criteria: [
+        { name: "Checking", weight: 5, keywords: ["checks", "excess property", "error", "validate"] },
+        { name: "Inference", weight: 5, keywords: ["narrow", "literal", "inferred", "widen"] },
+      ],
+    },
+    modelAnswer:
+      "An annotation (`const config: Config`) checks the object and then gives the variable the declared type Config, losing what was specific about the literal. `satisfies Config` performs the same check, including excess-property errors, but the variable keeps its inferred type, so literal values and exact keys stay available to later code. Neither changes runtime behaviour: types are erased.",
+    followUpIds: [],
+  },
+  // --- Backend / Junior ---
+  {
+    id: "iq-be-http-jr-1",
+    track: "backend",
+    tags: ["http", "rest", "api"],
+    difficulty: 1,
+    type: "theory",
+    level: "junior",
+    prompt:
+      "Which HTTP status code should an API return when a request has no valid authentication token?",
+    options: [
+      "401 Unauthorized",
+      "403 Forbidden",
+      "404 Not Found",
+      "500 Internal Server Error",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "401 means the client is not authenticated",
+      "403 means authenticated but not allowed",
+      "4xx codes are client errors",
+    ],
+    redFlags: ["return 500 for auth failures", "401 and 403 are interchangeable"],
+    rubric: {
+      criteria: [
+        { name: "Authentication", weight: 5, keywords: ["401", "unauthenticated", "token", "credentials"] },
+        { name: "Authorisation", weight: 5, keywords: ["403", "forbidden", "permission"] },
+      ],
+    },
+    modelAnswer:
+      "401 Unauthorized means the request lacks valid authentication credentials, such as a missing or expired token; the client should sign in or refresh its token. 403 Forbidden is for a caller who is authenticated but not allowed to do this. 404 and 500 describe other situations.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-be-sql-jr-1",
+    track: "backend",
+    tags: ["sql", "database", "security"],
+    difficulty: 2,
+    type: "theory",
+    level: "junior",
+    prompt:
+      "Why should SQL queries use parameters (placeholders) instead of building the query string from user input?",
+    options: [
+      "Parameters are sent as data, so user input can never change the structure of the query (SQL injection)",
+      "Queries built by string concatenation cannot use indexes",
+      "Parameters encrypt the values before they reach the database",
+      "Databases reject query strings longer than 255 characters",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "SQL injection",
+      "parameters are bound as values, not SQL",
+      "never concatenate user input into SQL",
+      "ORMs and query builders parameterise for you",
+    ],
+    redFlags: ["escaping by hand is enough", "parameters encrypt data"],
+    rubric: {
+      criteria: [
+        { name: "Risk", weight: 5, keywords: ["sql injection", "attacker", "input", "structure"] },
+        { name: "Fix", weight: 5, keywords: ["parameter", "placeholder", "prepared statement", "bind"] },
+      ],
+    },
+    modelAnswer:
+      "If user input is concatenated into SQL, input such as `' OR 1=1 --` changes what the query does: SQL injection. With parameters (prepared statements), the query text and the values travel separately, so the database always treats the input as a value. ORMs and query builders do this for you; avoid raw string building.",
+    followUpIds: [],
+  },
+  // --- Backend / Senior ---
+  {
+    id: "iq-be-outbox-sr-1",
+    track: "backend",
+    tags: ["distributed systems", "queues", "transactions"],
+    difficulty: 4,
+    type: "system-design",
+    level: "senior",
+    prompt:
+      "A service saves an order to its database and must publish an OrderCreated event to a message broker. How do you make sure the event is never lost when the save commits, and never published when it rolls back?",
+    options: [
+      "Write the event to an outbox table in the same database transaction, and have a relay publish it from there afterwards",
+      "Publish the event first, then save the order",
+      "Save the order, then publish the event, and log an error if publishing fails",
+      "Put the database insert and the broker publish inside one database transaction",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "dual writes are not atomic",
+      "transactional outbox",
+      "a relay publishes outbox rows at least once",
+      "consumers must be idempotent",
+    ],
+    redFlags: ["a database transaction covers the broker", "logging the failure is enough"],
+    rubric: {
+      criteria: [
+        { name: "Problem", weight: 5, keywords: ["dual write", "atomic", "crash", "inconsistent"] },
+        { name: "Pattern", weight: 5, keywords: ["outbox", "same transaction", "relay", "idempotent"] },
+      ],
+    },
+    modelAnswer:
+      "Saving and publishing are two separate systems, so a crash between them loses the event or publishes one for a rolled-back order. The transactional outbox pattern writes the event into an outbox table in the same transaction as the order; a relay (polling or change data capture) then publishes outbox rows and marks them sent. Delivery is at least once, so consumers must be idempotent. A database transaction cannot include the broker.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-be-cache-sr-1",
+    track: "backend",
+    tags: ["caching", "redis", "scaling"],
+    difficulty: 4,
+    type: "system-design",
+    level: "senior",
+    prompt:
+      "A very popular cache key expires and hundreds of concurrent requests miss the cache and hit the database at once. What best mitigates this?",
+    options: [
+      "Let one request recompute the value (a lock or request coalescing) while the others wait or are served the stale value",
+      "Encrypt the cache entries",
+      "Restart the cache server every night",
+      "Lower the key's time-to-live so it expires more often",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "cache stampede (thundering herd)",
+      "only one request recomputes the value",
+      "serve stale while revalidating",
+      "jittered expiry or early refresh",
+    ],
+    redFlags: ["shorter TTLs fix stampedes", "the database will cope"],
+    rubric: {
+      criteria: [
+        { name: "Problem", weight: 5, keywords: ["stampede", "thundering herd", "expiry", "concurrent"] },
+        { name: "Mitigation", weight: 5, keywords: ["lock", "coalescing", "stale", "jitter", "early refresh"] },
+      ],
+    },
+    modelAnswer:
+      "This is a cache stampede (thundering herd). Make sure only one request recomputes the value, using a short lock or request coalescing, while the others wait briefly or get the stale value (stale-while-revalidate). Adding jitter to expiry times or refreshing hot keys before they expire also stops many keys or requests expiring together. A shorter TTL makes it happen more often.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-be-idempotency-sr-1",
+    track: "backend",
+    tags: ["api", "rest", "distributed systems"],
+    difficulty: 4,
+    type: "system-design",
+    level: "senior",
+    prompt:
+      "Clients retry POST /payments after network timeouts, and some customers are charged twice. What is the standard fix?",
+    options: [
+      "Idempotency keys: the client sends a unique key per payment, and the server stores the first result and returns it for any retry with that key",
+      "Return 500 for slow requests so clients stop retrying",
+      "Change the endpoint to GET, because GET is idempotent",
+      "Raise the client timeout to five minutes",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "POST is not idempotent by default",
+      "retries after timeouts are normal",
+      "idempotency key per operation",
+      "store and replay the first response",
+    ],
+    redFlags: ["clients should never retry", "use GET for payments"],
+    rubric: {
+      criteria: [
+        { name: "Problem", weight: 5, keywords: ["retry", "timeout", "duplicate", "not idempotent"] },
+        { name: "Fix", weight: 5, keywords: ["idempotency key", "unique", "store result", "replay"] },
+      ],
+    },
+    modelAnswer:
+      "A timeout does not tell the client whether the payment happened, so retries are expected and POST is not idempotent. The client generates an idempotency key per payment and sends it with every attempt; the server records the key with the outcome (under a unique constraint) and returns the stored result for repeats instead of charging again. Changing the method or the timeout does not remove duplicates.",
+    followUpIds: [],
+  },
+  // --- Fullstack / Junior ---
+  {
+    id: "iq-fs-cors-jr-1",
+    track: "fullstack",
+    tags: ["cors", "http", "security"],
+    difficulty: 2,
+    type: "debugging",
+    level: "junior",
+    prompt:
+      "A web app on https://app.example.com calls an API on https://api.example.com, and the browser blocks the response with a CORS error. Where is this fixed?",
+    options: [
+      "On the API, which must answer with Access-Control-Allow-Origin (and related headers) allowing the app's origin",
+      "In the frontend, by adding mode: \"no-cors\" to the fetch call",
+      "By asking users to turn off the browser's same-origin policy",
+      "By moving the fetch call into a different component",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "the browser enforces the same-origin policy",
+      "the server opts in with CORS headers",
+      "preflight OPTIONS requests",
+      "no-cors gives an unreadable (opaque) response",
+    ],
+    redFlags: ["CORS is fixed in the frontend", "disable browser security"],
+    rubric: {
+      criteria: [
+        { name: "Cause", weight: 5, keywords: ["same-origin", "different origin", "browser", "blocked"] },
+        { name: "Fix", weight: 5, keywords: ["Access-Control-Allow-Origin", "server", "headers", "preflight"] },
+      ],
+    },
+    modelAnswer:
+      "Different subdomains are different origins, so the browser only lets the page read the response if the API allows it. The fix is on the server: return Access-Control-Allow-Origin for the app's origin (plus allowed methods and headers for preflight OPTIONS requests). mode: \"no-cors\" only produces an opaque response the page cannot read.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-fs-http-jr-1",
+    track: "fullstack",
+    tags: ["http", "rest", "api"],
+    difficulty: 1,
+    type: "theory",
+    level: "junior",
+    prompt:
+      "Which HTTP method is conventionally used to change only some fields of an existing resource, such as a user's email address?",
+    options: ["PATCH", "PUT, which replaces the whole resource", "GET", "DELETE"],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "PATCH for partial updates",
+      "PUT replaces the whole resource",
+      "GET must not change data",
+    ],
+    redFlags: ["GET can update data", "POST and PATCH are identical"],
+    rubric: {
+      criteria: [
+        { name: "Method", weight: 5, keywords: ["PATCH", "partial"] },
+        { name: "Semantics", weight: 5, keywords: ["PUT replaces", "GET is safe", "idempotent"] },
+      ],
+    },
+    modelAnswer:
+      "PATCH applies a partial update, sending only the fields that change. PUT replaces the whole resource with the representation sent. GET is a safe method that must never change data, and DELETE removes the resource.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-fs-secrets-jr-1",
+    track: "fullstack",
+    tags: ["security", "secrets management"],
+    difficulty: 1,
+    type: "theory",
+    level: "junior",
+    prompt: "Where should a full-stack app keep its database password and third-party API keys?",
+    options: [
+      "In environment variables or a secrets manager on the server, never in the frontend bundle or the git repository",
+      "In a config file that ships with the frontend bundle",
+      "In the project README so the whole team can find them",
+      "In the source code, Base64-encoded so they are hidden",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "anything in the frontend bundle is public",
+      "never commit secrets to git",
+      "environment variables or a secrets manager",
+      "rotate leaked secrets",
+    ],
+    redFlags: ["Base64 hides secrets", "frontend code is private"],
+    rubric: {
+      criteria: [
+        { name: "Exposure", weight: 5, keywords: ["public", "bundle", "git history", "leak"] },
+        { name: "Storage", weight: 5, keywords: ["environment variable", "secrets manager", "server", "rotate"] },
+      ],
+    },
+    modelAnswer:
+      "Everything shipped to the browser can be read by anyone, and anything committed to git stays in its history. Keep secrets on the server in environment variables or a secrets manager, inject them at runtime, and rotate any secret that leaks. Base64 is an encoding, not encryption.",
+    followUpIds: [],
+  },
+  // --- Fullstack / Senior ---
+  {
+    id: "iq-fs-caching-sr-1",
+    track: "fullstack",
+    tags: ["caching", "performance", "web"],
+    difficulty: 4,
+    type: "debugging",
+    level: "senior",
+    prompt:
+      "After each deploy, some users get a broken single-page app: their browser cached index.html for a day, and it points at JavaScript bundles that no longer exist. What is the standard fix?",
+    options: [
+      "Serve index.html with Cache-Control: no-cache, and give content-hashed asset files a long-lived immutable cache",
+      "Cache index.html and every asset for a year",
+      "Add a random query string to every link in the app",
+      "Turn off HTTP caching for every file",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "index.html must be revalidated on every load",
+      "hashed file names change when content changes",
+      "hashed assets can be cached for a long time",
+      "keep previous assets available during rollout",
+    ],
+    redFlags: ["disable all caching", "cache the HTML for a year"],
+    rubric: {
+      criteria: [
+        { name: "Cause", weight: 5, keywords: ["stale html", "old bundle", "404", "cached"] },
+        { name: "Fix", weight: 5, keywords: ["no-cache", "content hash", "immutable", "max-age"] },
+      ],
+    },
+    modelAnswer:
+      "The HTML entry point must always be revalidated (Cache-Control: no-cache), because it decides which bundles load. Bundles get content hashes in their file names, so they can be cached for a year as immutable: a new deploy produces new names. Keeping the previous build's assets available for a while also protects users who already have the old page open. Disabling caching everywhere fixes the bug but makes every visit slow.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-fs-hydration-sr-1",
+    track: "fullstack",
+    tags: ["ssr vs csr", "next.js", "react"],
+    difficulty: 4,
+    type: "debugging",
+    level: "senior",
+    prompt:
+      "A server-rendered React page logs hydration mismatch warnings. Its component renders `new Date().toLocaleTimeString()`. What is the cause?",
+    options: [
+      "The server and the browser produce different text (a different time and locale), so the first client render does not match the server HTML",
+      "React cannot hydrate components that render Date values",
+      "Only class components can be hydrated",
+      "Server rendering does not support JavaScript's Intl APIs",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "hydration expects the same output on server and client",
+      "time, randomness and locale differ between environments",
+      "render such values after mount (useEffect) or pass them from the server",
+    ],
+    redFlags: ["ignore hydration warnings", "SSR cannot render dates"],
+    rubric: {
+      criteria: [
+        { name: "Cause", weight: 5, keywords: ["mismatch", "server", "client", "different output"] },
+        { name: "Fix", weight: 5, keywords: ["useEffect", "after mount", "pass from server", "suppressHydrationWarning"] },
+      ],
+    },
+    modelAnswer:
+      "Hydration attaches React to the server's HTML and expects the client's first render to produce the same output. The current time and the user's locale differ between the server and the browser, so the text differs. Render such values after mount (for example in useEffect), or compute them once on the server and pass them down, so both renders agree.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-fs-idor-sr-1",
+    track: "fullstack",
+    tags: ["security", "authentication", "owasp"],
+    difficulty: 4,
+    type: "theory",
+    level: "senior",
+    prompt:
+      "A signed-in user changes /api/invoices/123 to /api/invoices/124 and sees another customer's invoice. What is the vulnerability, and the fix?",
+    options: [
+      "Broken object-level authorisation (IDOR): on every request, check on the server that the record belongs to the caller",
+      "Cross-site scripting: escape the invoice HTML",
+      "Cross-site request forgery: add a CSRF token to the request",
+      "SQL injection: use parameterised queries",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "authentication is not authorisation",
+      "scope every query to the caller's ownership",
+      "unguessable ids are not access control",
+      "return 404 for other users' records",
+    ],
+    redFlags: ["hiding the id in the UI is enough", "random ids fix it"],
+    rubric: {
+      criteria: [
+        { name: "Vulnerability", weight: 5, keywords: ["IDOR", "object-level", "authorisation", "broken access control"] },
+        { name: "Fix", weight: 5, keywords: ["ownership check", "server-side", "scope query", "404"] },
+      ],
+    },
+    modelAnswer:
+      "This is broken object-level authorisation, also called an insecure direct object reference (IDOR): the API checks that the user is signed in but not that the invoice is theirs. Every read and write must be scoped on the server to the caller (for example `WHERE id = $1 AND user_id = $2`), returning 404 otherwise. Unguessable ids reduce the risk but are not access control.",
+    followUpIds: [],
+  },
+  // --- DevOps / Junior ---
+  {
+    id: "iq-do-docker-jr-2",
+    track: "devops",
+    tags: ["docker", "containers"],
+    difficulty: 2,
+    type: "ops",
+    level: "junior",
+    prompt:
+      "In a Node.js Dockerfile, why copy package.json and install dependencies before copying the rest of the source code?",
+    options: [
+      "So the dependency layer stays cached and is only rebuilt when package.json changes, which makes rebuilds faster",
+      "Because npm install must be the first instruction in a Dockerfile",
+      "To make the container run as a non-root user",
+      "Because copying the source first deletes node_modules",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "each instruction creates a cached layer",
+      "a changed input invalidates that layer and the ones after it",
+      "dependencies change less often than source code",
+    ],
+    redFlags: ["layer order does not matter", "caching makes images insecure"],
+    rubric: {
+      criteria: [
+        { name: "Layers", weight: 5, keywords: ["layer", "cache", "invalidate", "order"] },
+        { name: "Practice", weight: 5, keywords: ["package.json", "lockfile", "install first", "faster builds"] },
+      ],
+    },
+    modelAnswer:
+      "Docker caches each instruction as a layer and reuses it until one of its inputs changes; a change invalidates that layer and every later one. Copying only package.json and the lockfile, installing, and then copying the source means ordinary code changes reuse the cached dependency layer, so rebuilds take seconds instead of reinstalling everything.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-do-ci-jr-1",
+    track: "devops",
+    tags: ["devops", "github actions", "testing"],
+    difficulty: 1,
+    type: "ops",
+    level: "junior",
+    prompt: "What is the main purpose of a CI pipeline that runs on every pull request?",
+    options: [
+      "To build and test each change automatically, so problems are caught before it is merged",
+      "To deploy every branch straight to production",
+      "To replace code review",
+      "To back up the repository",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "automated build, lint and tests",
+      "fast feedback before merging",
+      "keeps the main branch releasable",
+    ],
+    redFlags: ["CI replaces code review", "CI deploys every branch to production"],
+    rubric: {
+      criteria: [
+        { name: "Purpose", weight: 5, keywords: ["automated", "build", "test", "before merge"] },
+        { name: "Benefits", weight: 5, keywords: ["fast feedback", "main branch", "releasable", "regressions"] },
+      ],
+    },
+    modelAnswer:
+      "Continuous integration builds the code and runs linting and tests automatically for every change, so broken builds and regressions are found before merging and the main branch stays releasable. It complements code review rather than replacing it; deployment is a separate (continuous delivery) step.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-do-config-jr-1",
+    track: "devops",
+    tags: ["devops", "12-factor app", "secrets management"],
+    difficulty: 1,
+    type: "theory",
+    level: "junior",
+    prompt:
+      "Following the twelve-factor app, where should settings that differ between staging and production (such as the database URL) live?",
+    options: [
+      "In environment variables that the app reads when it starts",
+      "In the source code, with an if-statement per environment",
+      "In a separate git branch for each environment",
+      "Baked into a separate Docker image built for each environment",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "config is separate from code",
+      "environment variables per deploy",
+      "build once, deploy the same artifact everywhere",
+    ],
+    redFlags: ["one branch per environment", "rebuild the image per environment"],
+    rubric: {
+      criteria: [
+        { name: "Principle", weight: 5, keywords: ["config", "environment", "separate from code"] },
+        { name: "Practice", weight: 5, keywords: ["environment variable", "same artifact", "build once"] },
+      ],
+    },
+    modelAnswer:
+      "Twelve-factor apps keep configuration that varies between deploys out of the code, in environment variables read at startup. The same build artifact (for example one Docker image) is then promoted from staging to production unchanged; only the environment differs. Per-environment branches or images drift apart and mean production runs something that was never tested.",
+    followUpIds: [],
+  },
+  // --- DevOps / Mid ---
+  {
+    id: "iq-do-probes-mid-1",
+    track: "devops",
+    tags: ["kubernetes", "high availability"],
+    difficulty: 3,
+    type: "ops",
+    level: "mid",
+    prompt: "What is the difference between a Kubernetes readiness probe and a liveness probe?",
+    options: [
+      "A failing readiness probe takes the pod out of Service endpoints (no traffic); a failing liveness probe makes the kubelet restart the container",
+      "A failing readiness probe restarts the container; a failing liveness probe takes it out of Service endpoints",
+      "They are the same check; liveness is the older name",
+      "Readiness runs once at startup and liveness only runs in development",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "readiness controls whether traffic is sent",
+      "liveness restarts stuck containers",
+      "a liveness check should not depend on downstream services",
+    ],
+    redFlags: ["probes are interchangeable", "liveness should check the database"],
+    rubric: {
+      criteria: [
+        { name: "Readiness", weight: 5, keywords: ["traffic", "endpoints", "not ready", "service"] },
+        { name: "Liveness", weight: 5, keywords: ["restart", "kubelet", "deadlock", "stuck"] },
+      ],
+    },
+    modelAnswer:
+      "Readiness answers 'can this pod take traffic now?': while it fails, the pod is removed from the Service's endpoints but keeps running. Liveness answers 'is this container stuck?': when it fails repeatedly, the kubelet restarts the container. Liveness checks should be cheap and not depend on databases or other services, or an outage elsewhere turns into a restart loop.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-do-canary-mid-1",
+    track: "devops",
+    tags: ["release strategies", "canary releases", "blue/green deploys"],
+    difficulty: 2,
+    type: "ops",
+    level: "mid",
+    prompt: "What is a canary release?",
+    options: [
+      "Rolling a new version out to a small share of traffic first, watching its metrics, then widening the rollout or rolling back",
+      "Running two full environments and switching all traffic from one to the other at once",
+      "Deploying at night, when traffic is lowest",
+      "Testing a release in a staging environment that mirrors production",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "small percentage of traffic first",
+      "compare error rates and latency",
+      "automatic rollback on bad metrics",
+      "blue/green switches all traffic at once",
+    ],
+    redFlags: ["canary means deploying at night", "canary and blue/green are the same"],
+    rubric: {
+      criteria: [
+        { name: "Definition", weight: 5, keywords: ["small share", "percentage", "gradual", "subset"] },
+        { name: "Safety", weight: 5, keywords: ["metrics", "rollback", "monitor", "compare"] },
+      ],
+    },
+    modelAnswer:
+      "A canary release sends a small share of real traffic (say 5%) to the new version, compares its error rate and latency with the current version, and then increases the share step by step, or rolls back if the metrics get worse. Blue/green deployment instead keeps two full environments and switches all traffic at once.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-do-tfstate-mid-1",
+    track: "devops",
+    tags: ["terraform", "iac"],
+    difficulty: 3,
+    type: "ops",
+    level: "mid",
+    prompt:
+      "Why should a team keep Terraform state in a remote backend with locking (for example S3 with a lock table, or Terraform Cloud)?",
+    options: [
+      "So everyone works from the same state, and two applies cannot run at once and corrupt it",
+      "Because local state files cannot hold more than 100 resources",
+      "Because remote state makes terraform plan unnecessary",
+      "Because locking encrypts the cloud provider's credentials",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "state maps configuration to real resources",
+      "one shared source of truth",
+      "locking prevents concurrent applies",
+      "state can contain secrets: encrypt and restrict it",
+    ],
+    redFlags: ["commit the state file to git", "state is optional"],
+    rubric: {
+      criteria: [
+        { name: "Shared state", weight: 5, keywords: ["shared", "remote", "source of truth", "team"] },
+        { name: "Locking", weight: 5, keywords: ["lock", "concurrent", "corrupt", "apply"] },
+      ],
+    },
+    modelAnswer:
+      "Terraform state records which real resources each piece of configuration manages. A remote backend gives the whole team (and CI) one shared copy instead of diverging local files, and state locking stops two applies running at the same time and corrupting it. State can contain secrets, so the backend should be encrypted and access-controlled, and never committed to git.",
+    followUpIds: [],
+  },
+  // --- DevOps / Senior ---
+  {
+    id: "iq-do-slo-sr-1",
+    track: "devops",
+    tags: ["slos/slas", "incident management", "metrics"],
+    difficulty: 4,
+    type: "ops",
+    level: "senior",
+    prompt:
+      "Your service has a 99.9% monthly availability SLO and its error budget for the month is already used up. What does SRE practice suggest?",
+    options: [
+      "Put reliability work first and slow down or freeze risky releases until the budget recovers",
+      "Raise the SLO to 99.99% to motivate the team",
+      "Stop measuring availability until next month",
+      "Ship features faster to win users back",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "the error budget is 100% minus the SLO",
+      "an exhausted budget shifts effort to reliability",
+      "release policy is tied to the budget",
+      "blameless postmortems for the incidents that used it",
+    ],
+    redFlags: ["ignore the SLO", "raise targets when they are missed"],
+    rubric: {
+      criteria: [
+        { name: "Error budget", weight: 5, keywords: ["error budget", "0.1%", "SLO", "consumed"] },
+        { name: "Response", weight: 5, keywords: ["freeze", "reliability", "postmortem", "slow releases"] },
+      ],
+    },
+    modelAnswer:
+      "A 99.9% SLO allows 0.1% unavailability per month: the error budget. While budget remains, the team can take release risk; once it is spent, the agreed policy is to prioritise reliability fixes and slow or freeze risky changes until the service is back within budget, and to learn from the incidents in blameless postmortems.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-do-oom-sr-1",
+    track: "devops",
+    tags: ["kubernetes", "containers", "performance"],
+    difficulty: 4,
+    type: "debugging",
+    level: "senior",
+    prompt:
+      "Under load, a pod's container is repeatedly OOMKilled even though its node still has free memory. What is the most likely cause?",
+    options: [
+      "The container's memory limit is below what the app needs at peak, so it is killed when it exceeds its own limit",
+      "The node's CPU limit is too low",
+      "The liveness probe timeout is too short",
+      "The Service in front of the pod has too few endpoints",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "limits are enforced per container (cgroup)",
+      "OOMKilled means the memory limit was exceeded",
+      "measure peak usage and set requests and limits to match",
+      "runtimes like Node.js or the JVM need heap settings that fit the limit",
+    ],
+    redFlags: ["CPU limits cause OOMKilled", "free node memory prevents OOM kills"],
+    rubric: {
+      criteria: [
+        { name: "Cause", weight: 5, keywords: ["memory limit", "cgroup", "exceeds", "OOMKilled"] },
+        { name: "Fix", weight: 5, keywords: ["raise limit", "requests", "heap size", "profile"] },
+      ],
+    },
+    modelAnswer:
+      "Memory limits are enforced per container by its cgroup: when the container goes over its own limit, the kernel kills it (OOMKilled), regardless of free memory on the node. Measure peak usage, set requests and limits to match, and size the runtime's heap (for example Node's --max-old-space-size or the JVM's -Xmx) to fit inside the limit. A failing liveness probe causes restarts, not OOM kills.",
+    followUpIds: [],
+  },
+  {
+    id: "iq-do-tracing-sr-1",
+    track: "devops",
+    tags: ["tracing", "opentelemetry", "microservices"],
+    difficulty: 4,
+    type: "ops",
+    level: "senior",
+    prompt:
+      "A request passes through six microservices and is only sometimes slow. What shows where the time went in one slow request?",
+    options: [
+      "Distributed tracing (for example OpenTelemetry), which records a timed span for each hop under one trace id",
+      "CPU usage charts for each host",
+      "Setting one service's log level to DEBUG",
+      "An uptime check that runs every minute",
+    ],
+    correctOptionIndex: 0,
+    expectedPoints: [
+      "a trace follows one request across services",
+      "spans record timing per operation",
+      "context propagation between services",
+      "metrics and logs show aggregates, not one request's path",
+    ],
+    redFlags: ["averages find intermittent latency", "uptime checks show latency per hop"],
+    rubric: {
+      criteria: [
+        { name: "Concept", weight: 5, keywords: ["trace", "span", "trace id", "propagation"] },
+        { name: "Tooling", weight: 5, keywords: ["OpenTelemetry", "Jaeger", "sampling", "waterfall"] },
+      ],
+    },
+    modelAnswer:
+      "Distributed tracing gives each request a trace id that is propagated between services; every hop records a span with its start time and duration, so one slow request shows as a waterfall that points at the slow hop. OpenTelemetry is the common standard, with backends such as Jaeger. Host metrics and logs show aggregates or isolated events, not one request's path.",
+    followUpIds: [],
+  },
 ];
+
+/**
+ * Salt for storedOptionOrder, picked so the current bank's answer keys are
+ * spread evenly over A-D. Never change it: that would reorder the options
+ * of every question, including ones that sessions have answered.
+ */
+const OPTION_ORDER_SALT = "option-order-2288";
+
+/**
+ * A fixed pseudo-random order of a question's options, derived from its id
+ * (sha256-seeded Fisher–Yates): the same on every run, so re-seeding never
+ * reorders the options of a question that sessions are using.
+ * `order[stored] = authored index`.
+ */
+function storedOptionOrder(id: string, count: number): number[] {
+  const seed = createHash("sha256").update(`${OPTION_ORDER_SALT}:${id}`).digest();
+  const order = Array.from({ length: count }, (_, i) => i);
+  for (let i = count - 1; i > 0; i--) {
+    const j = seed.readUInt16BE((i * 2) % (seed.length - 1)) % (i + 1);
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+/** The options in stored order, with the answer key remapped to match. */
+function storedOptions(q: SeedQuestion): {
+  options: string[];
+  correctOptionIndex: number;
+  correctOptionIndices: number[];
+} {
+  const order = storedOptionOrder(q.id, q.options.length);
+  const storedIndexOf = (authored: number) => order.indexOf(authored);
+  const correct = q.multiSelect ? (q.correctOptionIndices ?? []) : [q.correctOptionIndex];
+  return {
+    options: order.map((authored) => q.options[authored]),
+    correctOptionIndex: storedIndexOf(q.correctOptionIndex),
+    correctOptionIndices: [...new Set(correct.map(storedIndexOf))].sort((a, b) => a - b),
+  };
+}
 
 const TRACKS = new Set(["frontend", "backend", "fullstack", "devops"]);
 const LEVELS = new Set(["junior", "mid", "senior"]);
@@ -1395,6 +2226,7 @@ function validateQuestion(q: SeedQuestion, ids: ReadonlySet<string>): void {
     }
   }
   if (q.options.length < 2) problems.push("needs at least 2 options");
+  if (new Set(q.options).size !== q.options.length) problems.push("options must be unique");
   const inRange = (i: number) => Number.isInteger(i) && i >= 0 && i < q.options.length;
   if (!inRange(q.correctOptionIndex)) problems.push("correctOptionIndex out of range");
   if (q.multiSelect) {
@@ -1427,11 +2259,7 @@ async function seedQuestionBank(): Promise<void> {
       type: q.type,
       level: q.level,
       prompt: q.prompt,
-      options: q.options,
-      correctOptionIndex: q.correctOptionIndex,
-      correctOptionIndices: multiSelect
-        ? [...new Set(q.correctOptionIndices)].sort((a, b) => a - b)
-        : [q.correctOptionIndex],
+      ...storedOptions(q),
       multiSelect,
       expectedPoints: q.expectedPoints,
       redFlags: q.redFlags,
@@ -1448,6 +2276,33 @@ async function seedQuestionBank(): Promise<void> {
     });
   }
   console.log(`Seeded ${INTERVIEW_QUESTIONS.length} interview questions`);
+}
+
+/**
+ * Seed questions whose id is no longer in INTERVIEW_QUESTIONS (replaced by a
+ * new version): archived (moved out of every pool) when a session used
+ * them, so its history still shows what was asked; deleted otherwise.
+ */
+async function retireOldSeedQuestions(): Promise<void> {
+  const current = INTERVIEW_QUESTIONS.map((q) => q.id);
+  const rows = await prisma.interviewQuestion.findMany({
+    where: { source: "seed", id: { notIn: current }, level: { not: ARCHIVED_LEVEL } },
+    select: { id: true, _count: { select: { sessionQuestions: true } } },
+  });
+  const used = rows.filter((row) => row._count.sessionQuestions > 0).map((row) => row.id);
+  const unused = rows.filter((row) => row._count.sessionQuestions === 0).map((row) => row.id);
+  if (used.length > 0) {
+    await prisma.interviewQuestion.updateMany({
+      where: { id: { in: used } },
+      data: { level: ARCHIVED_LEVEL, followUpIds: [] },
+    });
+  }
+  if (unused.length > 0) {
+    await prisma.interviewQuestion.deleteMany({ where: { id: { in: unused } } });
+  }
+  if (rows.length > 0) {
+    console.log(`Old seed questions: ${used.length} archived, ${unused.length} removed`);
+  }
 }
 
 /**
@@ -1514,6 +2369,7 @@ async function main(): Promise<void> {
   }
 
   await seedQuestionBank();
+  await retireOldSeedQuestions();
   await tidyAiQuestionTags();
 
   if (isProduction) {

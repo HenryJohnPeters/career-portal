@@ -109,13 +109,14 @@ export class JobsService {
 
   /**
    * Partial update: undefined = unchanged, null clears. Leaving the wishlist
-   * stamps `appliedAt` (when not set); a changed job description clears the
-   * now-stale match score.
+   * stamps `appliedAt` (when not set); a changed job description or linked
+   * CV clears the now-stale match score (`matchCheckedAt` stays: it records
+   * that a check was run, which onboarding counts).
    */
   async update(userId: string, id: string, dto: UpdateJobDto): Promise<JobPayload> {
     const current = await this.prisma.job.findFirst({
       where: { id, userId },
-      select: { status: true, appliedAt: true, jobDescription: true },
+      select: { status: true, appliedAt: true, jobDescription: true, cvVersionId: true },
     });
     if (!current) throw jobNotFound();
     await this.assertOwnedLinks(userId, dto);
@@ -142,7 +143,10 @@ export class JobsService {
     if (dto.appliedAt === undefined && leavesWishlist && !current.appliedAt) {
       data.appliedAt = new Date();
     }
-    if (dto.jobDescription !== undefined && dto.jobDescription !== current.jobDescription) {
+    const descriptionChanged =
+      dto.jobDescription !== undefined && dto.jobDescription !== current.jobDescription;
+    const cvChanged = dto.cvVersionId !== undefined && dto.cvVersionId !== current.cvVersionId;
+    if (descriptionChanged || cvChanged) {
       data.matchScore = null;
     }
 
@@ -225,9 +229,13 @@ export class JobsService {
     cv: Prisma.CvVersionGetPayload<{ select: typeof MATCH_CV_SELECT }>,
     jobDescription: string,
   ): MatchResult {
-    const { id, ...cvContent } = cv;
+    // A blank CV email prints the account email (as the PDF does).
+    const { id, user, ...cvContent } = cv;
     return {
-      ...matchCvToJobDescription(cvContent, jobDescription),
+      ...matchCvToJobDescription(
+        { ...cvContent, email: cvContent.email || user.email },
+        jobDescription,
+      ),
       cvVersionId: id,
       checkedAt: new Date().toISOString(),
     };

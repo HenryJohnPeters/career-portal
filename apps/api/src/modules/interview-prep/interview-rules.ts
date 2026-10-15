@@ -17,8 +17,12 @@ export const MAX_POOL_CANDIDATES = 1000;
 export const RECENT_QUESTION_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 export const MAX_RECENT_QUESTIONS = 300;
 
+/** 422 when the whole track/level/difficulty pool is too small (tags already fall back to it). */
 export const NOT_ENOUGH_QUESTIONS_MESSAGE =
-  "Not enough questions for this combination yet — try fewer tags";
+  "We don't have enough questions for this track and level yet — try another level or track.";
+/** 422 when no question matches any of the chosen technologies. */
+export const NO_TAG_MATCH_MESSAGE =
+  "We don't have questions on the technologies you picked at this level yet — choose other technologies or another level.";
 
 /**
  * Canonical catalog ids for a session's tags: trimmed, lowercased, aliases

@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   HttpCode,
+  Logger,
   Patch,
   Post,
   StreamableFile,
@@ -11,6 +12,7 @@ import {
 } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
+import { Readable } from "node:stream";
 import { CurrentUserId } from "../../common/current-user.decorator";
 import { ACCOUNT_ACTION_THROTTLE } from "../../common/throttler.config";
 import { AuthGuard } from "../auth/auth.guard";
@@ -27,6 +29,8 @@ import { AccountService } from "./account.service";
 @UseGuards(AuthGuard)
 @Controller("account")
 export class AccountController {
+  private readonly logger = new Logger(AccountController.name);
+
   constructor(
     private readonly accountService: AccountService,
     private readonly exportService: AccountExportService,
@@ -53,18 +57,28 @@ export class AccountController {
     return { data: await this.accountService.dismissOnboarding(userId) };
   }
 
-  /** JSON download of all the user's data. */
+  /** JSON download of all the user's data, streamed in bounded pages. */
   @Get("export")
   @Throttle(ACCOUNT_ACTION_THROTTLE)
   async export(@CurrentUserId() userId: string): Promise<StreamableFile> {
     const now = new Date();
-    const data = await this.exportService.buildExport(userId, now);
-    const body = Buffer.from(JSON.stringify(data, null, 2), "utf8");
-    return new StreamableFile(body, {
+    const chunks = await this.exportService.openExport(userId, now);
+    return new StreamableFile(Readable.from(chunks), {
       type: "application/json; charset=utf-8",
       disposition: `attachment; filename="${exportFilename(now)}"`,
-      length: body.length,
-    });
+    })
+      .setErrorHandler((_err, res) => {
+        // Once the download has started the response is aborted, never left
+        // as a truncated file that looks complete; before that, a bare 500.
+        if (res.destroyed || res.headersSent) return;
+        res.statusCode = 500;
+        res.end();
+      })
+      .setErrorLogger((err) => {
+        // The client going away mid-download is not a server error.
+        if ((err as NodeJS.ErrnoException).code === "ERR_STREAM_PREMATURE_CLOSE") return;
+        this.logger.error(`Account export failed: ${err.name}`, err.stack);
+      });
   }
 
   /** Body `{ confirmEmail }`; cancels billing, deletes all data and the sign-in identity. */

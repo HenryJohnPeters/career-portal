@@ -20,6 +20,8 @@ const production = {
   ...base,
   NODE_ENV: "production",
   CLIENT_URL: "https://app.example.com",
+  SUPABASE_URL: "https://abc.supabase.co",
+  SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
 };
 
 function invalid(env: Record<string, unknown>, pattern: RegExp) {
@@ -133,6 +135,12 @@ describe("validateEnv", () => {
     test("rejects http and localhost CLIENT_URL", () => {
       invalid({ ...production, CLIENT_URL: "http://app.example.com" }, /CLIENT_URL/);
       invalid({ ...production, CLIENT_URL: "https://localhost:4200" }, /CLIENT_URL/);
+    });
+
+    test("requires the Supabase service-role key (account deletion removes the identity)", () => {
+      const { SUPABASE_SERVICE_ROLE_KEY: _key, ...noKey } = production;
+      invalid(noKey, /SUPABASE_SERVICE_ROLE_KEY: is required in production/);
+      invalid({ ...production, SUPABASE_SERVICE_ROLE_KEY: "  " }, /SUPABASE_SERVICE_ROLE_KEY/);
     });
 
     test("rejects http CORS_ORIGINS and SUPABASE_URL", () => {

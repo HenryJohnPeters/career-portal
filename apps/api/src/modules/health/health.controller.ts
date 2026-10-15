@@ -6,6 +6,24 @@ import { PrismaService } from "../../common/prisma.service";
 import { SKIP_ALL_THROTTLERS } from "../../common/throttler.config";
 
 const DB_PING_TIMEOUT_MS = 2_000;
+const MAX_REASON_LENGTH = 300;
+
+/**
+ * One log-worthy line for a failed ping. Prisma messages start with a blank
+ * line and an "Invalid `prisma.$queryRaw()` invocation:" header, so the
+ * first meaningful line is used, prefixed with the Prisma error code.
+ */
+export function healthFailureReason(err: unknown): string {
+  if (!(err instanceof Error)) return "unknown error";
+  const line = err.message
+    .split("\n")
+    .map((l) => l.trim())
+    .find((l) => l && !/^Invalid `.*` invocation:?$/.test(l));
+  const { code, errorCode } = err as { code?: unknown; errorCode?: unknown };
+  const prismaCode = typeof code === "string" ? code : typeof errorCode === "string" ? errorCode : "";
+  const reason = [prismaCode, line ?? err.name].filter(Boolean).join(" ");
+  return reason.slice(0, MAX_REASON_LENGTH);
+}
 
 /**
  * Probes for the platform (Railway healthcheckPath) and uptime monitors.
@@ -45,9 +63,7 @@ export class HealthController {
       await Promise.race([this.prisma.$queryRaw`SELECT 1`, timeout]);
       return true;
     } catch (err) {
-      this.logger.warn(
-        `Database health check failed: ${err instanceof Error ? err.message.split("\n")[0] : "unknown"}`,
-      );
+      this.logger.warn(`Database health check failed: ${healthFailureReason(err)}`);
       return false;
     } finally {
       clearTimeout(timer);

@@ -24,6 +24,16 @@ export interface PoolRequest {
   interviewType: string;
 }
 
+export interface PoolPick {
+  questionIds: string[];
+  /**
+   * Tags were requested but no bank question for the track/level/difficulty
+   * has any of them: the session would be entirely off-topic, so it is not
+   * created (and no quota is spent).
+   */
+  noTagMatch: boolean;
+}
+
 const CANDIDATE_SELECT = {
   id: true,
   type: true,
@@ -35,8 +45,10 @@ const CANDIDATE_SELECT = {
  * Picks the questions for a new session from the shared bank. Only light
  * columns are loaded for selection. When the tag-filtered pool is too small,
  * the session is topped up from the same track/level/difficulty without the
- * tag filter (questions sharing a tag still rank first). Only premium users
- * can trigger AI generation, bounded by the generator's own caps.
+ * tag filter (questions sharing a tag still rank first); when no question
+ * matches any requested tag, nothing is picked (see PoolPick.noTagMatch).
+ * Only premium users can trigger AI generation, bounded by the generator's
+ * own caps.
  */
 @Injectable()
 export class QuestionPoolService {
@@ -47,7 +59,7 @@ export class QuestionPoolService {
     private readonly generator: AiQuestionGeneratorService,
   ) {}
 
-  async pickQuestions(request: PoolRequest): Promise<string[]> {
+  async pickQuestions(request: PoolRequest): Promise<PoolPick> {
     if (request.isPremium) await this.growPoolForPremium(request);
 
     const recent = await this.recentQuestionIds(request.userId);
@@ -61,9 +73,12 @@ export class QuestionPoolService {
     };
 
     const tagged = await this.loadCandidates(request, request.tags);
+    if (request.tags.length > 0 && tagged.length === 0) {
+      return { questionIds: [], noTagMatch: true };
+    }
     const picked = selectQuestions(tagged, settings, recent);
     if (picked.length >= request.questionCount || request.tags.length === 0) {
-      return picked.map((q) => q.id);
+      return { questionIds: picked.map((q) => q.id), noTagMatch: false };
     }
 
     const pickedIds = new Set(picked.map((q) => q.id));
@@ -73,7 +88,7 @@ export class QuestionPoolService {
       { ...settings, questionCount: request.questionCount - picked.length },
       recent,
     );
-    return [...picked, ...topUp].map((q) => q.id);
+    return { questionIds: [...picked, ...topUp].map((q) => q.id), noTagMatch: false };
   }
 
   /** Premium: one bounded generation when the requested pool is thinner than the session. */

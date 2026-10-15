@@ -45,9 +45,33 @@ export function correctIndicesOf(question: GradableQuestion): number[] {
 }
 
 /**
+ * Feedback for a wrong multi-select answer, option by option: the correct
+ * options that were picked are covered; the correct options left out, and
+ * each wrong pick, are what was missed.
+ */
+function multiSelectPoints(
+  question: GradableQuestion,
+  correct: readonly number[],
+  chosen: readonly number[],
+): { pointsHit: string[]; pointsMissed: string[] } {
+  const picked = new Set(chosen);
+  const isCorrectOption = new Set(correct);
+  const label = (i: number) => question.options[i] ?? `Option ${i + 1}`;
+  return {
+    pointsHit: correct.filter((i) => picked.has(i)).map(label),
+    pointsMissed: [
+      ...correct.filter((i) => !picked.has(i)).map(label),
+      ...chosen.filter((i) => !isCorrectOption.has(i)).map((i) => `why "${label(i)}" is not correct`),
+    ],
+  };
+}
+
+/**
  * Deterministic grading for option questions. All-or-nothing: the answer is
  * correct only when the selected set equals the correct set, and scores
- * either 0 or `maxScore`.
+ * either 0 or `maxScore`. A wrong multi-select answer gets per-option
+ * feedback and no criteria breakdown (zeroed criteria would contradict the
+ * options it got right; partial credit would contradict the 0 score).
  */
 export function evaluateAnswer(
   question: GradableQuestion,
@@ -62,12 +86,18 @@ export function evaluateAnswer(
     correct.every((index, i) => index === chosen[i]);
   const score = clampScore(isCorrect ? maxScore : 0, maxScore);
 
-  const criteria = question.rubric.criteria.filter((c) => c.weight > 0);
+  const wrongMultiSelect = question.multiSelect && !isCorrect;
+  const criteria = wrongMultiSelect ? [] : question.rubric.criteria.filter((c) => c.weight > 0);
   const totalWeight = criteria.reduce((sum, c) => sum + c.weight, 0);
   const criteriaScores = criteria.map((c) => {
     const criterionMax = round1((c.weight / totalWeight) * maxScore);
     return { name: c.name, score: isCorrect ? criterionMax : 0, maxScore: criterionMax };
   });
+  const points = isCorrect
+    ? { pointsHit: [...question.expectedPoints], pointsMissed: [] }
+    : wrongMultiSelect
+      ? multiSelectPoints(question, correct, chosen)
+      : { pointsHit: [], pointsMissed: [...question.expectedPoints] };
 
   const correctAnswer =
     correct.map((i) => question.options[i]).join(", ") || question.modelAnswer;
@@ -86,8 +116,7 @@ export function evaluateAnswer(
     isCorrect,
     score,
     maxScore,
-    pointsHit: isCorrect ? [...question.expectedPoints] : [],
-    pointsMissed: isCorrect ? [] : [...question.expectedPoints],
+    ...points,
     redFlagsTriggered: [],
     criteriaScores,
     suggestions,

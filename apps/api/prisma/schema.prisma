@@ -239,6 +239,10 @@ model InterviewSessionQuestion {
   question         InterviewQuestion @relation(fields: [questionId], references: [id])
 
   @@index([sessionId, orderIndex])
+  // Per-user monthly answer counts, progress and recently served questions
+  // probe each of the user's sessions by time.
+  @@index([sessionId, answeredAt])
+  @@index([sessionId, createdAt])
   @@index([questionId])
 }
 

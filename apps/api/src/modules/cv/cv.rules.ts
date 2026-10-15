@@ -11,6 +11,13 @@ export const CV_LIMITS = {
   versionTitle: 120,
 } as const;
 
+/**
+ * Hard cap on CV versions per user on every plan (premium's "unlimited"
+ * included), like the cover-letter and job caps: a version can hold ~450 KB
+ * of sections, and the version list and the data export load all of them.
+ */
+export const MAX_CV_VERSIONS_PER_USER = 100;
+
 /** Contact field lengths (DTO limits). */
 export const CV_CONTACT_LIMITS = {
   name: 200,

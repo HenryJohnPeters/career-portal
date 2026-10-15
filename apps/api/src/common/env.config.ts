@@ -135,6 +135,13 @@ const envSchema = z
     if (env.SUPABASE_URL && !env.SUPABASE_URL.startsWith("https://")) {
       issue("SUPABASE_URL", "must be https:// in production");
     }
+    // Account deletion promises to remove the sign-in identity too.
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+      issue(
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "is required in production (account deletion must also delete the Supabase user)",
+      );
+    }
   })
   .transform((env) => ({ ...env, CLIENT_URL: env.CLIENT_URL ?? DEV_CLIENT_URL }));
 

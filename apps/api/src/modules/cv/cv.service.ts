@@ -8,7 +8,7 @@ import { EntitlementsService } from "../entitlements/entitlements.service";
 import { AiService } from "../ai/ai.service";
 import type { AiCvAction, AiFullCvResult } from "../ai/ai.service";
 import { normalizeThemeConfig } from "../pdf/templates/theme";
-import { CV_LIMITS } from "./cv.rules";
+import { CV_LIMITS, MAX_CV_VERSIONS_PER_USER } from "./cv.rules";
 import {
   buildSnapshot,
   CONTACT_FIELDS,
@@ -20,12 +20,15 @@ import {
 } from "./cv-snapshot";
 import {
   CV_VERSION_SELECT,
+  CV_VERSION_SUMMARY_SELECT,
   HAS_SNAPSHOT,
   SECTION_ORDER,
   cvSectionNotFound,
+  cvVersionCapReached,
   cvVersionNotFound,
   toCvVersionPayload,
   type CvVersionPayload,
+  type CvVersionSummary,
 } from "./cv.queries";
 import type {
   ApplyCvContentDto,
@@ -75,11 +78,13 @@ export class CvService {
 
   /* ── Versions ───────────────────────────────────────────────────── */
 
+  /** Newest first; bounded by the per-user cap (older accounts may hold more). */
   async getVersions(userId: string): Promise<CvVersionPayload[]> {
     const [rows, withSnapshot] = await Promise.all([
       this.prisma.cvVersion.findMany({
         where: { userId },
         orderBy: { createdAt: "desc" },
+        take: MAX_CV_VERSIONS_PER_USER,
         select: CV_VERSION_SELECT,
       }),
       this.prisma.cvVersion.findMany({
@@ -89,6 +94,16 @@ export class CvService {
     ]);
     const snapshotIds = new Set(withSnapshot.map((v) => v.id));
     return rows.map((row) => toCvVersionPayload(row, snapshotIds.has(row.id)));
+  }
+
+  /** The list without sections or contact details, for CV pickers. */
+  getVersionSummaries(userId: string): Promise<CvVersionSummary[]> {
+    return this.prisma.cvVersion.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: MAX_CV_VERSIONS_PER_USER,
+      select: CV_VERSION_SUMMARY_SELECT,
+    });
   }
 
   /** One version with its sections (404 unless it is the user's). */
@@ -163,36 +178,36 @@ export class CvService {
       }),
     };
 
-    const update = this.prisma.cvVersion.update({
-      where: { id },
-      data,
-      select: CV_VERSION_SELECT,
-    });
-    const [row, hasSnapshot] = await Promise.all([
-      dto.isActive
-        ? this.prisma
-            .$transaction([
-              this.prisma.cvVersion.updateMany({
-                where: { userId, isActive: true, NOT: { id } },
-                data: { isActive: false },
-              }),
-              update,
-            ])
-            .then(([, updated]) => updated)
-        : update,
-      this.hasSnapshot(id),
-    ]);
+    // Activating one version deactivates the others under the per-user lock,
+    // so two concurrent activations can neither deadlock nor both stay active.
+    const update = dto.isActive
+      ? lockedTransaction(this.prisma, userLockKey("cv", userId), async (tx) => {
+          await tx.cvVersion.updateMany({
+            where: { userId, isActive: true, NOT: { id } },
+            data: { isActive: false },
+          });
+          return tx.cvVersion.update({ where: { id }, data, select: CV_VERSION_SELECT });
+        })
+      : this.prisma.cvVersion.update({ where: { id }, data, select: CV_VERSION_SELECT });
+    const [row, hasSnapshot] = await Promise.all([update, this.hasSnapshot(id)]);
     return toCvVersionPayload(row, hasSnapshot);
   }
 
+  /** Jobs linked to the version keep the link (set null by the FK) but lose its match score. */
   async deleteVersion(userId: string, id: string): Promise<void> {
-    const { count } = await this.prisma.cvVersion.deleteMany({ where: { id, userId } });
+    const [, { count }] = await this.prisma.$transaction([
+      this.prisma.job.updateMany({
+        where: { userId, cvVersionId: id },
+        data: { matchScore: null },
+      }),
+      this.prisma.cvVersion.deleteMany({ where: { id, userId } }),
+    ]);
     if (count === 0) throw cvVersionNotFound();
   }
 
   /**
    * Copies a version (theme, contact and sections; not the undo snapshot).
-   * Counts toward the free CV-version limit.
+   * Counts toward the free CV-version limit and the per-user cap.
    */
   async duplicateVersion(
     userId: string,
@@ -353,17 +368,20 @@ export class CvService {
     return plan.limits.cvVersions;
   }
 
-  /** Call inside the per-user "cv" lock so concurrent creates can't overshoot. */
+  /**
+   * The plan limit (free) and the every-plan cap. Call inside the per-user
+   * "cv" lock so concurrent creates can't overshoot.
+   */
   private async assertVersionQuota(
     tx: Tx,
     userId: string,
     limit: number | null,
   ): Promise<void> {
-    if (limit === null) return;
     const used = await tx.cvVersion.count({ where: { userId } });
-    if (used >= limit) {
+    if (limit !== null && used >= limit) {
       throw new QuotaExceededException("cvVersions", limit, used, null);
     }
+    if (used >= MAX_CV_VERSIONS_PER_USER) throw cvVersionCapReached();
   }
 
   private async replaceContent(

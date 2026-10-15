@@ -120,6 +120,56 @@ describe("HttpExceptionFilter", () => {
     });
   }
 
+  for (const [label, error, status, message] of [
+    [
+      "a NUL byte in text (22021)",
+      new Prisma.PrismaClientUnknownRequestError(
+        'Error occurred during query execution:\nConnectorError(ConnectorError { kind: QueryError(PostgresError { code: "22021", message: "invalid byte sequence for encoding \\"UTF8\\": 0x00" }) })',
+        { clientVersion: "5.22.0" },
+      ),
+      400,
+      "Text contains unsupported characters",
+    ],
+    [
+      "a deadlock (40P01)",
+      new Prisma.PrismaClientUnknownRequestError(
+        'ConnectorError { kind: QueryError(PostgresError { code: "40P01", message: "deadlock detected" }) }',
+        { clientVersion: "5.22.0" },
+      ),
+      409,
+      "Conflict, please retry",
+    ],
+    [
+      "a raw-query \\u0000 in jsonb (P2010 / 22P05)",
+      new Prisma.PrismaClientKnownRequestError(
+        "Raw query failed. Code: `22P05`. Message: `ERROR: unsupported Unicode escape sequence`",
+        { code: "P2010", clientVersion: "5.22.0" },
+      ),
+      400,
+      "Text contains unsupported characters",
+    ],
+  ] as const) {
+    test(`maps ${label} to ${status} without leaking internals`, () => {
+      const res = run(error);
+      assert.equal(res.status, status);
+      assert.equal(res.body?.message, message);
+      assert.ok(!JSON.stringify(res.body).includes("Postgres"));
+      assert.equal(res.logs[0].level, "warn");
+    });
+  }
+
+  test("other unknown Prisma request errors stay generic 500s", () => {
+    const res = run(
+      new Prisma.PrismaClientUnknownRequestError(
+        'PostgresError { code: "53300", message: "too many connections" }',
+        { clientVersion: "5.22.0" },
+      ),
+    );
+    assert.equal(res.status, 500);
+    assert.equal(res.body?.message, "Internal server error");
+    assert.equal(res.logs[0].level, "error");
+  });
+
   test("unknown Prisma errors are generic 500s, logged with method and route", () => {
     const res = run(prismaError("P2003"));
     assert.equal(res.status, 500);

@@ -1,7 +1,12 @@
 import "reflect-metadata";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { BadRequestException, ServiceUnavailableException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ForbiddenException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
+import { MAX_CV_VERSIONS_PER_USER } from "../cv/cv.rules";
 import { PremiumRequiredException } from "../../common/errors";
 import { JobsAiService } from "./jobs-ai.service";
 import type { TailorApplicationDto } from "./jobs.dto";
@@ -29,9 +34,10 @@ const base = {
   ],
 };
 
-function setup(ai: (input: any) => Promise<unknown>) {
+function setup(ai: (input: any) => Promise<unknown>, versionCount = () => 1) {
   const writes: PrismaCall[] = [];
   const { client, calls } = fakePrisma({
+    "cvVersion.count": versionCount,
     "job.findFirst": () => ({ id: "job-1", company: "Acme", role: "Dev", jobDescription: "React role" }),
     "cvVersion.findFirst": () => base,
     "user.findUnique": () => ({ name: "Jane" }),
@@ -88,7 +94,8 @@ describe("JobsAiService.tailor", () => {
     assert.equal(inputs[0].tone, "concise");
     assert.equal(inputs[0].sections.length, 2);
     const version = writes.find((w) => w.model === "cvVersion")!.args.data;
-    assert.equal(version.title, "Dev @ Acme");
+    // Role only: templates print the title under the candidate's name.
+    assert.equal(version.title, "Dev");
     assert.equal(version.templateId, "modern");
     assert.equal(version.location, "London");
     assert.equal(version.isActive, false);
@@ -100,8 +107,33 @@ describe("JobsAiService.tailor", () => {
     assert.equal(letter.body, "Dear Acme");
     assert.equal(letter.jobId, "job-1");
     const link = writes.find((w) => w.model === "job")!.args;
-    assert.deepEqual(link.data, { cvVersionId: "cv-new", coverLetterId: "l-new" });
+    const { matchScore, matchCheckedAt, ...links } = link.data;
+    assert.deepEqual(links, { cvVersionId: "cv-new", coverLetterId: "l-new" });
+    // The job's score is recomputed for the tailored CV it now links to.
+    assert.equal(typeof matchScore, "number");
+    assert.ok(matchScore >= 0 && matchScore <= 100);
+    assert.ok(matchCheckedAt instanceof Date);
     assert.equal(result.coverLetter?.job?.company, "Acme");
+  });
+
+  test("refuses before the AI call when the CV-version cap is reached", async () => {
+    const { service, writes, inputs } = setup(
+      async () => ({ sections: [], coverLetter: null }),
+      () => MAX_CV_VERSIONS_PER_USER,
+    );
+    await assert.rejects(service.tailor(USER, "job-1", DTO), ForbiddenException);
+    assert.equal(inputs.length, 0);
+    assert.deepEqual(writes, []);
+  });
+
+  test("re-checks the CV-version cap under the lock", async () => {
+    let counts = 0;
+    const { service, writes } = setup(
+      async () => ({ sections: [], coverLetter: null }),
+      () => (++counts === 1 ? 1 : MAX_CV_VERSIONS_PER_USER),
+    );
+    await assert.rejects(service.tailor(USER, "job-1", DTO), /CV versions/);
+    assert.deepEqual(writes, []);
   });
 
   test("an AI failure writes nothing", async () => {

@@ -28,6 +28,29 @@ const PRISMA_ERROR_MAP: Record<string, { status: number; message: string }> =
     P2028: { status: HttpStatus.CONFLICT, message: "Conflict, please retry" },
   };
 
+const UNSUPPORTED_TEXT = {
+  status: HttpStatus.BAD_REQUEST,
+  message: "Text contains unsupported characters",
+};
+const CONFLICT_RETRY = { status: HttpStatus.CONFLICT, message: "Conflict, please retry" };
+
+/**
+ * Postgres errors Prisma does not map to a P-code (it reports them as unknown
+ * request errors, or P2010 for raw queries) that are client conditions.
+ * The JSON body reviver strips NULs, so the text codes are a backstop.
+ */
+const POSTGRES_ERROR_MAP: Record<string, { status: number; message: string }> = {
+  "22021": UNSUPPORTED_TEXT, // NUL byte in a text column
+  "22P05": UNSUPPORTED_TEXT, // \u0000 in a jsonb value
+  "40P01": CONFLICT_RETRY, // deadlock detected
+  "40001": CONFLICT_RETRY, // serialization failure
+};
+
+/** The SQLSTATE in a Prisma error message (`code: "22021"` or ``Code: `22P05` ``). */
+function postgresCodeOf(message: string): string | undefined {
+  return /\bcode: (?:"|`)([0-9A-Z]{5})(?:"|`)/i.exec(message)?.[1];
+}
+
 /** Errors from Express middleware (body-parser etc.) carry an http-errors status. */
 interface HttpLikeError {
   status?: number;
@@ -93,6 +116,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
     if (exception instanceof HttpException) {
       return this.fromHttpException(exception);
+    }
+
+    if (
+      exception instanceof Prisma.PrismaClientUnknownRequestError ||
+      (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code === "P2010")
+    ) {
+      const code = postgresCodeOf(exception.message);
+      const mapped = code ? POSTGRES_ERROR_MAP[code] : undefined;
+      if (mapped) {
+        return { ...mapped, log: { level: "warn", text: `Postgres ${code}` } };
+      }
     }
 
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {

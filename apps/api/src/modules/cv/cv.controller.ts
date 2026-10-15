@@ -8,9 +8,10 @@ import {
   Body,
   Param,
   ParseUUIDPipe,
+  Query,
   UseGuards,
 } from "@nestjs/common";
-import { ApiTags, ApiBearerAuth } from "@nestjs/swagger";
+import { ApiTags, ApiBearerAuth, ApiQuery } from "@nestjs/swagger";
 import { AuthGuard } from "../auth/auth.guard";
 import { PremiumGuard } from "../ai/premium.guard";
 import { CvService } from "./cv.service";
@@ -43,9 +44,14 @@ export class CvController {
 
   /* ── Versions ───────────────────────────────────────────────────── */
 
+  /** `?summary=1` returns `{ id, title, isActive, templateId, updatedAt }` rows (pickers). */
   @Get("versions")
-  async getVersions(@CurrentUserId() userId: string) {
-    const data = await this.cvService.getVersions(userId);
+  @ApiQuery({ name: "summary", required: false, enum: ["1", "true"] })
+  async getVersions(@CurrentUserId() userId: string, @Query("summary") summary?: string) {
+    const data =
+      summary === "1" || summary === "true"
+        ? await this.cvService.getVersionSummaries(userId)
+        : await this.cvService.getVersions(userId);
     return { data };
   }
 

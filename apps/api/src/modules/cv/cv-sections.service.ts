@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
-import type { CvSection } from "@prisma/client";
+import { Prisma, type CvSection } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
 import { lockedTransaction, userLockKey } from "../../common/plan";
 import { CV_LIMITS, type SectionType } from "./cv.rules";
@@ -135,7 +135,8 @@ export class CvSectionsService {
 
   /**
    * Sets order = position for the rows whose order changes (also normalising
-   * gaps and ties left by older data) in one transaction.
+   * gaps and ties left by older data): one UPDATE for all of them, in one
+   * transaction with the version touch and the re-read.
    */
   private async writeOrder(
     versionId: string,
@@ -148,18 +149,21 @@ export class CvSectionsService {
       .filter(({ id, order }) => byId.get(id)?.order !== order);
 
     if (changes.length > 0) {
-      const updated = await this.prisma.$transaction(async (tx) => {
-        const rows: CvSection[] = [];
-        for (const { id, order } of changes) {
-          rows.push(await tx.cvSection.update({ where: { id }, data: { order } }));
-        }
-        await tx.cvVersion.update({
-          where: { id: versionId },
-          data: { updatedAt: new Date() },
-          select: { id: true },
-        });
-        return rows;
-      });
+      const values = Prisma.join(
+        changes.map(({ id, order }) => Prisma.sql`(${id}::text, ${order}::int)`),
+      );
+      // Raw SQL skips @updatedAt, so it is set here (stored as UTC, like Prisma does).
+      const [, , updated] = await this.prisma.$transaction([
+        this.prisma.$executeRaw`
+          UPDATE "CvSection" AS s
+          SET "order" = v."order", "updatedAt" = now() AT TIME ZONE 'UTC'
+          FROM (VALUES ${values}) AS v(id, "order")
+          WHERE s."id" = v.id AND s."cvVersionId" = ${versionId}`,
+        this.touchVersion(versionId),
+        this.prisma.cvSection.findMany({
+          where: { cvVersionId: versionId, id: { in: changes.map((c) => c.id) } },
+        }),
+      ]);
       for (const row of updated) byId.set(row.id, row);
     }
     return orderedIds.map((id) => byId.get(id) as CvSection);

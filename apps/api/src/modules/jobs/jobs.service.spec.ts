@@ -69,6 +69,7 @@ describe("JobsService.update", () => {
     let data: any;
     const { client } = fakePrisma({
       "job.findFirst": () => ({ status: "wishlist", appliedAt: null, jobDescription: "old", ...current }),
+      "cvVersion.findFirst": () => ({ id: "owned" }),
       "job.update": (args) => {
         data = args.data;
         return row();
@@ -106,6 +107,21 @@ describe("JobsService.update", () => {
     await same.service.update(USER, "job-1", { jobDescription: "old" } as UpdateJobDto);
     assert.equal(same.data().matchScore, undefined);
   });
+
+  test("linking a different CV clears the match score, keeping matchCheckedAt", async () => {
+    const relinked = setup({ status: "applied", cvVersionId: "cv-1" });
+    await relinked.service.update(USER, "job-1", { cvVersionId: "cv-2" } as UpdateJobDto);
+    assert.equal(relinked.data().matchScore, null);
+    assert.equal(relinked.data().matchCheckedAt, undefined);
+
+    const unlinked = setup({ status: "applied", cvVersionId: "cv-1" });
+    await unlinked.service.update(USER, "job-1", { cvVersionId: null } as UpdateJobDto);
+    assert.equal(unlinked.data().matchScore, null);
+
+    const same = setup({ status: "applied", cvVersionId: "cv-1" });
+    await same.service.update(USER, "job-1", { cvVersionId: "cv-1", notes: "x" } as UpdateJobDto);
+    assert.equal(same.data().matchScore, undefined);
+  });
 });
 
 describe("JobsService.match", () => {
@@ -128,6 +144,7 @@ describe("JobsService.match", () => {
           email: null,
           phone: null,
           photoUrl: null,
+          user: { email: "jane@example.com" },
           sections: [{ title: "Skills", sectionType: "skills", content: "React" }],
         };
       },
@@ -141,5 +158,7 @@ describe("JobsService.match", () => {
     assert.equal(result.score, 50);
     assert.deepEqual(saved.where, { id: "job-1", userId: USER });
     assert.equal(saved.data.matchScore, 50);
+    // A blank CV email falls back to the account email, as on the PDF.
+    assert.equal(result.atsChecks.find((c) => c.key === "contact_email")?.passed, true);
   });
 });

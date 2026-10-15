@@ -8,11 +8,13 @@ import type { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import type { Server } from "node:http";
 import { AppModule } from "./app.module";
+import { responseCompression } from "./common/compression.middleware";
 import {
   corsAllowedOrigins,
   isCorsOriginAllowed,
   type EnvConfig,
 } from "./common/env.config";
+import { toStorableText } from "./common/storable-text";
 
 /** The largest legitimate body (a 30-section CV apply) is well under this. */
 const JSON_BODY_LIMIT = "1mb";
@@ -64,6 +66,9 @@ async function bootstrap() {
     next();
   });
 
+  // Large lists (jobs, CV versions) are hundreds of KB of JSON uncompressed.
+  app.use(responseCompression());
+
   const allowedOrigins = corsAllowedOrigins({
     CLIENT_URL: config.get("CLIENT_URL", { infer: true }),
     CORS_ORIGINS: config.get("CORS_ORIGINS", { infer: true }),
@@ -100,11 +105,13 @@ async function bootstrap() {
   // After CORS, so body errors (413, malformed JSON) stay readable cross-origin.
   // Keys like "constructor" crash class-transformer inside the ValidationPipe
   // (500) and are prototype-pollution vectors; no DTO uses them, so refuse them.
+  // Strings lose NULs and lone surrogates, which Postgres/Prisma cannot store
+  // (Stripe webhooks verify the untouched raw body).
   app.useBodyParser("json", {
     limit: JSON_BODY_LIMIT,
     reviver: (key: string, value: unknown) => {
       if (FORBIDDEN_JSON_KEYS.has(key)) throw new SyntaxError("Forbidden key");
-      return value;
+      return typeof value === "string" ? toStorableText(value) : value;
     },
   });
   app.use(
