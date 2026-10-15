@@ -1,424 +1,359 @@
 import {
+  BadGatewayException,
+  BadRequestException,
   Injectable,
-  Inject,
   Logger,
-  InternalServerErrorException,
 } from "@nestjs/common";
-import OpenAI from "openai";
-import { OPENAI_CLIENT } from "./openai.provider";
-import type { AiFullCvResult } from "./ai.types";
+import type { ZodType, ZodTypeDef } from "zod";
+import { EntitlementsService } from "../entitlements/entitlements.service";
+import { AiRunner } from "./ai-runner";
+import { AiUsageService } from "./ai-usage.service";
+import {
+  AI_ACTIONS,
+  AI_ERROR_MESSAGES,
+  type AiAction,
+  type AiCallProfile,
+} from "./ai.constants";
+import type {
+  AiCallContext,
+  AiCoverLetterRequest,
+  AiCoverLetterRewriteRequest,
+  AiCoverLetterSuggestRequest,
+  AiCvSectionRequest,
+  AiFullCvFromTextRequest,
+  AiFullCvResult,
+  AiTextResult,
+  JobDescriptionAnalysis,
+  TailorApplicationInput,
+  TailorApplicationOutput,
+  TechTestAiReviewResult,
+  TechTestReviewInput,
+} from "./ai.types";
+import {
+  buildCvSectionPrompt,
+  buildFullCvPrompt,
+  fullCvSchema,
+  sectionContentSchema,
+  type BuiltPrompt,
+} from "./prompts/cv.prompts";
+import {
+  buildCoverLetterPrompt,
+  buildRewritePrompt,
+  buildSuggestPrompt,
+  letterContentSchema,
+  suggestionsSchema,
+} from "./prompts/cover-letter.prompts";
+import {
+  buildAnalyzeJobPrompt,
+  buildTailorLetterPrompt,
+  buildTailorSectionsPrompt,
+  isFaithfulTailoring,
+  jobAnalysisSchema,
+  pickTailorableSections,
+  tailoredSectionsSchema,
+} from "./prompts/jobs.prompts";
+import { buildTechReviewPrompt, techReviewSchema } from "./prompts/tech-test.prompts";
 
-export type { AiFullCvResult, AiFullCvSection } from "./ai.types";
+export type {
+  AiCvAction,
+  AiFullCvResult,
+  AiFullCvSection,
+} from "./ai.types";
+
+const MIN_RAW_TEXT_CHARS = 20;
+const MIN_JOB_DESCRIPTION_CHARS = 50;
+
+interface RunOptions {
+  temperature: number;
+  profile?: AiCallProfile;
+  /** Overrides the label (defaults to the action) for multi-call actions. */
+  label?: string;
+}
 
 /**
- * Model selection: use gpt-4o for complex structured output (full CV parsing,
- * question generation) and gpt-4o-mini for simpler rewriting/suggestion tasks.
- * This saves 60-80% on the simpler calls with negligible quality difference.
+ * All user-facing AI writing. Each public method validates its input (400s
+ * happen before any quota is reserved), reserves usage, runs the model for
+ * the user's tier and records the outcome. Callers must NOT wrap these in
+ * AiUsageService.withReservation (that would charge twice).
  */
-const MODEL_HEAVY = "gpt-4o";
-const MODEL_LIGHT = "gpt-4o-mini";
-
-/** Server-side input truncation limits to prevent token-burning attacks. */
-const MAX_RAW_TEXT = 5000;
-const MAX_JOB_DESCRIPTION = 3000;
-const MAX_CURRENT_CONTENT = 3000;
-const MAX_SECTION_CONTEXT = 1500;
-
-function truncate(text: string | undefined, max: number): string | undefined {
-  if (!text) return text;
-  return text.length > max ? text.slice(0, max) : text;
-}
-
-export type AiCvAction = "generate" | "improve" | "tailor";
-
-export interface AiFullCvFromTextRequest {
-  rawText: string;
-  jobTitle?: string;
-  jobDescription?: string;
-  userName?: string;
-}
-
-export interface AiCvSectionRequest {
-  action: AiCvAction;
-  sectionType: string;
-  sectionTitle: string;
-  currentContent?: string;
-  jobTitle?: string;
-  jobDescription?: string;
-  allSections?: { title: string; sectionType: string; content: string }[];
-  userName?: string;
-}
-
-export interface AiCoverLetterRequest {
-  action: "generate" | "improve" | "tailor";
-  currentBody?: string;
-  jobTitle?: string;
-  jobDescription?: string;
-  companyName?: string;
-  companyUrl?: string;
-  cvSections?: { title: string; sectionType: string; content: string }[];
-  userName?: string;
-  tone?: "professional" | "friendly";
-}
-
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
 
-  constructor(@Inject(OPENAI_CLIENT) private readonly openai: OpenAI) {}
+  constructor(
+    private readonly runner: AiRunner,
+    private readonly usage: AiUsageService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
-  /* ───────────────────────── CV Section ───────────────────────── */
+  /* ── CV ─────────────────────────────────────────────────────────── */
 
-  async generateCvSectionContent(req: AiCvSectionRequest): Promise<string> {
-    const systemPrompt = this.buildCvSystemPrompt(req);
-    const userPrompt = this.buildCvUserPrompt(req);
-
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: req.action === "generate" ? MODEL_HEAVY : MODEL_LIGHT,
-        temperature: 0.4,
-        max_tokens: 1500,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      });
-
-      return response.choices[0]?.message?.content?.trim() || "";
-    } catch (error) {
-      this.logger.error("OpenAI CV section generation failed", error);
-      throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error),
+  async generateCvSectionContent(
+    userId: string,
+    req: AiCvSectionRequest,
+  ): Promise<AiTextResult> {
+    if (req.action !== "generate" && !req.currentContent?.trim()) {
+      throw new BadRequestException(
+        "Add some content to this section before using AI improve or tailor.",
       );
     }
-  }
-
-  private buildCvSystemPrompt(req: AiCvSectionRequest): string {
-    const sectionContext = req.allSections
-      ?.filter((s) => s.content.trim().length > 0)
-      .map((s) => `[${s.title}]\n${truncate(s.content, MAX_SECTION_CONTEXT)}`)
-      .join("\n\n");
-
-    return `You are a developer writing your own CV. First-person implied, never third person. Direct, technical, no fluff.
-
-Format: **bold** for emphasis, ### Company | Role | Dates for entries, - for bullets, [links](url). Only ### headings — no ## or #. No code blocks/tables/HTML. No section title in output. Return ONLY content, no preamble.
-Verbs: Built, Shipped, Architected, Migrated, Optimised, Scaled, Deployed, Owned. Quantify where possible. No filler ("responsible for" → "Owned").
-Size: profile ~3-5 lines, experience ~3-5 bullets/role, skills as categorised lists.
-
-Anti-hallucination (critical): Preserve every skill, tech, qualification and achievement the user wrote — never drop anything. You may add relevant skills from the job description as additions only. Never invent anything not in user content or job description. Never fabricate metrics.${
-      sectionContext ? `\n\nCV context (do not repeat):\n${sectionContext}` : ""
-    }`;
-  }
-
-  private buildCvUserPrompt(req: AiCvSectionRequest): string {
-    const { action, sectionType, sectionTitle, jobTitle } = req;
-
-    // Truncate user-provided text to prevent token-burning
-    const currentContent = truncate(req.currentContent, MAX_CURRENT_CONTENT);
-    const jobDescription = truncate(req.jobDescription, MAX_JOB_DESCRIPTION);
-
-    if (action === "generate") {
-      let prompt = `Generate professional content for a CV "${sectionTitle}" section (type: ${sectionType}). IMPORTANT: Only include skills and technologies that are explicitly mentioned in my notes below, in the other CV sections provided as context, or in the job description if provided. Do not invent any skills beyond those sources.`;
-      if (jobTitle) prompt += `\nThe user's target role is: ${jobTitle}.`;
-      if (jobDescription)
-        prompt += `\nTarget job description (you may include relevant skills from this):\n${jobDescription}`;
-      if (currentContent?.trim())
-        prompt += `\nThe user has started writing some notes — use them as a base and expand into polished CV content:\n${currentContent}`;
-      else
-        prompt += `\nNote: The user has not provided any notes yet. Without any input to work from, produce a minimal placeholder and ask the user to add their details.`;
-      return prompt;
+    if (req.action === "tailor" && !req.jobTitle?.trim() && !req.jobDescription?.trim()) {
+      throw new BadRequestException(
+        "Add a target role or job description to tailor this section to.",
+      );
     }
-
-    if (action === "improve") {
-      return `Improve and polish this CV "${sectionTitle}" section content. Make it more impactful with stronger action verbs, better quantification, and cleaner formatting. Keep the same information but make it significantly more compelling:\n\n${currentContent}`;
-    }
-
-    // tailor
-    let prompt = `Rewrite this CV "${sectionTitle}" section to be specifically tailored for the following role.
-CRITICAL: You MUST keep ALL of the user's existing content — every skill, qualification, degree, certification, and achievement they wrote must appear in your output. Do not drop or omit anything. Then you may add relevant skills from the job description on top of what the user already has.`;
-    if (jobTitle) prompt += `\nTarget role: ${jobTitle}`;
-    if (jobDescription) prompt += `\nJob description:\n${jobDescription}`;
-    prompt += `\n\nCurrent content to tailor:\n${currentContent}`;
-    return prompt;
+    const prompt = buildCvSectionPrompt(req);
+    const content = await this.reserveAndRun(
+      userId,
+      AI_ACTIONS.cvSection,
+      prompt,
+      sectionContentSchema,
+      { temperature: 0.4 },
+    );
+    return { content, truncated: prompt.truncated };
   }
-
-  /* ──────────── Full CV from Raw Text ──────────── */
 
   async generateFullCvFromRawText(
+    userId: string,
     req: AiFullCvFromTextRequest,
-  ): Promise<AiFullCvResult> {
-    const systemPrompt = `You are a developer writing your own CV from a brain-dump. First-person implied. Direct, technical, no fluff.
-
-Output ONLY a valid JSON object:
-{"name":"","email":"","phone":"","location":"","website":"","linkedin":"","github":"","sections":[{"title":"","sectionType":"","content":""}]}
-
-Format rules: **bold** emphasis, ### Company | Role | Dates entries, - bullets, [links](url), [skill: X] badges, [rating: N/5] proficiency. Only ### headings. No code blocks/tables/HTML. Section title goes in "title" field, not content.
-
-sectionTypes: profile, experience, education, skills, projects, certifications, languages, interests, custom. Only include sections with real content.
-Order: Profile → Experience → Projects → Skills → Education → Certifications → Languages → Interests.
-
-Section formats:
-- profile: 3-4 sentence punchy summary. Core stack, years of experience, what you're known for. Only skills user mentioned.
-- experience: ### Company | Role | Date Range\\n- Built X using Y\\n- Scaled Z by N%
-- education: ### University | Degree | Years\\n- Coursework/honours
-- skills: grouped ### Category\\n- Tech, Tech, Tech
-- projects: ### Name | Stack\\n- What it does, decisions\\n- [GitHub](url)
-- certifications: - **Name** — Issuer, Year
-- languages: - **Lang** — Level [rating: N/5]
-
-Verbs: Built, Shipped, Architected, Migrated, Optimised, Scaled, Deployed, Owned. Remove filler. Fix grammar. No padding.
-
-Anti-hallucination (critical): Preserve ALL user content. Job description skills are additions only. Never invent tech/metrics/achievements not in user input or job description. Sparse input → short CV.
-Tailoring: lead Profile with user's most relevant skills, emphasise matching Experience bullets, prioritise matching Skills. Never fabricate missing skills.
-
-Return ONLY the JSON. No preamble, no code fences.`;
-
-    let userPrompt = `Convert this brain-dump into my CV. Only use skills/tech from my text and the job description — invent nothing:\n\n${truncate(req.rawText, MAX_RAW_TEXT)}`;
-    if (req.jobTitle) userPrompt += `\n\nTargeting: ${req.jobTitle}.`;
-    if (req.jobDescription)
-      userPrompt += `\n\nJob description:\n${truncate(req.jobDescription, MAX_JOB_DESCRIPTION)}`;
-    if (req.userName) userPrompt += `\n\nMy name: ${req.userName}.`;
-
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: MODEL_HEAVY,
-        temperature: 0.3,
-        max_tokens: 4000,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      });
-
-      const raw = response.choices[0]?.message?.content?.trim() || "{}";
-
-      // Strip code fences if the model wraps them
-      const cleaned = raw
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/\s*```$/i, "")
-        .trim();
-
-      try {
-        const parsed = JSON.parse(cleaned);
-        return {
-          name: parsed.name || "",
-          email: parsed.email || "",
-          phone: parsed.phone || "",
-          location: parsed.location || "",
-          website: parsed.website || "",
-          linkedin: parsed.linkedin || "",
-          github: parsed.github || "",
-          sections: Array.isArray(parsed.sections)
-            ? parsed.sections.map(
-                (s: {
-                  title?: string;
-                  sectionType?: string;
-                  content?: string;
-                }) => ({
-                  title: s.title || "Untitled",
-                  sectionType: s.sectionType || "custom",
-                  content: s.content || "",
-                }),
-              )
-            : [],
-        };
-      } catch {
-        this.logger.error("Failed to parse AI full CV JSON response", raw);
-        throw new InternalServerErrorException(
-          "AI returned an invalid response. Please try again.",
-        );
-      }
-    } catch (error) {
-      if (error instanceof InternalServerErrorException) throw error;
-      this.logger.error("OpenAI full CV generation failed", error);
-      throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error),
+  ): Promise<AiFullCvResult & { truncated: boolean }> {
+    if ((req.rawText ?? "").trim().length < MIN_RAW_TEXT_CHARS) {
+      throw new BadRequestException(
+        `Add a bit more detail (at least ${MIN_RAW_TEXT_CHARS} characters) so the AI has something to work with.`,
       );
     }
+    const prompt = buildFullCvPrompt(req);
+    const cv = await this.reserveAndRun(userId, AI_ACTIONS.cvFull, prompt, fullCvSchema, {
+      temperature: 0.3,
+      profile: "long",
+    });
+    return { ...cv, truncated: prompt.truncated };
   }
 
-  /* ──────────────────── Cover Letter ──────────────────────── */
+  /* ── Cover letters ──────────────────────────────────────────────── */
 
-  async generateCoverLetterContent(req: AiCoverLetterRequest): Promise<string> {
-    const systemPrompt = this.buildCoverLetterSystemPrompt(req);
-    const userPrompt = this.buildCoverLetterUserPrompt(req);
-
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: req.action === "generate" ? MODEL_HEAVY : MODEL_LIGHT,
-        temperature: 0.75,
-        max_tokens: 2000,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-      });
-
-      return response.choices[0]?.message?.content?.trim() || "";
-    } catch (error) {
-      this.logger.error("OpenAI cover letter generation failed", error);
-      throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error),
+  async generateCoverLetterContent(
+    userId: string,
+    req: AiCoverLetterRequest,
+  ): Promise<AiTextResult> {
+    if (req.action !== "generate" && !req.currentBody?.trim()) {
+      throw new BadRequestException(
+        "Write or paste your cover letter before using AI improve or tailor.",
       );
     }
+    if (
+      req.action === "tailor" &&
+      !req.jobTitle?.trim() &&
+      !req.companyName?.trim() &&
+      !req.jobDescription?.trim()
+    ) {
+      throw new BadRequestException(
+        "Add a job title, company or job description to tailor this letter to.",
+      );
+    }
+    const prompt = buildCoverLetterPrompt(req);
+    const content = await this.reserveAndRun(
+      userId,
+      AI_ACTIONS.coverLetter,
+      prompt,
+      letterContentSchema,
+      { temperature: req.action === "generate" ? 0.7 : 0.6 },
+    );
+    return { content, truncated: prompt.truncated };
   }
 
   async suggestCoverLetterImprovements(
-    body: string,
-    jobTitle?: string,
-    companyName?: string,
-    jobDescription?: string,
+    userId: string,
+    req: AiCoverLetterSuggestRequest,
   ): Promise<string[]> {
-    const safeBody = truncate(body, MAX_CURRENT_CONTENT) ?? "";
-    const safeJd = truncate(jobDescription, MAX_JOB_DESCRIPTION);
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: MODEL_LIGHT,
-        temperature: 0.6,
-        max_tokens: 1000,
-        messages: [
-          {
-            role: "system",
-            content: `Career coach reviewing a cover letter. Give 3-6 specific, actionable improvement suggestions. Return ONLY a JSON string array.`,
-          },
-          {
-            role: "user",
-            content: `Suggest improvements:\n\n${safeBody}${
-              jobTitle ? `\n\nRole: ${jobTitle}` : ""
-            }${companyName ? ` at ${companyName}` : ""}${
-              safeJd ? `\n\nJD:\n${safeJd}` : ""
-            }`,
-          },
-        ],
-      });
-
-      const raw = response.choices[0]?.message?.content?.trim() || "[]";
-      try {
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [raw];
-      }
-    } catch (error) {
-      this.logger.error("OpenAI suggest improvements failed", error);
-      throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error),
+    if (!req.body?.trim()) {
+      throw new BadRequestException(
+        "Write or paste your cover letter before asking for suggestions.",
       );
     }
+    return this.reserveAndRun(
+      userId,
+      AI_ACTIONS.coverLetterSuggest,
+      buildSuggestPrompt(req),
+      suggestionsSchema,
+      { temperature: 0.5 },
+    );
   }
 
   async rewriteCoverLetter(
-    body: string,
-    tone: "professional" | "friendly",
-    jobTitle?: string,
-    companyName?: string,
-  ): Promise<string> {
-    const safeBody = truncate(body, MAX_CURRENT_CONTENT) ?? "";
-    const toneInstruction =
-      tone === "professional"
-        ? "Polished, formal tone."
-        : "Warm, personable tone while staying professional.";
-
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: MODEL_LIGHT,
-        temperature: 0.7,
-        max_tokens: 2000,
-        messages: [
-          {
-            role: "system",
-            content: `Expert cover letter writer. ${toneInstruction} Keep core message intact. Structure: greeting, intro, 2-3 body paragraphs, closing. No placeholder brackets. Return ONLY the letter.`,
-          },
-          {
-            role: "user",
-            content: `Rewrite${
-              jobTitle
-                ? ` for a ${jobTitle} role${
-                    companyName ? ` at ${companyName}` : ""
-                  }`
-                : ""
-            }:\n\n${safeBody}`,
-          },
-        ],
-      });
-
-      return response.choices[0]?.message?.content?.trim() || "";
-    } catch (error) {
-      this.logger.error("OpenAI rewrite cover letter failed", error);
-      throw new InternalServerErrorException(
-        this.extractOpenAiErrorMessage(error),
+    userId: string,
+    req: AiCoverLetterRewriteRequest,
+  ): Promise<AiTextResult> {
+    if (!req.body?.trim()) {
+      throw new BadRequestException(
+        "Write or paste your cover letter before rewriting it.",
       );
     }
+    const prompt = buildRewritePrompt(req);
+    const content = await this.reserveAndRun(
+      userId,
+      AI_ACTIONS.coverLetterRewrite,
+      prompt,
+      letterContentSchema,
+      { temperature: 0.6 },
+    );
+    return { content, truncated: prompt.truncated };
   }
 
-  private buildCoverLetterSystemPrompt(req: AiCoverLetterRequest): string {
-    const toneInstruction =
-      req.tone === "friendly"
-        ? "Warm, personable tone while staying professional."
-        : "Polished, formal tone.";
+  /* ── Jobs ───────────────────────────────────────────────────────── */
 
-    const cvContext = req.cvSections
-      ?.filter((s) => s.content.trim().length > 0)
-      .map((s) => `[${s.title}]\n${truncate(s.content, MAX_SECTION_CONTEXT)}`)
-      .join("\n\n");
-
-    return `Expert cover letter writer. ${toneInstruction} Write greeting, 2-3 body paragraphs, closing. Highlight relevant CV experience. Show genuine enthusiasm. Reference company naturally if URL provided. No placeholder brackets. Return ONLY the letter.${
-      cvContext ? `\n\nCV:\n${cvContext}` : ""
-    }`;
+  /** Structured facts from a job advert (1 AI action; free users get the light model). */
+  async analyzeJobDescription(
+    userId: string,
+    jobDescription: string,
+  ): Promise<JobDescriptionAnalysis> {
+    if ((jobDescription ?? "").trim().length < MIN_JOB_DESCRIPTION_CHARS) {
+      throw new BadRequestException(
+        `Paste the full job description (at least ${MIN_JOB_DESCRIPTION_CHARS} characters).`,
+      );
+    }
+    return this.reserveAndRun(
+      userId,
+      AI_ACTIONS.jobAnalyze,
+      buildAnalyzeJobPrompt(jobDescription),
+      jobAnalysisSchema,
+      { temperature: 0.2 },
+    );
   }
 
-  private buildCoverLetterUserPrompt(req: AiCoverLetterRequest): string {
-    const { action, jobTitle, companyName, companyUrl, userName } = req;
-
-    // Truncate user-provided text to prevent token-burning
-    const currentBody = truncate(req.currentBody, MAX_CURRENT_CONTENT);
-    const jobDescription = truncate(req.jobDescription, MAX_JOB_DESCRIPTION);
-
-    if (action === "generate") {
-      let prompt = "Generate a complete cover letter";
-      if (userName) prompt += ` for ${userName}`;
-      if (jobTitle) prompt += ` applying for a ${jobTitle} role`;
-      if (companyName) prompt += ` at ${companyName}`;
-      prompt += ".";
-      if (companyUrl) prompt += `\n\nCompany website: ${companyUrl}`;
-      if (jobDescription) prompt += `\n\nJob description:\n${jobDescription}`;
-      if (currentBody?.trim())
-        prompt += `\n\nThe user has written some initial notes to incorporate:\n${currentBody}`;
-      return prompt;
+  /**
+   * Premium tailor kit: rewrites the CV's profile/experience/skills sections
+   * for one job (facts are only reordered and rephrased) and optionally writes
+   * a matching cover letter. 1 AI action, 2 with the letter.
+   */
+  async tailorApplication(
+    userId: string,
+    input: TailorApplicationInput,
+  ): Promise<TailorApplicationOutput> {
+    await this.entitlements.assertPremium(userId, "tailorKit");
+    if (!input.jobDescription?.trim()) {
+      throw new BadRequestException(
+        "Add the job description to this job before tailoring.",
+      );
+    }
+    const sections = pickTailorableSections(input.sections);
+    if (sections.length === 0) {
+      throw new BadRequestException(
+        "Your CV needs a profile, experience or skills section with content to tailor.",
+      );
     }
 
-    if (action === "improve") {
-      let prompt = `Improve this cover letter — make it more compelling, better structured, and more impactful while keeping the user's voice:\n\n${currentBody}`;
-      if (jobTitle) prompt += `\n\nTarget role: ${jobTitle}`;
-      if (companyName) prompt += ` at ${companyName}`;
-      if (companyUrl) prompt += `\nCompany website: ${companyUrl}`;
-      return prompt;
-    }
+    const sectionsPrompt = buildTailorSectionsPrompt(input, sections);
+    const letterPrompt = input.includeCoverLetter
+      ? buildTailorLetterPrompt(input)
+      : null;
 
-    // tailor
-    let prompt = `Rewrite this cover letter to be specifically tailored for`;
-    if (jobTitle) prompt += ` a ${jobTitle} role`;
-    if (companyName) prompt += ` at ${companyName}`;
-    prompt += ".";
-    if (companyUrl) prompt += `\n\nCompany website: ${companyUrl}`;
-    if (jobDescription) prompt += `\n\nJob description:\n${jobDescription}`;
-    prompt += `\n\nCurrent cover letter:\n${currentBody}`;
-    return prompt;
+    return this.usage.withReservation(
+      userId,
+      AI_ACTIONS.tailorApplication,
+      async (ctx) => {
+        // Both calls run in parallel; wait for both (each is billed) before failing.
+        const [sectionsRun, letterRun] = await Promise.allSettled([
+          this.runPrompt(ctx, sectionsPrompt, tailoredSectionsSchema, {
+            temperature: 0.4,
+            profile: "long",
+            label: "tailor-sections",
+          }),
+          letterPrompt
+            ? this.runPrompt(ctx, letterPrompt, letterContentSchema, {
+                temperature: 0.6,
+                profile: "long",
+                label: "tailor-letter",
+              })
+            : Promise.resolve(null),
+        ]);
+        if (sectionsRun.status === "rejected") throw sectionsRun.reason;
+        if (letterRun.status === "rejected") throw letterRun.reason;
+        const tailored = sectionsRun.value;
+        const coverLetter = letterRun.value;
+
+        const originals = new Map(sections.map((s) => [s.id, s]));
+        const out: TailorApplicationOutput["sections"] = [];
+        let kept = 0;
+        for (const [key, id] of sectionsPrompt.keyToId) {
+          const content = tailored.get(key);
+          const original = originals.get(id);
+          if (
+            content &&
+            original &&
+            isFaithfulTailoring(original.content, content, original.sectionType)
+          ) {
+            out.push({ id, content });
+          } else {
+            kept++;
+          }
+        }
+        if (kept > 0) {
+          this.logger.warn(
+            `tailor-application: kept the original text of ${kept} of ${sectionsPrompt.keyToId.size} section(s) (missing or failed the fact check)`,
+          );
+        }
+        if (out.length === 0) {
+          throw new BadGatewayException(AI_ERROR_MESSAGES.invalidOutput);
+        }
+        return { sections: out, coverLetter };
+      },
+      { units: letterPrompt ? 2 : 1 },
+    );
   }
 
-  private extractOpenAiErrorMessage(error: unknown): string {
-    if (error instanceof OpenAI.APIError) {
-      if (error.status === 401) {
-        return "AI service authentication failed. Please check the OpenAI API key configuration.";
-      }
-      if (error.status === 429) {
-        return "AI rate limit reached. Please try again in a moment.";
-      }
-      if (error.status === 503 || error.status === 500) {
-        return "AI service is temporarily unavailable. Please try again later.";
-      }
-      return `AI service error: ${error.message}`;
+  /* ── Technical tests ────────────────────────────────────────────── */
+
+  /** Premium AI review of a submitted take-home (1 AI action). */
+  async reviewTechTestSubmission(
+    userId: string,
+    input: TechTestReviewInput,
+  ): Promise<TechTestAiReviewResult> {
+    await this.entitlements.assertPremium(userId, "aiTechReview");
+    if (!input.submission?.trim()) {
+      throw new BadRequestException("There is no submission to review.");
     }
-    return "An unexpected error occurred while generating AI content. Please try again.";
+    const prompt = buildTechReviewPrompt(input);
+    return this.reserveAndRun(
+      userId,
+      AI_ACTIONS.techTestReview,
+      prompt,
+      techReviewSchema(prompt.criteria),
+      { temperature: 0.3, profile: "long" },
+    );
+  }
+
+  /* ── Internals ──────────────────────────────────────────────────── */
+
+  private reserveAndRun<T>(
+    userId: string,
+    action: AiAction,
+    prompt: BuiltPrompt,
+    schema: ZodType<T, ZodTypeDef, unknown>,
+    options: RunOptions,
+  ): Promise<T> {
+    return this.usage.withReservation(userId, action, (ctx) =>
+      this.runPrompt(ctx, prompt, schema, { label: action, ...options }),
+    );
+  }
+
+  private runPrompt<T>(
+    ctx: AiCallContext,
+    prompt: BuiltPrompt,
+    schema: ZodType<T, ZodTypeDef, unknown>,
+    options: RunOptions,
+  ): Promise<T> {
+    return this.runner.runJson({
+      label: options.label ?? "ai",
+      model: ctx.model,
+      system: prompt.system,
+      user: prompt.user,
+      schema,
+      maxTokens: prompt.maxTokens,
+      temperature: options.temperature,
+      // Large rewrites can take a while: give them the long, no-retry profile.
+      profile: options.profile ?? (prompt.maxTokens > 2_000 ? "long" : "short"),
+      onUsage: ctx.recordTokens,
+    });
   }
 }

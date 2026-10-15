@@ -1,39 +1,33 @@
 import {
-  Injectable,
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
-  HttpException,
-  HttpStatus,
+  Injectable,
+  UnauthorizedException,
 } from "@nestjs/common";
-import { AuthenticatedRequest } from "../auth/auth.guard";
+import type { AuthenticatedRequest } from "../auth/auth.guard";
+import { CooldownException } from "../../common/errors";
 import { AiUsageService } from "./ai-usage.service";
-import { FREE_TIER } from "../../common/constants";
 
 /**
- * Per-user AI request cooldown (in-memory).
- * Prevents accidental double-fires from rapid clicks, network retries, etc.
- * Keyed by `userId:path` to allow parallel use of different AI features.
+ * Debounce for repeated clicks on the same AI route. In-memory, so it is per
+ * API instance; the DB-backed limits in AiUsageService.reserve (quota, fair
+ * use, attempt cap, in-flight cap) are what actually bound spend.
  */
-const AI_COOLDOWN_MS = 10_000; // 10 seconds
+const AI_COOLDOWN_MS = 3_000;
 const recentRequests = new Map<string, number>();
 
-// Periodically clean up stale entries (every 60s) to prevent memory leak
 setInterval(() => {
-  const now = Date.now();
-  for (const [key, ts] of recentRequests) {
-    if (now - ts > AI_COOLDOWN_MS * 2) recentRequests.delete(key);
+  const cutoff = Date.now() - AI_COOLDOWN_MS;
+  for (const [key, at] of recentRequests) {
+    if (at < cutoff) recentRequests.delete(key);
   }
 }, 60_000).unref();
 
 /**
- * Allows premium users unlimited access.
- * Allows free users up to FREE_TIER.monthlyAiActions AI actions per month.
- * Throws ForbiddenException when the free cap is reached.
- * Also enforces a short per-user cooldown to prevent duplicate AI requests.
- *
- * CRITICAL: Checks both isPremium flag AND stripeCurrentPeriodEnd timestamp
- * to prevent expired premium users from accessing premium features.
+ * Guard for AI routes (apply after AuthGuard). Despite the name it does not
+ * require premium: it fails fast when the user's AI quota / fair-use limits
+ * are already used up (403 quota_exceeded, 429 fair_use_limit), then applies a
+ * short per-user, per-route cooldown (429 cooldown).
  */
 @Injectable()
 export class PremiumGuard implements CanActivate {
@@ -42,27 +36,21 @@ export class PremiumGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const userId = request.userId;
-    if (!userId) throw new ForbiddenException("Not authenticated");
+    if (!userId) throw new UnauthorizedException("Not authenticated");
 
-    // Check quota before setting cooldown so a quota error doesn't block retries
-    const allowed = await this.aiUsage.canUseAi(userId);
-    if (!allowed) {
-      throw new ForbiddenException(
-        `You've reached your free monthly limit of ${FREE_TIER.monthlyAiActions} AI uses. Upgrade to Premium for unlimited AI-powered tools.`,
-      );
+    // Quota first, so a refused request does not start a cooldown.
+    await this.aiUsage.precheck(userId);
+
+    // Route pattern (e.g. /cv/sections/:id/ai-generate), so changing the id,
+    // case or a trailing slash does not reset the cooldown.
+    const route = (request.route as { path?: unknown } | undefined)?.path;
+    const key = `${userId}:${typeof route === "string" ? route : request.path.toLowerCase()}`;
+    const now = Date.now();
+    const last = recentRequests.get(key);
+    if (last !== undefined && now - last < AI_COOLDOWN_MS) {
+      throw new CooldownException((AI_COOLDOWN_MS - (now - last)) / 1000);
     }
-
-    // Per-user cooldown — prevents accidental double-fire
-    const cooldownKey = `${userId}:${request.path}`;
-    const lastRequest = recentRequests.get(cooldownKey);
-    if (lastRequest && Date.now() - lastRequest < AI_COOLDOWN_MS) {
-      throw new HttpException(
-        "Please wait before making another AI request.",
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-    recentRequests.set(cooldownKey, Date.now());
-
+    recentRequests.set(key, now);
     return true;
   }
 }

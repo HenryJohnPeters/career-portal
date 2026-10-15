@@ -1,186 +1,207 @@
-import { Injectable, ForbiddenException, Logger } from "@nestjs/common";
+import { randomUUID } from "crypto";
+import { Injectable, Logger } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
-import { FREE_TIER } from "../../common/constants";
-import { isActivePremium } from "../../common/subscription.util";
-import type { AiUsageStatus } from "./ai.types";
+import { AI_USAGE_STATUS, type AiUsageStatusValue } from "../../common/constants";
+import { lockedTransaction, userLockKey, type PlanLimits } from "../../common/plan";
+import { EntitlementsService } from "../entitlements/entitlements.service";
+import { AiModelConfig } from "./ai-models";
+import {
+  evaluateAiQuota,
+  normaliseUnits,
+  tallyAiUsage,
+  tallyWindowStart,
+  toAiQuotaException,
+  type AiUsageRow,
+} from "./ai-quota";
+import type {
+  AiCallContext,
+  AiReservation,
+  AiReservationOptions,
+  AiUsageStatus,
+  AiUsageTelemetry,
+} from "./ai.types";
 
+/**
+ * AI usage accounting. Every AI call takes a reservation: `pending` AiUsage
+ * rows inserted under a per-user advisory lock after the quota checks, then
+ * marked `succeeded` or `failed`. Rows are never deleted, so failed attempts
+ * still count toward the daily attempt cap (see ai-quota.ts for the rules).
+ */
 @Injectable()
 export class AiUsageService {
   private readonly logger = new Logger(AiUsageService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+    private readonly models: AiModelConfig,
+  ) {}
 
-  /**
-   * Count how many AI actions a user has used this calendar month.
-   */
-  async getMonthlyUsageCount(userId: string): Promise<number> {
-    const start = this.getMonthStart();
-    return this.prisma.aiUsage.count({
-      where: {
-        userId,
-        createdAt: { gte: start },
-      },
-    });
+  /** Legacy `GET /auth/ai-usage` payload. */
+  getUsageStatus(userId: string): Promise<AiUsageStatus> {
+    return this.entitlements.getLegacyAiUsageStatus(userId);
   }
 
   /**
-   * Get full usage status for a user (used by the API endpoint & guard).
+   * Cheap, non-atomic check (no lock, no insert) so a request that would be
+   * refused fails before validation and DB work. `reserve` stays authoritative.
    */
-  async getUsageStatus(userId: string): Promise<AiUsageStatus> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const isPremium = user ? isActivePremium(user) : false;
-    const start = this.getMonthStart();
-    const used = await this.getMonthlyUsageCount(userId);
-    const limit = isPremium ? null : FREE_TIER.monthlyAiActions;
-    const remaining = isPremium
-      ? null
-      : Math.max(0, FREE_TIER.monthlyAiActions - used);
-
-    // Interview session + question + tech test usage
-    const [mockSessionsUsed, questionsUsed, techTestsUsed] = await Promise.all([
-      this.prisma.interviewSession.count({
-        where: { userId, createdAt: { gte: start } },
-      }),
-      this.prisma.interviewSessionQuestion.count({
-        where: {
-          session: { userId },
-          answeredAt: { gte: start },
-        },
-      }),
-      this.prisma.technicalTest.count({
-        where: { userId, createdAt: { gte: start } },
-      }),
+  async precheck(userId: string, units = 1): Promise<void> {
+    const now = new Date();
+    const [plan, rows] = await Promise.all([
+      this.entitlements.getPlan(userId),
+      this.loadRows(this.prisma, userId, now),
     ]);
+    assertWithinQuota(rows, plan.limits, normaliseUnits(units), now);
+  }
+
+  /** Check every AI limit and insert `units` pending rows, atomically per user. */
+  async reserve(
+    userId: string,
+    action: string,
+    options: AiReservationOptions = {},
+  ): Promise<AiReservation> {
+    const units = normaliseUnits(options.units);
+    const plan = await this.entitlements.getPlan(userId);
+    const model = this.models.modelFor(plan.modelTier);
+
+    const usageIds = await lockedTransaction(
+      this.prisma,
+      userLockKey("ai", userId),
+      async (tx) => {
+        const now = new Date();
+        const rows = await this.loadRows(tx, userId, now);
+        assertWithinQuota(rows, plan.limits, units, now);
+
+        const ids = Array.from({ length: units }, () => randomUUID());
+        await tx.aiUsage.createMany({
+          data: ids.map((id) => ({
+            id,
+            userId,
+            action,
+            model,
+            status: AI_USAGE_STATUS.pending,
+          })),
+        });
+        return ids;
+      },
+    );
 
     return {
-      used,
-      limit,
-      remaining,
-      isPremium,
-      resetsAt: this.getNextMonthStart().toISOString(),
-      mockSessionsUsed,
-      mockSessionsLimit: isPremium ? null : FREE_TIER.monthlyMockSessions,
-      mockSessionsRemaining: isPremium
-        ? null
-        : Math.max(0, FREE_TIER.monthlyMockSessions - mockSessionsUsed),
-      questionsUsed,
-      questionsLimit: isPremium ? null : FREE_TIER.monthlyQuestions,
-      questionsRemaining: isPremium
-        ? null
-        : Math.max(0, FREE_TIER.monthlyQuestions - questionsUsed),
-      techTestsUsed,
-      techTestsLimit: isPremium ? null : FREE_TIER.monthlyTechTests,
-      techTestsRemaining: isPremium
-        ? null
-        : Math.max(0, FREE_TIER.monthlyTechTests - techTestsUsed),
+      usageIds,
+      model,
+      modelTier: plan.modelTier,
+      isPremium: plan.isPremium,
     };
   }
 
-  /**
-   * Check whether a user can perform an AI action.
-   * Premium users always can; free users are capped.
-   *
-   * CRITICAL: Checks both isPremium flag AND subscription period end date.
-   * Expired subscriptions are treated as free accounts.
-   */
-  async canUseAi(userId: string): Promise<boolean> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return false;
+  succeed(usageIds: string[], telemetry: AiUsageTelemetry = {}): Promise<void> {
+    return this.settle(usageIds, AI_USAGE_STATUS.succeeded, telemetry);
+  }
 
-    // Check if premium subscription is active (not expired)
-    if (isActivePremium(user)) return true;
-
-    const used = await this.getMonthlyUsageCount(userId);
-    return used < FREE_TIER.monthlyAiActions;
+  fail(usageIds: string[], telemetry: AiUsageTelemetry = {}): Promise<void> {
+    return this.settle(usageIds, AI_USAGE_STATUS.failed, telemetry);
   }
 
   /**
-   * Atomically check the quota and reserve a usage slot in a single transaction.
-   * Returns true if the slot was reserved (caller should proceed with the AI call).
-   * Returns false if the quota is exhausted.
-   *
-   * On AI failure the caller must call `rollbackUsage()` to release the slot.
-   * This prevents the race condition where two concurrent requests both pass
-   * canUseAi() and then both call OpenAI.
-   */
-  async reserveUsage(
-    userId: string,
-    action: string,
-  ): Promise<{ reserved: boolean; usageId: string | null }> {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return { reserved: false, usageId: null };
-
-    if (isActivePremium(user)) {
-      // Premium users: always allow, still record for analytics
-      const record = await this.prisma.aiUsage.create({
-        data: { userId, action },
-      });
-      return { reserved: true, usageId: record.id };
-    }
-
-    // Free users: atomic check-and-insert inside a serializable transaction
-    // to prevent two concurrent requests both passing the limit check
-    return this.prisma.$transaction(async (tx) => {
-      const start = this.getMonthStart();
-      const used = await tx.aiUsage.count({
-        where: { userId, createdAt: { gte: start } },
-      });
-      if (used >= FREE_TIER.monthlyAiActions) {
-        return { reserved: false, usageId: null };
-      }
-      const record = await tx.aiUsage.create({
-        data: { userId, action },
-      });
-      return { reserved: true, usageId: record.id };
-    });
-  }
-
-  /**
-   * Roll back a previously reserved usage slot (e.g. when the AI call fails).
-   */
-  async rollbackUsage(usageId: string): Promise<void> {
-    await this.prisma.aiUsage
-      .delete({ where: { id: usageId } })
-      .catch((err) =>
-        this.logger.warn(
-          `Rollback for usage ${usageId} failed (non-critical)`,
-          err,
-        ),
-      );
-  }
-
-  /**
-   * Reserve a usage slot, run the AI work, and auto-rollback on failure.
-   * Eliminates the repeated reserve/try/catch/rollback pattern across services.
+   * Reserve, run `work`, then mark the reservation succeeded or failed (and
+   * rethrow). Never hold a DB transaction inside `work`.
    */
   async withReservation<T>(
     userId: string,
     action: string,
-    work: () => Promise<T>,
+    work: (ctx: AiCallContext) => Promise<T>,
+    options: AiReservationOptions = {},
   ): Promise<T> {
-    const { reserved, usageId } = await this.reserveUsage(userId, action);
-    if (!reserved) {
-      throw new ForbiddenException(
-        "You have reached your monthly AI limit. Upgrade to Premium for unlimited AI usage.",
-      );
-    }
+    const reservation = await this.reserve(userId, action, options);
+    const tokens = { promptTokens: 0, completionTokens: 0 };
+    let tokensRecorded = false;
+    const ctx: AiCallContext = {
+      model: reservation.model,
+      modelTier: reservation.modelTier,
+      isPremium: reservation.isPremium,
+      recordTokens: (usage) => {
+        tokensRecorded = true;
+        tokens.promptTokens += usage.promptTokens;
+        tokens.completionTokens += usage.completionTokens;
+      },
+    };
+    const telemetry = (): AiUsageTelemetry => ({
+      model: reservation.model,
+      ...(tokensRecorded && tokens),
+    });
+
+    let result: T;
     try {
-      return await work();
+      result = await work(ctx);
     } catch (error) {
-      if (usageId) await this.rollbackUsage(usageId);
+      await this.fail(reservation.usageIds, telemetry());
       throw error;
     }
+    await this.succeed(reservation.usageIds, telemetry());
+    return result;
   }
 
-  /** Start of the current calendar month (UTC). */
-  private getMonthStart(): Date {
-    const now = new Date();
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  private loadRows(
+    client: Prisma.TransactionClient,
+    userId: string,
+    now: Date,
+  ): Promise<AiUsageRow[]> {
+    return client.aiUsage.findMany({
+      where: { userId, createdAt: { gte: tallyWindowStart(now) } },
+      select: { status: true, createdAt: true },
+    });
   }
 
-  /** Start of next calendar month (UTC). */
-  private getNextMonthStart(): Date {
-    const now = new Date();
-    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  /**
+   * Token counts go on the first row (a multi-unit reservation is one logical
+   * call). Errors are logged, not thrown: a row left pending stops counting
+   * after PENDING_TTL_MS, and the caller's result must not be lost.
+   */
+  private async settle(
+    usageIds: string[],
+    status: AiUsageStatusValue,
+    telemetry: AiUsageTelemetry,
+  ): Promise<void> {
+    const [first, ...rest] = usageIds;
+    if (!first) return;
+    const model = telemetry.model ? { model: telemetry.model } : {};
+    try {
+      await this.prisma.$transaction([
+        this.prisma.aiUsage.updateMany({
+          where: { id: first, status: AI_USAGE_STATUS.pending },
+          data: {
+            status,
+            ...model,
+            promptTokens: telemetry.promptTokens,
+            completionTokens: telemetry.completionTokens,
+          },
+        }),
+        ...(rest.length > 0
+          ? [
+              this.prisma.aiUsage.updateMany({
+                where: { id: { in: rest }, status: AI_USAGE_STATUS.pending },
+                data: { status, ...model },
+              }),
+            ]
+          : []),
+      ]);
+    } catch (error) {
+      const code = (error as { code?: unknown })?.code;
+      this.logger.error(
+        `Could not mark ${usageIds.length} AI usage row(s) ${status} (${typeof code === "string" ? code : "unknown error"})`,
+      );
+    }
   }
+}
+
+function assertWithinQuota(
+  rows: readonly AiUsageRow[],
+  limits: PlanLimits,
+  units: number,
+  now: Date,
+): void {
+  const verdict = evaluateAiQuota(tallyAiUsage(rows, now), limits, units, now);
+  if (!verdict.ok) throw toAiQuotaException(verdict);
 }

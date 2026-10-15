@@ -1,131 +1,84 @@
-import { Injectable, Inject, Logger, ForbiddenException } from "@nestjs/common";
-import OpenAI from "openai";
-import { AiUsageService } from "./ai-usage.service";
-import { OPENAI_CLIENT } from "./openai.provider";
-import { sanitiseTags } from "../../common/constants";
+import { Injectable, Logger } from "@nestjs/common";
+import { PrismaService } from "../../common/prisma.service";
+import { DAY_MS } from "../../common/plan";
+import { EntitlementsService } from "../entitlements/entitlements.service";
 import type { TechTestScenario } from "../technical-tests/engine/scenario-generator";
+import { AiRunner } from "./ai-runner";
+import { AiUsageService } from "./ai-usage.service";
+import { AI_ACTIONS } from "./ai.constants";
+import { catalogTags } from "./ai-tags";
+import type { ScenarioGenerationInput } from "./ai.types";
+import {
+  buildScenarioPrompt,
+  isValidScenarioInput,
+  scenarioSchema,
+} from "./prompts/tech-test.prompts";
 
-export interface ScenarioGenerationInput {
-  roleFocus: string;
-  level: string;
-  difficulty: string;
-  tags: string[];
-}
+export type { ScenarioGenerationInput } from "./ai.types";
 
+/** Max AI scenarios per user in a trailing 24h window; beyond it the template engine is used. */
+const SCENARIO_DAILY_CAP = 10;
+/** Max stack tags sent to the model. */
+const MAX_SCENARIO_TAGS = 15;
+
+/**
+ * AI-written take-home scenarios for premium users. Returns null whenever AI
+ * should not or cannot be used (free plan, daily cap, quota/fair-use limits,
+ * model or validation failure) so the caller falls back to the template engine
+ * and test creation never fails because of AI.
+ */
 @Injectable()
 export class AiScenarioGeneratorService {
   private readonly logger = new Logger(AiScenarioGeneratorService.name);
 
   constructor(
-    @Inject(OPENAI_CLIENT) private readonly openai: OpenAI,
-    private readonly aiUsage: AiUsageService,
+    private readonly prisma: PrismaService,
+    private readonly runner: AiRunner,
+    private readonly usage: AiUsageService,
+    private readonly entitlements: EntitlementsService,
   ) {}
-
-  /**
-   * Generate a rich technical test scenario via AI.
-   * This is used when the hardcoded templates don't cover the tag combo.
-   */
-  private isTechTestScenario(value: unknown): value is TechTestScenario {
-    if (!value || typeof value !== "object") return false;
-    const record = value as Record<string, unknown>;
-
-    const hasString = (key: string) => typeof record[key] === "string";
-    const hasStringArray = (key: string) =>
-      Array.isArray(record[key]) &&
-      (record[key] as unknown[]).every((item) => typeof item === "string");
-
-    const hasRequirements =
-      Array.isArray(record.requirements) &&
-      record.requirements.every(
-        (req) =>
-          typeof req === "object" &&
-          req !== null &&
-          typeof (req as Record<string, unknown>).key === "string" &&
-          typeof (req as Record<string, unknown>).text === "string",
-      );
-
-    const hasEvaluationCriteria =
-      Array.isArray(record.evaluationCriteria) &&
-      record.evaluationCriteria.every(
-        (criterion) =>
-          typeof criterion === "object" &&
-          criterion !== null &&
-          typeof (criterion as Record<string, unknown>).name === "string" &&
-          typeof (criterion as Record<string, unknown>).weight === "number" &&
-          typeof (criterion as Record<string, unknown>).description ===
-            "string",
-      );
-
-    return (
-      hasString("title") &&
-      hasString("companyContext") &&
-      hasString("brief") &&
-      hasString("background") &&
-      hasRequirements &&
-      hasStringArray("nonFunctional") &&
-      hasStringArray("acceptanceCriteria") &&
-      hasStringArray("bonusChallenges") &&
-      hasEvaluationCriteria &&
-      hasStringArray("hints") &&
-      hasString("estimatedTime") &&
-      hasStringArray("deliverables") &&
-      hasStringArray("constraints")
-    );
-  }
 
   async generateScenario(
     input: ScenarioGenerationInput,
     userId: string,
   ): Promise<TechTestScenario | null> {
-    const safeTags = sanitiseTags(input.tags);
-    const tagsStr =
-      safeTags.length > 0
-        ? safeTags.join(", ")
-        : `general ${input.roleFocus} technologies`;
-
-    const systemPrompt = `Senior engineering manager creating realistic take-home technical tests. Return ONLY a valid JSON object — no code fences, no extra text:
-{"title":"","companyContext":"","brief":"","background":"","requirements":[{"key":"","text":""}],"nonFunctional":[""],"acceptanceCriteria":[""],"bonusChallenges":[""],"evaluationCriteria":[{"name":"","weight":0,"description":""}],"hints":[""],"estimatedTime":"","deliverables":[""],"constraints":[""]}
-
-Role: ${input.roleFocus} | Level: ${input.level} (junior=3-5 reqs, mid=5-7, senior=6-9) | Difficulty: ${input.difficulty} | Stack: ${tagsStr}
-- Realistic scenario a real company would actually use. Requirements must be specific and testable.
-- evaluationCriteria weights must sum to 100.
-- Counts: 4-6 requirements, 3-5 nonFunctional, 4-6 acceptanceCriteria, 3-4 bonusChallenges, 3-4 hints, 3-4 deliverables, 2-4 constraints.
-- brief: use **bold** for tech stack names.`;
-
-    const userPrompt = `Create a ${input.difficulty} ${input.level}-level take-home technical test for a ${input.roleFocus} developer using ${tagsStr}.`;
-
+    if (!isValidScenarioInput(input)) return null;
     try {
-      return await this.aiUsage.withReservation(
-        userId,
-        "scenario-generation",
-        async () => {
-          const response = await this.openai.chat.completions.create({
-            model: "gpt-4o",
-            temperature: 0.85,
-            max_tokens: 3000,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt },
-            ],
-          });
+      const plan = await this.entitlements.getPlan(userId);
+      if (!plan.isPremium) return null;
 
-          const raw = response.choices[0]?.message?.content?.trim() || "{}";
-          const cleaned = raw
-            .replace(/^```(?:json)?\s*/i, "")
-            .replace(/\s*```$/i, "")
-            .trim();
-
-          const parsed = JSON.parse(cleaned) as unknown;
-          if (!this.isTechTestScenario(parsed)) {
-            throw new Error("AI scenario missing required fields");
-          }
-
-          return parsed;
+      const recent = await this.prisma.aiUsage.count({
+        where: {
+          userId,
+          action: AI_ACTIONS.scenarioGeneration,
+          createdAt: { gte: new Date(Date.now() - DAY_MS) },
         },
+      });
+      if (recent >= SCENARIO_DAILY_CAP) return null;
+
+      const prompt = buildScenarioPrompt(
+        input,
+        catalogTags(input.tags, MAX_SCENARIO_TAGS),
+      );
+      return await this.usage.withReservation(
+        userId,
+        AI_ACTIONS.scenarioGeneration,
+        (ctx) =>
+          this.runner.runJson({
+            label: AI_ACTIONS.scenarioGeneration,
+            model: ctx.model,
+            system: prompt.system,
+            user: prompt.user,
+            schema: scenarioSchema,
+            maxTokens: prompt.maxTokens,
+            temperature: 0.7,
+            profile: "long",
+            onUsage: ctx.recordTokens,
+          }),
       );
     } catch (error) {
-      if (error instanceof ForbiddenException) throw error;
-      this.logger.error("Scenario generation failed", error);
+      const name = error instanceof Error ? error.name : "unknown error";
+      this.logger.warn(`AI scenario unavailable, using a template (${name})`);
       return null;
     }
   }
