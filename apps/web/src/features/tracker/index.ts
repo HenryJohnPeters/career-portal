@@ -6,7 +6,6 @@ export { AddJobModal } from "./components/AddJobModal";
 export { ColumnManager } from "./components/ColumnManager";
 export { TrackerFilters, EMPTY_FILTERS } from "./components/TrackerFilters";
 export type { TrackerFilterState } from "./components/TrackerFilters";
-export { ToastProvider, useToast } from "./components/Toast";
 export { useColumnConfig } from "./hooks/useColumnConfig";
 export {
   PIPELINE_COLUMNS,

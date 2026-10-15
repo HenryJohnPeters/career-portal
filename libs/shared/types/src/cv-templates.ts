@@ -1,4 +1,4 @@
-import type { ThemeConfig, TemplateId, SectionType } from "./index";
+import type { ThemeConfig, TemplateId, SectionType } from "./cv";
 
 export interface TemplateOption {
   id: TemplateId;

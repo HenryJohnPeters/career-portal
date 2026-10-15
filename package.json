@@ -8,26 +8,21 @@
     "db:up": "docker compose up -d",
     "db:migrate": "nx run api:prisma-migrate",
     "db:seed": "nx run api:prisma-seed",
-    "db:generate": "nx run api:prisma-generate"
+    "db:generate": "nx run api:prisma-generate",
+    "typecheck": "tsc --noEmit -p apps/api/tsconfig.json && tsc --noEmit -p apps/web/tsconfig.json",
+    "test": "pnpm run test:api",
+    "test:api": "TS_NODE_TRANSPILE_ONLY=1 TS_NODE_PROJECT=apps/api/tsconfig.json node --test --require ts-node/register \"apps/api/src/**/*.spec.ts\"",
+    "build:api": "tsc -p apps/api/tsconfig.build.json",
+    "build:web": "pnpm --filter @careerportal/web build"
   },
   "devDependencies": {
-    "@nx/js": "20.3.0",
-    "@nx/node": "20.3.0",
-    "@nx/react": "20.3.0",
-    "@nx/vite": "20.3.0",
-    "@nx/web": "20.3.0",
-    "@nx/webpack": "20.3.0",
     "nx": "20.3.0",
     "ts-node": "10.9.2",
     "typescript": "5.5.4"
   },
   "packageManager": "pnpm@9.15.0",
   "dependencies": {
-    "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
-    "@supabase/supabase-js": "^2.97.0",
-    "@tanstack/react-query": "^5.62.0"
+    "express": "4.22.1"
   },
   "pnpm": {
     "overrides": {
@@ -39,7 +34,7 @@
       "lodash": ">=4.17.23",
       "js-yaml": ">=4.1.1",
       "dompurify": "3.3.3",
-      "path-to-regexp": "0.1.13",
+      "path-to-regexp@<0.1.13": "0.1.13",
       "qs": "6.15.0"
     }
   }

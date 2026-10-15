@@ -1,23 +1,24 @@
 /* ═══════════════════════════════════════════════════════════════════════════
- * FREE-TIER LIMITS — Single source of truth for all free-user restrictions.
- * Every enforcement point in the codebase imports from here.
+ * PLAN LIMITS — every server-side enforcement point imports from here.
+ * Mirrored for the web in libs/shared/types/src/plan.ts; a spec asserts the
+ * two copies match, so change both together.
  * ═══════════════════════════════════════════════════════════════════════════ */
 export const FREE_TIER = {
-  /** Max CV versions a free user can create */
-  cvVersions: 1,
-  /** Max cover letters a free user can create */
-  coverLetters: 3,
-  /** Monthly AI action quota (generate, improve, tailor, etc.) */
-  monthlyAiActions: 5,
+  /** Max CV versions a free user can keep (a master CV + one targeted CV) */
+  cvVersions: 2,
+  /** Max cover letters a free user can keep */
+  coverLetters: 5,
+  /** Monthly AI action quota (generate, improve, tailor, etc.), light model */
+  monthlyAiActions: 10,
   /** Monthly mock interview sessions a free user can start */
-  monthlyMockSessions: 3,
+  monthlyMockSessions: 5,
   /** Monthly interview questions a free user can answer */
-  monthlyQuestions: 50,
-  /** Monthly technical tests a free user can create */
-  monthlyTechTests: 2,
+  monthlyQuestions: 75,
+  /** Monthly technical tests a free user can create (deleted tests still count) */
+  monthlyTechTests: 3,
   /** Number of interviewers available to free users (first N in the list) */
   interviewerCount: 3,
-  /** CV template IDs available to free users */
+  /** CV template IDs available to free users (gate by membership, never by position) */
   templateIds: [
     "classic",
     "modern",
@@ -26,6 +27,30 @@ export const FREE_TIER = {
     "creative",
   ] as readonly string[],
 } as const;
+
+/** Premium AI is "unlimited (fair use)": exceeding either cap → 429 fair_use_limit. */
+export const PREMIUM_FAIR_USE = {
+  monthlyAiActions: 300,
+  dailyAiActions: 40,
+} as const;
+
+/**
+ * Hard cap on AI attempts (succeeded + failed + pending) in a trailing 24h
+ * window, per plan. Bounds spend when failed attempts are not charged.
+ */
+export const AI_DAILY_ATTEMPT_CAP = {
+  free: 15,
+  premium: 80,
+} as const;
+
+/** `AiUsage.status` values. Only `succeeded` counts toward AI quotas. */
+export const AI_USAGE_STATUS = {
+  pending: "pending",
+  succeeded: "succeeded",
+  failed: "failed",
+} as const;
+export type AiUsageStatusValue =
+  (typeof AI_USAGE_STATUS)[keyof typeof AI_USAGE_STATUS];
 
 /** Templates available to free users */
 export const FREE_TEMPLATE_IDS = FREE_TIER.templateIds;
@@ -62,13 +87,6 @@ export const DIFFICULTY_RANGES: Readonly<
   easy: { gte: 1, lte: 2 },
   medium: { gte: 2, lte: 4 },
   hard: { gte: 4, lte: 5 },
-};
-
-/** Level → default difficulty label */
-export const LEVEL_TO_DIFFICULTY: Readonly<Record<string, string>> = {
-  junior: "easy",
-  mid: "medium",
-  senior: "hard",
 };
 
 /** Role focus → track mapping for technical tests */

@@ -26,10 +26,10 @@ import {
   ColumnManager,
   TrackerFilters,
   EMPTY_FILTERS,
-  useToast,
   useColumnConfig,
   getFollowUpBadge,
 } from "./index";
+import { useToast } from "../../lib/toast";
 import type { TrackerFilterState, PipelineStatus } from "./index";
 
 export function JobsPage() {

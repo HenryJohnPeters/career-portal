@@ -15,6 +15,7 @@ import { TechnicalTestsModule } from "./modules/technical-tests/technical-tests.
 import { AiModule } from "./modules/ai/ai.module";
 import { PdfModule } from "./modules/pdf/pdf.module";
 import { BillingModule } from "./modules/billing/billing.module";
+import { EntitlementsModule } from "./modules/entitlements/entitlements.module";
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { BillingModule } from "./modules/billing/billing.module";
       },
     ]),
     PrismaModule,
+    EntitlementsModule,
     AuthModule,
     DashboardModule,
     CvModule,

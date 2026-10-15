@@ -19,6 +19,13 @@ model User {
   stripeSubscriptionId String?    @unique
   stripePriceId        String?
   stripeCurrentPeriodEnd DateTime?
+  /// Stripe subscription status mirror ("active", "trialing", "past_due", ...). Null = no subscription.
+  subscriptionStatus   String?
+  cancelAtPeriodEnd    Boolean    @default(false)
+  trialEnd             DateTime?
+  /// Set when the user first starts a Stripe trial; a user may trial only once.
+  trialUsedAt          DateTime?
+  onboardingDismissedAt DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   cvVersions     CvVersion[]
@@ -47,11 +54,15 @@ model CvVersion {
   website      String?
   linkedin     String?
   github       String?
+  /// Previous sections + contact, captured before a bulk content apply (undo).
+  lastSnapshot Json?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  user         User        @relation(fields: [userId], references: [id])
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   sections     CvSection[]
   jobs         Job[]
+
+  @@index([userId, updatedAt])
 }
 
 model CvSection {
@@ -64,7 +75,10 @@ model CvSection {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   cvVersion   CvVersion @relation(fields: [cvVersionId], references: [id], onDelete: Cascade)
+
+  @@index([cvVersionId, order])
 }
+
 // LEGACY: Question/QuestionOption/QuestionAnswer are unused by current code.
 // The interview system uses InterviewQuestion. Drop these tables in a future
 // cleanup migration after verifying no production data depends on them.
@@ -100,7 +114,7 @@ model QuestionAnswer {
   skipped          Boolean         @default(false)
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
-  user             User            @relation(fields: [userId], references: [id])
+  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   question         Question        @relation(fields: [questionId], references: [id])
   selectedOption   QuestionOption? @relation(fields: [selectedOptionId], references: [id])
 
@@ -115,9 +129,12 @@ model CoverLetter {
   jobId     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id])
-  job       Job?     @relation(fields: [jobId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job       Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
   linkedFromJobs Job[] @relation("JobLinkedCoverLetter")
+
+  @@index([userId, updatedAt])
+  @@index([jobId])
 }
 
 model Job {
@@ -131,12 +148,26 @@ model Job {
   cvVersionId   String?
   coverLetterId String?
   followUpDate  DateTime?
+  jobDescription String?
+  location      String?
+  salary        String?
+  appliedAt     DateTime?
+  keySkills     String[]      @default([])
+  /// Last deterministic CV-to-job keyword match score (0-100).
+  matchScore    Int?
+  matchCheckedAt DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-  user          User          @relation(fields: [userId], references: [id])
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   coverLetters  CoverLetter[]
   cvVersion     CvVersion?    @relation(fields: [cvVersionId], references: [id], onDelete: SetNull)
   linkedCoverLetter CoverLetter? @relation("JobLinkedCoverLetter", fields: [coverLetterId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([userId, followUpDate])
+  @@index([userId, updatedAt])
+  @@index([cvVersionId])
+  @@index([coverLetterId])
 }
 
 // === Interview Prep ===
@@ -162,6 +193,8 @@ model InterviewQuestion {
   generatedForHash String? // hash of the filter combo that triggered generation
   createdAt      DateTime @default(now())
   sessionQuestions InterviewSessionQuestion[]
+
+  @@index([track, level, difficulty])
 }
 
 model InterviewSession {
@@ -183,8 +216,10 @@ model InterviewSession {
   report          Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  user            User     @relation(fields: [userId], references: [id])
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   questions       InterviewSessionQuestion[]
+
+  @@index([userId, createdAt])
 }
 
 model InterviewSessionQuestion {
@@ -202,6 +237,9 @@ model InterviewSessionQuestion {
   createdAt        DateTime @default(now())
   session          InterviewSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   question         InterviewQuestion @relation(fields: [questionId], references: [id])
+
+  @@index([sessionId, orderIndex])
+  @@index([questionId])
 }
 
 // === Technical Tests ===
@@ -222,9 +260,13 @@ model TechnicalTest {
   evaluation       Json?    // evaluation result
   startedAt        DateTime?
   submittedAt      DateTime?
+  /// Soft delete: hidden from lists but still counted toward the monthly free quota.
+  deletedAt        DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  user             User     @relation(fields: [userId], references: [id])
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 // === AI Usage Tracking ===
@@ -233,8 +275,13 @@ model AiUsage {
   id        String   @id @default(uuid())
   userId    String
   action    String   // e.g. "cv-section", "cv-full", "cover-letter", "cover-letter-suggest", "cover-letter-rewrite", "question-generation", "scenario-generation"
+  /// "pending" | "succeeded" | "failed". Only "succeeded" rows count toward the monthly quota.
+  status    String   @default("succeeded")
+  model     String?
+  promptTokens     Int?
+  completionTokens Int?
   createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
 }
@@ -250,6 +297,7 @@ model QuestionGenerationLog {
   createdAt          DateTime @default(now())
 
   @@index([filterHash, createdAt])
+  @@index([triggeredBy, createdAt])
 }
 
 // === Practice Question Daily Usage ===
@@ -269,12 +317,13 @@ model PracticeQuestionUsage {
 
 model AuditLog {
   id          String    @id @default(uuid())
-  userId      String
+  /// Nulled when the user is deleted so the billing audit trail survives de-identified.
+  userId      String?
   action      String    // e.g. "premium.downgraded", "payment.failed", "subscription.created"
   reason      String?   // e.g. "payment_declined", "subscription_expired", "manual_downgrade"
   metadata    Json?     // extra context (e.g. Stripe error, old value, new value)
   createdAt   DateTime  @default(now())
-  user        User      @relation(fields: [userId], references: [id])
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, createdAt])
   @@index([action, createdAt])

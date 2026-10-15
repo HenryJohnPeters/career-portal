@@ -7,7 +7,7 @@ import {
 } from "react";
 import { CheckCircle2, XCircle, AlertTriangle, X } from "lucide-react";
 
-type ToastType = "success" | "error" | "warning";
+export type ToastType = "success" | "error" | "warning";
 
 interface Toast {
   id: string;
