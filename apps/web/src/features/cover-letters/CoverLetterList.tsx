@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FolderOpen, Mail, Plus, PlusCircle } from "lucide-react";
 import type { CoverLetter } from "@careerportal/shared/types";
 import { useCreateCoverLetter, useDeleteCoverLetter } from "@careerportal/web/data-access";
 import { Button, ConfirmDialog } from "@careerportal/web/ui";
+import { useMountedRef } from "../../lib/use-mounted-ref";
 import { ItemCard, PremiumUpgradeBanner } from "../shared";
 import { usePlanStatus } from "../ai-assist";
 import { LETTER_TITLE_MAX } from "./letter-fields";
@@ -24,17 +25,25 @@ export function CoverLetterList({ letters, initialShowCreate = false, onOpen }: 
   const [showCreate, setShowCreate] = useState(initialShowCreate && !atLimit);
   const [newTitle, setNewTitle] = useState("");
   const [pendingDelete, setPendingDelete] = useState<CoverLetter | null>(null);
+  // A ref, not mutation state: a double click lands before the re-render.
+  const creating = useRef(false);
+  const mounted = useMountedRef();
 
   const handleCreate = async () => {
     const title = newTitle.trim();
-    if (!title || createLetter.isPending) return;
+    if (!title || creating.current) return;
+    creating.current = true;
     try {
       const res = await createLetter.mutateAsync({ title });
+      // The user may have moved on while the request was in flight.
+      if (!mounted.current) return;
       setNewTitle("");
       setShowCreate(false);
       onOpen(res.data.id);
     } catch {
       // Toasted (or the upgrade dialog opened) by the global handler.
+    } finally {
+      creating.current = false;
     }
   };
 

@@ -8,6 +8,8 @@ import { ApplicationCard } from "./ApplicationCard";
 export interface LinkedTitles {
   cv: ReadonlyMap<string, string>;
   letters: ReadonlyMap<string, string>;
+  /** Letters that link a job from the letter side (CoverLetter.jobId): job id → title. */
+  lettersByJob: ReadonlyMap<string, string>;
 }
 
 interface CardListProps {
@@ -34,7 +36,7 @@ const CardList = memo(function CardList({ jobs, onOpen, titles, today }: CardLis
           letterTitle={
             job.coverLetterId
               ? titles.letters.get(job.coverLetterId) ?? job.linkedCoverLetter?.title ?? "Linked letter"
-              : null
+              : titles.lettersByJob.get(job.id) ?? null
           }
           today={today}
         />

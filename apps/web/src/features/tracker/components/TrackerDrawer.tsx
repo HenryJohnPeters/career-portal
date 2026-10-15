@@ -1,4 +1,5 @@
-import { useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
+import { useBlocker, type Location } from "react-router-dom";
 import { Building2, Save, Trash2 } from "lucide-react";
 import type { Job } from "@careerportal/shared/types";
 import { getErrorMessage, useDeleteJob, useJob } from "@careerportal/web/data-access";
@@ -20,6 +21,8 @@ interface TrackerDrawerProps {
   listJob: Job | undefined;
   cvOptions: readonly DocumentOption[];
   letterOptions: readonly DocumentOption[];
+  /** Title of a letter that links this job from the cover-letter editor (CoverLetter.jobId). */
+  letterLinkedFromLetter: string | null;
   documentsLoaded: boolean;
   canTailor: boolean;
   onClose: () => void;
@@ -84,6 +87,7 @@ function DrawerContent({
   onRetryDescription,
   cvOptions,
   letterOptions,
+  letterLinkedFromLetter,
   documentsLoaded,
   canTailor,
   onClose,
@@ -96,10 +100,34 @@ function DrawerContent({
   const [confirm, setConfirm] = useState<"discard" | "delete" | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const column = getPipelineColumn(job.status);
+  const unsaved = form.dirty || descriptionUnsaved;
+
+  // Links out of the drawer (match → CV builder, tailor results, the sidebar)
+  // ask before dropping unsaved edits, like Close does.
+  const leavesPage = useCallback(
+    ({ currentLocation, nextLocation }: { currentLocation: Location; nextLocation: Location }) =>
+      unsaved && currentLocation.pathname !== nextLocation.pathname,
+    [unsaved],
+  );
+  const leaveBlocker = useBlocker(leavesPage);
+  useEffect(() => {
+    if (leaveBlocker.state === "blocked") setConfirm("discard");
+  }, [leaveBlocker]);
 
   const requestClose = () => {
-    if (form.dirty || descriptionUnsaved) setConfirm("discard");
+    if (unsaved) setConfirm("discard");
     else onClose();
+  };
+
+  const confirmDiscard = () => {
+    setConfirm(null);
+    if (leaveBlocker.state === "blocked") leaveBlocker.proceed();
+    else onClose();
+  };
+
+  const cancelDiscard = () => {
+    setConfirm(null);
+    if (leaveBlocker.state === "blocked") leaveBlocker.reset();
   };
 
   const handleDelete = async () => {
@@ -155,6 +183,7 @@ function DrawerContent({
           form={form}
           cvOptions={cvOptions}
           letterOptions={letterOptions}
+          letterLinkedFromLetter={letterLinkedFromLetter}
           documentsLoaded={documentsLoaded}
         />
         <JobDescriptionSection
@@ -174,8 +203,8 @@ function DrawerContent({
         description="Your edits to this application haven't been saved."
         confirmLabel="Discard changes"
         cancelLabel="Keep editing"
-        onConfirm={onClose}
-        onCancel={() => setConfirm(null)}
+        onConfirm={confirmDiscard}
+        onCancel={cancelDiscard}
       />
       <ConfirmDialog
         open={confirm === "delete"}

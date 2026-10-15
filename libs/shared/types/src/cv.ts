@@ -104,6 +104,9 @@ export interface CvVersion {
   sections: CvSection[];
 }
 
+/** GET /cv/versions?summary=1 — a version without sections or contact details, for pickers. */
+export type CvVersionSummary = Pick<CvVersion, "id" | "title" | "isActive" | "templateId" | "updatedAt">;
+
 export interface CvSection {
   id: string;
   cvVersionId: string;

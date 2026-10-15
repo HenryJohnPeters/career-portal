@@ -8,6 +8,7 @@ import {
   useUpdateCvVersion,
 } from "@careerportal/web/data-access";
 import { Button, ConfirmDialog } from "@careerportal/web/ui";
+import { useMountedRef } from "../../../lib/use-mounted-ref";
 import { ItemCard, PremiumUpgradeBanner } from "../../shared";
 import { usePlanStatus } from "../../ai-assist";
 
@@ -34,17 +35,26 @@ export function VersionList({ versions, initialShowCreate = false, onOpen }: Ver
   // Escape unmounts the input, which can still fire blur (= submit) in some browsers.
   const renameCancelled = useRef(false);
   const [pendingDelete, setPendingDelete] = useState<CvVersion | null>(null);
+  // Refs, not mutation state: a double click lands before the re-render.
+  const creating = useRef(false);
+  const duplicating = useRef(false);
+  const mounted = useMountedRef();
 
   const handleCreate = async () => {
     const title = newTitle.trim();
-    if (!title || createVersion.isPending) return;
+    if (!title || creating.current) return;
+    creating.current = true;
     try {
       const res = await createVersion.mutateAsync({ title });
+      // The user may have moved on while the request was in flight.
+      if (!mounted.current) return;
       setNewTitle("");
       setShowCreate(false);
       onOpen(res.data.id);
     } catch {
       // Toasted (or the upgrade dialog opened) by the global handler; the form stays open.
+    } finally {
+      creating.current = false;
     }
   };
 
@@ -69,11 +79,15 @@ export function VersionList({ versions, initialShowCreate = false, onOpen }: Ver
       plan.promptUpgrade("cvVersions", versions.length);
       return;
     }
+    if (duplicating.current) return;
+    duplicating.current = true;
     try {
       const res = await duplicateVersion.mutateAsync(id);
-      onOpen(res.data.id);
+      if (mounted.current) onOpen(res.data.id);
     } catch {
       // Toasted / upgrade dialog.
+    } finally {
+      duplicating.current = false;
     }
   };
 

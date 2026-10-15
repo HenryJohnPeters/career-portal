@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { ChevronDown, FileText, Loader2, Sparkles } from "lucide-react";
-import type { AiWritingAction, CoverLetterTone, CvVersion, Job } from "@careerportal/shared/types";
+import type { AiWritingAction, CoverLetterTone, CvVersionSummary, Job } from "@careerportal/shared/types";
 import { useAiGenerateCoverLetter } from "@careerportal/web/data-access";
 import {
   AiActionGrid,
@@ -24,7 +24,7 @@ interface AiCoverLetterAssistProps {
   letterId: string;
   /** The editor text — Improve/Tailor work on this, not the last saved copy. */
   body: string;
-  cvVersions: CvVersion[];
+  cvVersions: readonly CvVersionSummary[];
   cvChoice: CvChoice;
   onCvChoiceChange: (choice: CvChoice) => void;
   /** The tracked job this letter is for; its details pre-fill the form. */

@@ -21,7 +21,8 @@ export type {
   BlobWithFilename,
   RequestOptions,
 } from "./api-client";
-export { supabase, isSupabaseConfigured } from "./supabase";
+export { authUrlAtLoad, supabase, isSupabaseConfigured } from "./supabase";
+export type { AuthUrlState } from "./auth-url";
 export { queryKeys, invalidateUsage } from "./query-keys";
 export {
   dismissUpgrade,

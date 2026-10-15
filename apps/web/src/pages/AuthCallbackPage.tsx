@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { AlertCircle, Clock, MailCheck } from "lucide-react";
-import { supabase } from "@careerportal/web/data-access";
+import { AlertCircle, Clock, LogIn, MailCheck } from "lucide-react";
+import { isAuthRetryableFetchError, type AuthError } from "@supabase/supabase-js";
+import { authUrlAtLoad, supabase } from "@careerportal/web/data-access";
 import { Spinner } from "@careerportal/web/ui";
 import { AUTH_LINK_CLASS, AuthLayout } from "./auth/AuthLayout";
 import { ResendConfirmation } from "./auth/ResendConfirmation";
@@ -9,6 +10,7 @@ import { SUPPORT_EMAIL, authLinkErrorMessage } from "./auth/auth-errors";
 import {
   markPasswordRecovery,
   parseAuthCallbackParams,
+  rememberPremiumIntent,
   resolvePostAuthPath,
   takePremiumIntent,
   type AuthCallbackParams,
@@ -22,33 +24,46 @@ type ViewState =
   | { kind: "verifying" }
   | { kind: "link-error"; message: string; recovery: boolean; premiumIntent: boolean }
   | { kind: "timeout"; recovery: boolean; premiumIntent: boolean }
+  | { kind: "other-browser"; recovery: boolean; next: string | null }
   | { kind: "message" };
+
+function exchangeErrorCode(error: AuthError): string {
+  if (isAuthRetryableFetchError(error)) return "network";
+  return error.code ?? "unknown";
+}
 
 /**
  * Landing page for Supabase email links (sign-up confirmation, password
- * recovery, email change). The Supabase client exchanges the link's tokens
- * for a session on load; this page waits for that session, then routes the
- * user on, or explains what went wrong.
+ * recovery, email change). With the PKCE flow the Supabase client exchanges
+ * the link's `?code=` for a session while the app starts, and only in the
+ * browser that asked for the link. This page waits for that exchange, then
+ * routes the user on, or explains what went wrong.
+ *
+ * It never acts on a session that already existed: a link signs someone in
+ * only when this page load carried a code the client could redeem.
  */
 export function AuthCallbackPage() {
   const navigate = useNavigate();
   const [view, setView] = useState<ViewState>({ kind: "verifying" });
 
   useEffect(() => {
-    // Read once: query values survive the token exchange; a link error stays in the hash.
+    // Read once: query values survive the code exchange; a link error stays in the hash.
     const params: AuthCallbackParams = parseAuthCallbackParams(window.location.search, window.location.hash);
-    const recovery = params.type === "recovery";
+    // `type` comes from the URL, so anyone can set it: it only picks wording.
+    const recoveryHint = params.type === "recovery";
+    // Only the URL this page was loaded with can carry the email link's code.
+    const link = authUrlAtLoad.pathname === window.location.pathname ? authUrlAtLoad : null;
 
     if (params.errorCode) {
       setView({
         kind: "link-error",
         message: authLinkErrorMessage(params.errorCode),
-        recovery,
+        recovery: recoveryHint,
         premiumIntent: params.premiumIntent,
       });
       return;
     }
-    // A notice without tokens, e.g. the first half of a secure email change. It
+    // A notice without a code, e.g. the first half of a secure email change. It
     // usually opens where the user is already signed in, so don't wait for (or
     // act on) a session: that would skip straight past the notice.
     if (params.hasMessage) {
@@ -56,19 +71,33 @@ export function AuthCallbackPage() {
       return;
     }
 
-    let settled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let unsubscribe: (() => void) | undefined;
-    const settle = () => {
-      settled = true;
+    if (link?.code !== "redeemable") {
+      if (link && (link.code === "foreign" || link.implicitTokens)) {
+        // Supabase has verified the link, but it can't sign the user in here:
+        // it was opened in another browser, or used the token-in-URL flow.
+        if (params.premiumIntent) rememberPremiumIntent();
+        setView({ kind: "other-browser", recovery: recoveryHint, next: params.next });
+      } else {
+        setView({
+          kind: "link-error",
+          message: authLinkErrorMessage(null),
+          recovery: recoveryHint,
+          premiumIntent: params.premiumIntent,
+        });
+      }
+      return;
+    }
+
+    const recovery = link.recovery;
+    let active = true;
+    const stop = () => {
+      active = false;
       clearTimeout(timer);
-      unsubscribe?.();
     };
 
-    const finish = (isRecovery: boolean) => {
-      if (settled) return;
-      settle();
-      if (isRecovery) {
+    const finish = () => {
+      stop();
+      if (recovery) {
         markPasswordRecovery();
         const state: RecoveryNavigationState = { recovery: true };
         navigate("/reset-password", { replace: true, state });
@@ -79,23 +108,34 @@ export function AuthCallbackPage() {
     };
 
     const fail = () => {
-      if (settled) return;
-      settle();
+      if (!active) return;
+      stop();
       setView({ kind: "timeout", recovery, premiumIntent: params.premiumIntent });
     };
 
-    timer = setTimeout(fail, SESSION_TIMEOUT_MS);
-    // INITIAL_SESSION fires right away for a new listener. A null one doesn't
-    // end the wait; the timeout does.
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (settled) return;
-      if (event === "PASSWORD_RECOVERY") finish(true);
-      else if (session) finish(recovery);
-    });
-    unsubscribe = () => listener.subscription.unsubscribe();
-    if (settled) unsubscribe();
+    const timer = setTimeout(fail, SESSION_TIMEOUT_MS);
+    // initialize() resolves once the client has tried the code (the same
+    // promise every time, so a StrictMode re-run doesn't exchange it twice).
+    void (async () => {
+      const { error } = await supabase.auth.initialize();
+      if (!active) return;
+      if (error) {
+        stop();
+        setView({
+          kind: "link-error",
+          message: authLinkErrorMessage(exchangeErrorCode(error)),
+          recovery,
+          premiumIntent: params.premiumIntent,
+        });
+        return;
+      }
+      const { data } = await supabase.auth.getSession();
+      if (!active) return;
+      if (data.session) finish();
+      else fail();
+    })().catch(fail);
 
-    return settle;
+    return stop;
   }, [navigate]);
 
   if (view.kind === "verifying") {
@@ -124,18 +164,49 @@ export function AuthCallbackPage() {
     );
   }
 
+  if (view.kind === "other-browser" && !view.recovery) {
+    const loginPath = view.next ? `/login?next=${encodeURIComponent(view.next)}` : "/login";
+    return (
+      <AuthLayout
+        title="Sign in to continue"
+        icon={<MailCheck />}
+        iconTone="success"
+        subtitle="If you were confirming your email address, it's confirmed now. For your security, email links only sign you in on the browser where you asked for them, so please sign in here."
+        card={false}
+      >
+        <Link
+          to={loginPath}
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+        >
+          <LogIn className="h-4 w-4" aria-hidden="true" />
+          Sign in
+        </Link>
+      </AuthLayout>
+    );
+  }
+
   const recovery = view.recovery;
   const timedOut = view.kind === "timeout";
+  const otherBrowser = view.kind === "other-browser";
+  const premiumIntent = view.kind === "other-browser" ? false : view.premiumIntent;
 
   return (
     <AuthLayout
-      title={timedOut ? "We couldn't verify your link" : "This link didn't work"}
-      icon={timedOut ? <Clock /> : <AlertCircle />}
+      title={
+        otherBrowser
+          ? "Open the link in the same browser"
+          : timedOut
+            ? "We couldn't verify your link"
+            : "This link didn't work"
+      }
+      icon={timedOut || otherBrowser ? <Clock /> : <AlertCircle />}
       iconTone="error"
       subtitle={
-        timedOut
-          ? "It may have expired, already been used, or been opened in a different browser."
-          : view.message
+        otherBrowser
+          ? "For your security, a password reset link only works in the browser you requested it from."
+          : timedOut
+            ? "It may have expired, already been used, or been opened in a different browser."
+            : view.message
       }
       footer={
         <>
@@ -166,7 +237,7 @@ export function AuthCallbackPage() {
             </Link>
             .
           </p>
-          <ResendConfirmation premiumIntent={view.premiumIntent} />
+          <ResendConfirmation premiumIntent={premiumIntent} />
         </div>
       )}
     </AuthLayout>

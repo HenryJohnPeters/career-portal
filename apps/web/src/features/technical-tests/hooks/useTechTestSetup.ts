@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   MAX_SELECTED_TAGS,
   normalizeTags,
@@ -17,6 +17,7 @@ import {
 /** Technical-test setup: role, level and tech stack, then generate a scenario. */
 export function useTechTestSetup(onCreated: (testId: string) => void) {
   const createTest = useCreateTechnicalTest();
+  const generatingRef = useRef(false);
   const [role, setRoleState] = useState<InterviewRoleFocus>("fullstack");
   const [level, setLevel] = useState<InterviewLevel>("mid");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -66,7 +67,8 @@ export function useTechTestSetup(onCreated: (testId: string) => void) {
   }, []);
 
   const generate = useCallback(() => {
-    if (createTest.isPending) return;
+    // A ref, not mutation state: two quick clicks land before the re-render.
+    if (generatingRef.current || createTest.isPending) return;
     const { tags } = normalizeTags(selectedTags);
     if (tags.length === 0) {
       if (selectedTags.length > 0) {
@@ -74,6 +76,7 @@ export function useTechTestSetup(onCreated: (testId: string) => void) {
       }
       return;
     }
+    generatingRef.current = true;
     setError(null);
     createTest.mutate(
       {
@@ -83,6 +86,9 @@ export function useTechTestSetup(onCreated: (testId: string) => void) {
         tags: tags.slice(0, MAX_SELECTED_TAGS),
       },
       {
+        onSettled: () => {
+          generatingRef.current = false;
+        },
         onSuccess: (res) => onCreated(res.data.id),
         onError: (err) => {
           requestUpgradeForError(err);

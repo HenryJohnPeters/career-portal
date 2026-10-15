@@ -36,11 +36,16 @@ function matchesSearch(job: Job, query: string): boolean {
   return (job.keySkills ?? []).some((skill) => skill.toLowerCase().includes(query));
 }
 
-/** Jobs matching every active filter (search covers company, role, location and key skills). */
+/**
+ * Jobs matching every active filter (search covers company, role, location and
+ * key skills). A job has a cover letter when it links one (`coverLetterId`) or
+ * a letter links it (`lettersByJob`, from the cover-letter editor's "For job").
+ */
 export function filterJobs(
   jobs: readonly Job[],
   filters: TrackerFilterState,
   today: string = localDateKey(),
+  lettersByJob: ReadonlyMap<string, unknown> = new Map(),
 ): readonly Job[] {
   if (!hasActiveFilters(filters)) return jobs;
   const query = filters.search.trim().toLowerCase();
@@ -51,7 +56,7 @@ export function filterJobs(
       (!filters.followUpDue ||
         isFollowUpDue(getFollowUpState(job.followUpDate, job.status, today))) &&
       (!filters.missingCv || !job.cvVersionId) &&
-      (!filters.missingCoverLetter || !job.coverLetterId),
+      (!filters.missingCoverLetter || (!job.coverLetterId && !lettersByJob.has(job.id))),
   );
 }
 

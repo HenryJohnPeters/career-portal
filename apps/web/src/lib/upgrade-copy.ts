@@ -95,6 +95,18 @@ function isKnownFeature(feature: string | undefined): feature is PremiumFeature 
   return !!feature && Object.prototype.hasOwnProperty.call(FEATURE_DESCRIPTIONS, feature);
 }
 
+/** The API's default premium_required text, which says nothing the feature copy doesn't. */
+const GENERIC_PREMIUM_MESSAGE = /is available on Premium\. Upgrade to unlock it\.$/;
+
+/**
+ * A server message with guidance of its own (e.g. "This CV uses a Premium
+ * template. Upgrade, or switch to a free template to download it."), or null.
+ */
+function specificMessage(message: string | undefined): string | null {
+  const text = message?.trim();
+  return text && !GENERIC_PREMIUM_MESSAGE.test(text) ? text : null;
+}
+
 export function getUpgradeCopy(input: UpgradeCopyInput): UpgradeCopy {
   if (input.reason === "quota_exceeded" && isKnownQuota(input.quota)) {
     const noun = QUOTA_LABELS[input.quota];
@@ -114,7 +126,7 @@ export function getUpgradeCopy(input: UpgradeCopyInput): UpgradeCopy {
   if (input.reason === "premium_required" && isKnownFeature(input.feature)) {
     return {
       title: `${PREMIUM_FEATURE_LABELS[input.feature]} is a Premium feature`,
-      description: FEATURE_DESCRIPTIONS[input.feature],
+      description: specificMessage(input.message) ?? FEATURE_DESCRIPTIONS[input.feature],
       benefits: FEATURE_BENEFITS,
     };
   }

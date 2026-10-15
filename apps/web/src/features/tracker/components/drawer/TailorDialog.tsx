@@ -12,6 +12,11 @@ import { Alert, Button, Dialog, SelectField, Spinner } from "@careerportal/web/u
 import { defaultCvId } from "./MatchSection";
 import type { DocumentOption } from "./DrawerSection";
 
+/** The API titles the letter "Cover letter: <role> @ <company>"; the link adds its own label. */
+function withoutLetterPrefix(title: string): string {
+  return title.replace(/^cover letter:\s*/i, "");
+}
+
 const TONES: readonly { value: TailorTone; label: string }[] = [
   { value: "professional", label: "Professional" },
   { value: "enthusiastic", label: "Enthusiastic" },
@@ -113,7 +118,7 @@ export function TailorDialog({ job, cvOptions, onClose }: TailorDialogProps) {
                 to={`/app/cover-letters?letter=${encodeURIComponent(result.coverLetter.id)}`}
                 className="flex items-center justify-between gap-3 rounded-xl border border-border px-4 py-3 text-sm font-semibold text-text-primary hover:border-primary-300 hover:bg-primary-50/50 dark:hover:bg-primary-900/20"
               >
-                <span className="truncate">Cover letter: {result.coverLetter.title}</span>
+                <span className="truncate">Cover letter: {withoutLetterPrefix(result.coverLetter.title)}</span>
                 <ArrowRight className="h-4 w-4 shrink-0 text-primary-600" aria-hidden="true" />
               </Link>
             </li>

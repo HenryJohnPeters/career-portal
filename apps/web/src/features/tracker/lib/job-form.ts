@@ -1,6 +1,7 @@
 import type { CreateJobRequest, Job, JobStatus, UpdateJobRequest } from "@careerportal/shared/types";
+import { isWebUrl } from "../../../lib/validation";
 import { JOB_FORM_LIMITS } from "../constants";
-import { toDateKey } from "./follow-up";
+import { appliedDateKey, toDateKey } from "./follow-up";
 
 /** Every editable job field as form text ("" = empty). */
 export interface JobFormValues {
@@ -75,7 +76,7 @@ export function toFormValues(job: Job): JobFormValues {
     url: job.url ?? "",
     location: job.location ?? "",
     salary: job.salary ?? "",
-    appliedAt: toDateKey(job.appliedAt) ?? "",
+    appliedAt: appliedDateKey(job.appliedAt) ?? "",
     followUpDate: toDateKey(job.followUpDate) ?? "",
     cvVersionId: job.cvVersionId ?? "",
     coverLetterId: job.coverLetterId ?? "",
@@ -92,19 +93,9 @@ export function normalizeWebUrl(raw: string): string {
   return /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
-/** http(s) with a dotted host name and no credentials (mirrors the API's URL rule). */
+/** http(s) with a fully qualified host name and no credentials (mirrors the API's URL rule). */
 export function isValidWebUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return (
-      (parsed.protocol === "https:" || parsed.protocol === "http:") &&
-      !parsed.username &&
-      !parsed.password &&
-      /\.[a-z0-9-]{2,}$/i.test(parsed.hostname)
-    );
-  } catch {
-    return false;
-  }
+  return isWebUrl(url, { disallowAuth: true });
 }
 
 /** A link that is safe to render as an <a href>: http(s) only. */

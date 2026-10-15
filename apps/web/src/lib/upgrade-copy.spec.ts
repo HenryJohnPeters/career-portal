@@ -42,6 +42,23 @@ describe("getUpgradeCopy", () => {
     assert.ok(copy.description.length > 0);
   });
 
+  test("premium feature keeps the server's specific guidance, not its generic default", () => {
+    const template = getUpgradeCopy({
+      reason: "premium_required",
+      feature: "templates",
+      message: "This CV uses a Premium template. Upgrade, or switch to a free template to download it.",
+    });
+    assert.match(template.description, /switch to a free template/);
+
+    const generic = getUpgradeCopy({
+      reason: "premium_required",
+      feature: "templates",
+      message: "All CV templates is available on Premium. Upgrade to unlock it.",
+    });
+    const plain = getUpgradeCopy({ reason: "premium_required", feature: "templates" });
+    assert.equal(generic.description, plain.description);
+  });
+
   test("unknown shape still produces usable copy", () => {
     const copy = getUpgradeCopy({ reason: "premium_required" });
     assert.equal(copy.title, "Upgrade to Premium");

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { FileText } from "lucide-react";
 import { getErrorMessage, useCvVersions } from "@careerportal/web/data-access";
 import { ErrorState, Spinner } from "@careerportal/web/ui";
+import { idParam } from "../../lib/ids";
 import { PageHero } from "../shared";
 import { CvWorkspace, type WorkspaceTab } from "./CvWorkspace";
 import { VersionList } from "./components/VersionList";
@@ -21,7 +22,7 @@ export function CvBuilderPage() {
   const tabParam = params.get("tab");
   const initialTab: WorkspaceTab | undefined =
     tabParam === "match" || tabParam === "design" || tabParam === "content" ? tabParam : undefined;
-  const initialJobId = params.get("job") ?? undefined;
+  const initialJobId = idParam(params.get("job")) ?? undefined;
   const selected = selectedId ? versions.find((v) => v.id === selectedId) ?? null : null;
   const resolving = !!selectedId && !selected && isFetching;
   const refetchedFor = useRef<string | null>(null);

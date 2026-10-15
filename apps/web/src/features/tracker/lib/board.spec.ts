@@ -73,6 +73,15 @@ describe("filterJobs", () => {
       ["Globex", "Umbrella", "Hooli"],
     );
   });
+
+  test("a letter linked from the letter side counts as having a letter", () => {
+    const hooli = jobs[4];
+    const lettersByJob = new Map([[hooli.id, "Hooli letter"]]);
+    assert.deepEqual(
+      filterJobs(jobs, { ...EMPTY_FILTERS, missingCoverLetter: true }, today, lettersByJob).map((j) => j.company),
+      ["Globex", "Initech", "Umbrella"],
+    );
+  });
 });
 
 describe("groupJobsByStatus", () => {

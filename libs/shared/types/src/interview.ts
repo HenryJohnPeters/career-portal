@@ -34,9 +34,21 @@ export interface TechCategory {
   items: string[];
 }
 
+/** An interviewer as listed by GET /interview-prep/options. */
+export interface InterviewerOption extends InterviewerTraits {
+  id: string;
+  /** Available on the free plan. */
+  free: boolean;
+}
+
 /** Full structured catalog returned by GET /interview-prep/options */
 export interface InterviewOptionsCatalog {
   techCategories: TechCategory[];
+  /** Every TECH_TAG_CATALOG id (the static catalog, never question-bank rows). */
+  tags: string[];
+  /** Most tags one session may select (MAX_SELECTED_TAGS). */
+  maxTags: number;
+  tracks: string[];
   levels: string[];
   roleFocuses: string[];
   interviewTypes: string[];
@@ -44,8 +56,7 @@ export interface InterviewOptionsCatalog {
   difficulties: string[];
   companyStyles: string[];
   personas: string[];
-  /** Legacy flat tags derived from question bank */
-  tags: string[];
+  interviewers: InterviewerOption[];
 }
 
 export interface RubricCriterion {
@@ -141,6 +152,15 @@ export interface InterviewSession {
   questions: InterviewSessionQuestion[];
 }
 
+/**
+ * POST /interview-prep/sessions. `questionCount` can be lower than requested
+ * when fewer questions exist for the chosen track, level and tags.
+ */
+export interface CreateInterviewSessionResponse extends InterviewSession {
+  /** How many questions the chosen interviewer (or the request) asked for. */
+  requestedQuestionCount: number;
+}
+
 export interface InterviewReport {
   overallScore: number;
   maxPossibleScore: number;
@@ -179,8 +199,8 @@ export interface CreateInterviewSessionRequest {
 /** POST /interview-prep/sessions/:sessionId/questions/:questionId/answer */
 export interface SubmitInterviewAnswerRequest {
   /**
-   * Free text, or for option questions the selected index as a string
-   * ("2"); multi-select questions send comma-separated indices ("0,2").
+   * The selected option index as a string ("2"); multi-select questions send
+   * comma-separated indices ("0,2"). Free text is rejected (400).
    */
   answer: string;
 }

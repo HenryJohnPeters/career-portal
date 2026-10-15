@@ -16,7 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { FREE_TIER, PREMIUM_PRICE, isActivePremium } from "@careerportal/shared/types";
-import { supabase } from "@careerportal/web/data-access";
+import { authUrlAtLoad, supabase } from "@careerportal/web/data-access";
 import { useAuth } from "../lib/auth";
 import { lazyPage } from "../lib/lazy";
 import { useToast } from "../lib/toast";
@@ -115,15 +115,24 @@ export function LandingPage() {
     );
   }, [searchParams, setSearchParams, toast]);
 
-  // A password-reset link that falls back to the site root still reaches the reset form.
+  // A password-reset link that falls back to the site root still reaches the
+  // reset form, once its code (requested in this browser) became a session.
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
-      if (event !== "PASSWORD_RECOVERY") return;
+    const link = authUrlAtLoad;
+    if (link.pathname !== window.location.pathname || link.code !== "redeemable" || !link.recovery) return;
+    let active = true;
+    void (async () => {
+      const { error } = await supabase.auth.initialize();
+      if (!active || error) return;
+      const { data } = await supabase.auth.getSession();
+      if (!active || !data.session) return;
       markPasswordRecovery();
       const state: RecoveryNavigationState = { recovery: true };
       navigate("/reset-password", { replace: true, state });
-    });
-    return () => data.subscription.unsubscribe();
+    })();
+    return () => {
+      active = false;
+    };
   }, [navigate]);
 
   // A confirmation link that falls back to the site root still continues a

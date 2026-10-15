@@ -1,16 +1,15 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { isActivePremium, isMeterExhausted } from "@careerportal/shared/types";
 import { usePlanUsage } from "@careerportal/web/data-access";
 import { useAuth } from "../../lib/auth";
-import { useInterviewSetup } from "./hooks/useInterviewSetup";
+import { idParam } from "../../lib/ids";
+import { useInterviewSetup, type QuestionShortfall } from "./hooks/useInterviewSetup";
 import { useVoiceMuted } from "./hooks/useVoiceMuted";
 import { InterviewSetup } from "./components/InterviewSetup";
 import { InterviewSession } from "./components/InterviewSession";
 import { InterviewReportView } from "./components/InterviewReport";
 import type { PracticeTab } from "./types";
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * /app/practice — URL-driven so refresh, back and deep links work:
@@ -27,11 +26,21 @@ export function InterviewPrepPage() {
   const [voiceMuted, toggleVoiceMuted] = useVoiceMuted();
 
   const rawSessionId = params.get("session");
-  const sessionId = rawSessionId && UUID_PATTERN.test(rawSessionId) ? rawSessionId : null;
+  const sessionId = idParam(rawSessionId);
   const showReport = params.get("view") === "report";
   const tab: PracticeTab = params.get("tab") === "progress" ? "progress" : "practice";
 
+  // Set when a new session got fewer questions than the interviewer offers.
+  const [shortfall, setShortfall] = useState<QuestionShortfall | null>(null);
+
   const openSession = useCallback((id: string) => setParams({ session: id }), [setParams]);
+  const openNewSession = useCallback(
+    (id: string, next?: QuestionShortfall) => {
+      setShortfall(next ?? null);
+      openSession(id);
+    },
+    [openSession],
+  );
   const openReport = useCallback((id: string) => setParams({ session: id, view: "report" }), [setParams]);
   const backToSetup = useCallback(() => setParams({}), [setParams]);
   const changeTab = useCallback(
@@ -41,7 +50,7 @@ export function InterviewPrepPage() {
 
   const setup = useInterviewSetup({
     allInterviewers: usage?.features.allInterviewers ?? isPremium,
-    onCreated: openSession,
+    onCreated: openNewSession,
   });
 
   if (sessionId && showReport) {
@@ -62,6 +71,8 @@ export function InterviewPrepPage() {
         voiceMuted={voiceMuted}
         onToggleVoiceMute={toggleVoiceMuted}
         questionsExhausted={isMeterExhausted(usage?.meters.questions)}
+        shortfall={shortfall?.sessionId === sessionId ? shortfall : null}
+        onDismissShortfall={() => setShortfall(null)}
         onViewReport={() => openReport(sessionId)}
         onLeave={backToSetup}
       />

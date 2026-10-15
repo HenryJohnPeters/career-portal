@@ -5,14 +5,13 @@ import { isActivePremium } from "@careerportal/shared/types";
 import { Alert, Button, ErrorState, Spinner } from "@careerportal/web/ui";
 import { getErrorMessage, isApiError, usePlanUsage, useTechnicalTest } from "@careerportal/web/data-access";
 import { useAuth } from "../../lib/auth";
+import { idParam } from "../../lib/ids";
 import { useTechTestSetup } from "./hooks/useTechTestSetup";
 import { TechTestSetup } from "./components/TechTestSetup";
 import { TechTestBrief } from "./components/TechTestBrief";
 import { TechTestSession } from "./components/TechTestSession";
 import { TechTestResults } from "./components/TechTestResults";
 import { TechTestHistory } from "./components/TechTestHistory";
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * /app/technical-tests — URL-driven so refresh and back work:
@@ -28,7 +27,7 @@ export function TechnicalTestsPage() {
   const isPremium = usage?.isPremium ?? isActivePremium(user);
 
   const rawTestId = params.get("test");
-  const testId = rawTestId && UUID_PATTERN.test(rawTestId) ? rawTestId : null;
+  const testId = idParam(rawTestId);
 
   const openTest = useCallback((id: string) => setParams({ test: id }), [setParams]);
   const showHistory = useCallback(() => setParams({ view: "history" }), [setParams]);

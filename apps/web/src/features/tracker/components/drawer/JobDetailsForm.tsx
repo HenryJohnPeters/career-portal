@@ -10,6 +10,8 @@ interface JobDetailsFormProps {
   form: JobDetailsFormState;
   cvOptions: readonly DocumentOption[];
   letterOptions: readonly DocumentOption[];
+  /** Title of a letter that links this job from the cover-letter editor. */
+  letterLinkedFromLetter?: string | null;
   /** False while the CV / letter lists are still loading (no "unavailable" option yet). */
   documentsLoaded: boolean;
 }
@@ -41,7 +43,14 @@ function DocumentOptions({
   );
 }
 
-export function JobDetailsForm({ formId, form, cvOptions, letterOptions, documentsLoaded }: JobDetailsFormProps) {
+export function JobDetailsForm({
+  formId,
+  form,
+  cvOptions,
+  letterOptions,
+  letterLinkedFromLetter = null,
+  documentsLoaded,
+}: JobDetailsFormProps) {
   const { values, errors, setField, save, saving, saveError, dismissSaveError } = form;
   const normalizedUrl = normalizeWebUrl(values.url);
   const openUrl = normalizedUrl && isValidWebUrl(normalizedUrl) ? safeExternalUrl(normalizedUrl) : null;
@@ -166,6 +175,11 @@ export function JobDetailsForm({ formId, form, cvOptions, letterOptions, documen
             label="Cover letter"
             value={values.coverLetterId}
             onChange={(e) => setField("coverLetterId", e.target.value)}
+            hint={
+              !values.coverLetterId && letterLinkedFromLetter
+                ? `“${letterLinkedFromLetter}” is linked to this job from the cover-letter editor.`
+                : undefined
+            }
           >
             <DocumentOptions
               options={letterOptions}

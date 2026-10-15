@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { countOverdueFollowUps, localDateKey, toDateKey } from "./follow-ups";
+import { appliedDateKey, countOverdueFollowUps, localDateKey, toDateKey } from "./follow-ups";
 
 describe("follow-up helpers", () => {
   test("toDateKey keeps the calendar date of ISO and date-only values", () => {
@@ -35,5 +35,19 @@ describe("follow-up helpers", () => {
     assert.equal(countOverdueFollowUps(undefined), 0);
     assert.equal(countOverdueFollowUps(null), 0);
     assert.equal(countOverdueFollowUps([]), 0);
+  });
+});
+
+describe("appliedDateKey", () => {
+  test("calendar dates (UTC midnight) are read as-is", () => {
+    assert.equal(appliedDateKey("2026-10-15"), "2026-10-15");
+    assert.equal(appliedDateKey("2026-10-15T00:00:00.000Z"), "2026-10-15");
+    assert.equal(appliedDateKey(null), null);
+    assert.equal(appliedDateKey(""), null);
+  });
+
+  test("a server-stamped timestamp shows the user's local date", () => {
+    const stamped = "2026-10-15T16:10:17.157Z";
+    assert.equal(appliedDateKey(stamped), localDateKey(new Date(stamped)));
   });
 });

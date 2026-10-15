@@ -11,6 +11,7 @@ import type {
   ApplyCvContentRequest,
   CvSection,
   CvVersion,
+  CvVersionSummary,
   UpdateCvVersionRequest,
 } from "@careerportal/shared/types";
 import { AI_TIMEOUT_MS, PDF_TIMEOUT_MS, api } from "../api-client";
@@ -124,6 +125,30 @@ export function useCvVersions() {
   return useQuery({
     queryKey: queryKeys.cvVersions,
     queryFn: ({ signal }) => api.get<VersionsData>("/cv/versions", { signal }),
+  });
+}
+
+/**
+ * GET /cv/versions?summary=1 — id, title and active flag for CV pickers
+ * (tracker, cover letters), without downloading every section's text.
+ * Trimmed client-side too, so the cache stays small whatever the API sends.
+ */
+export function useCvVersionSummaries() {
+  return useQuery({
+    queryKey: queryKeys.cvVersionSummaries,
+    queryFn: async ({ signal }) => {
+      const res = await api.get<ApiResponse<CvVersionSummary[]>>("/cv/versions?summary=1", { signal });
+      return {
+        ...res,
+        data: res.data.map(({ id, title, isActive, templateId, updatedAt }) => ({
+          id,
+          title,
+          isActive,
+          templateId,
+          updatedAt,
+        })),
+      };
+    },
   });
 }
 

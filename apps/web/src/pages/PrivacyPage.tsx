@@ -4,8 +4,10 @@ import { ContactLink, LegalLayout, type LegalSection } from "./legal/LegalLayout
 /*
  * Generic policy, accurate to how the app works today (Supabase auth, Stripe
  * payments, OpenAI for AI features, Railway hosting; no analytics or ad
- * trackers; fonts self-hosted). The owner must review it before launch and
- * keep it in step with any new processor or data use.
+ * trackers). The app's own fonts are self-hosted, but the CV preview loads the
+ * CV templates' fonts from Google Fonts; drop that entry once those fonts are
+ * self-hosted too. The owner must review it before launch and keep it in step
+ * with any new processor or data use.
  */
 const SECTIONS: readonly LegalSection[] = [
   {
@@ -116,6 +118,10 @@ const SECTIONS: readonly LegalSection[] = [
             are stored.
           </li>
         </ul>
+        <p>
+          The CV builder's live preview also loads the typefaces of CV templates from <strong>Google Fonts</strong>,
+          so your browser sends Google your IP address and browser details when you open it. No CV content is sent.
+        </p>
         <p>
           We may also disclose data if the law requires it, or to protect the rights and safety of our users or the
           service.

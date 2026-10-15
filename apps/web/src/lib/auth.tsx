@@ -16,14 +16,19 @@ import {
   supabase,
   useMe,
 } from "@careerportal/web/data-access";
-import { removeStorageByPrefix } from "./storage";
+import { clearPasswordRecovery } from "../pages/auth/auth-redirect";
+import { clearPrivateDrafts, setPrivateDraftOwner } from "./private-drafts";
 import { showToast } from "./toast";
+import { flushUnsavedEdits, setLeavingPage } from "./unsaved-edits";
 
-/** Users' own unsent work kept in this browser; never leave it on a shared device. */
-const PRIVATE_DRAFT_PREFIXES = ["careerportal:techtest-draft:"];
+/** If the sign-out navigation hasn't replaced the page by then, stop showing the loader. */
+const SIGN_OUT_NAVIGATION_GRACE_MS = 5000;
 
-function clearPrivateDrafts(): void {
-  for (const prefix of PRIVATE_DRAFT_PREFIXES) removeStorageByPrefix(prefix);
+/** Per-account state this browser must drop when the account signs out or changes. */
+function forgetAccountState(): void {
+  dismissUpgrade();
+  clearPrivateDrafts();
+  clearPasswordRecovery();
 }
 
 export interface LogoutOptions {
@@ -83,9 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (event, session) => {
         if (event === "INITIAL_SESSION") setSupabaseReady(true);
 
-        // Recovery sessions belong to ResetPasswordPage: don't load the app user.
-        if (event === "PASSWORD_RECOVERY") return;
-
         // Hourly TOKEN_REFRESHED and the SIGNED_IN emitted on every tab refocus
         // keep the same user id, so they fall through as no-ops below. A
         // TOKEN_REFRESHED that brings a session back (INITIAL_SESSION was null
@@ -98,9 +100,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Clearing also cancels in-flight requests, so stale responses are ignored.
           if (previousId !== null) {
             queryClient.clear();
-            dismissUpgrade();
-            clearPrivateDrafts();
+            forgetAccountState();
           }
+          setPrivateDraftOwner(nextId);
           sessionUserIdRef.current = nextId;
           setSessionUserId(nextId);
           return;
@@ -133,6 +135,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(
     async (options: LogoutOptions = {}) => {
+      // Save open editors while the session still authorises their requests.
+      // Bounded, and never a reason to stay signed in (e.g. on a shared device).
+      await flushUnsavedEdits();
+      // No "Leave site?" prompt may cancel the navigation below.
+      setLeavingPage(true);
       let failed = false;
       try {
         const { error } = await supabase.auth.signOut({
@@ -150,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: { session: null },
         }));
         if (data.session) {
+          setLeavingPage(false);
           showToast(
             "error",
             "We couldn't sign you out. Check your connection and try again.",
@@ -160,9 +168,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setSigningOut(true);
       queryClient.clear();
-      dismissUpgrade();
-      clearPrivateDrafts();
+      forgetAccountState();
       window.location.replace(safeRedirectPath(options.redirectTo));
+      // Normally the page is gone by now. If the navigation was cancelled,
+      // drop the loader so the signed-out app routes to /login itself.
+      setTimeout(() => {
+        setSigningOut(false);
+        setLeavingPage(false);
+      }, SIGN_OUT_NAVIGATION_GRACE_MS);
       return true;
     },
     [queryClient],

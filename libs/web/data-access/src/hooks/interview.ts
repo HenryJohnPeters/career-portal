@@ -7,6 +7,7 @@ import {
 import type {
   ApiResponse,
   CreateInterviewSessionRequest,
+  CreateInterviewSessionResponse,
   InterviewProgress,
   InterviewSession,
   InterviewSessionSummary,
@@ -70,7 +71,7 @@ export function useCreateInterviewSession() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: CreateInterviewSessionRequest) =>
-      api.post<ApiResponse<InterviewSession>>("/interview-prep/sessions", data, {
+      api.post<ApiResponse<CreateInterviewSessionResponse>>("/interview-prep/sessions", data, {
         timeoutMs: AI_TIMEOUT_MS,
       }),
     meta: { silent: true },

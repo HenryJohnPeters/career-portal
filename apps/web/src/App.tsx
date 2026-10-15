@@ -1,6 +1,6 @@
 import { Suspense, useLayoutEffect } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { DashboardLayout } from "./layouts/DashboardLayout";
+import { loadDashboardLayout } from "./layouts/load-dashboard-layout";
 import { LandingPage } from "./pages/LandingPage";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { PageLoader } from "./components/PageLoader";
@@ -11,7 +11,8 @@ import { lazyPage } from "./lib/lazy";
 import { getDocumentTitle } from "./lib/page-titles";
 
 // The landing page is the main entry point, so it ships in the initial bundle;
-// every other page is its own chunk.
+// every other page, and the signed-in app shell, is its own chunk.
+const DashboardLayout = lazyPage(() => loadDashboardLayout().then((m) => m.DashboardLayout));
 const LoginPage = lazyPage(() => import("./pages/LoginPage").then((m) => m.LoginPage));
 const RegisterPage = lazyPage(() => import("./pages/RegisterPage").then((m) => m.RegisterPage));
 const ForgotPasswordPage = lazyPage(() =>

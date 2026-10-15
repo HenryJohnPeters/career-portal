@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { canWritePrivateDraft, privateDraftOwner } from "../../../lib/private-drafts";
 import { readStorage, removeStorage, writeStorage } from "../../../lib/storage";
 
 const SAVE_DELAY_MS = 600;
@@ -11,9 +12,13 @@ export type DraftStatus = "idle" | "saved" | "unavailable";
  * A take-home answer autosaved to this browser (debounced, flushed when the
  * page is hidden or the editor unmounts). Storage failures never throw; the
  * status reports "unavailable" instead so the UI can say drafts aren't saved.
+ * Nothing is written once the account it was opened under has signed out:
+ * sign-out clears drafts, and the flush that runs as the editor unmounts
+ * must not write the text back.
  */
 export function useSubmissionDraft(testId: string, fallback: string) {
   const key = draftStorageKey(testId);
+  const [openedBy] = useState(privateDraftOwner);
   const [value, setValue] = useState(() => readStorage(key) ?? fallback);
   const [status, setStatus] = useState<DraftStatus>("idle");
   const pendingRef = useRef<string | null>(null);
@@ -25,13 +30,14 @@ export function useSubmissionDraft(testId: string, fallback: string) {
     const pending = pendingRef.current;
     if (pending === null) return;
     pendingRef.current = null;
+    if (!canWritePrivateDraft(openedBy)) return;
     if (pending) {
       setStatus(writeStorage(key, pending) ? "saved" : "unavailable");
     } else {
       removeStorage(key);
       setStatus("idle");
     }
-  }, [key]);
+  }, [key, openedBy]);
 
   const update = useCallback(
     (next: string) => {

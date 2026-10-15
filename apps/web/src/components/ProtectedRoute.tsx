@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { AlertTriangle } from "lucide-react";
 import { Button } from "@careerportal/web/ui";
+import { loadDashboardLayout } from "../layouts/load-dashboard-layout";
 import { useAuth } from "../lib/auth";
 import { PageLoader } from "./PageLoader";
 
@@ -63,6 +64,11 @@ function AccountLoadError({ message }: { message: string }) {
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, isLoading, authError } = useAuth();
   const location = useLocation();
+
+  // Fetch the app shell's chunk in parallel with loading the account.
+  useEffect(() => {
+    void loadDashboardLayout().catch(() => undefined);
+  }, []);
 
   if (isLoading) return <PageLoader fullScreen label="Loading your account" />;
   if (authError) return <AccountLoadError message={authError} />;

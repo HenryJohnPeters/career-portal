@@ -41,6 +41,15 @@ function assertProductionEnv(env: Record<string, string>): void {
 const nodeModule = (names: string) =>
   new RegExp(`[\\\\/]node_modules[\\\\/](?:${names})[\\\\/]`);
 
+/*
+ * tech-tags.ts builds its lookup map at module load, which Rollup must treat
+ * as a side effect, so the whole tag catalog would ship in the entry chunk
+ * (the shared barrel re-exports it). Its exports are pure: let Rollup drop it
+ * wherever they are unused. (The file is mirrored byte-for-byte in the API,
+ * so it is not annotated in place.)
+ */
+const PURE_MODULES = /[\\/]libs[\\/]shared[\\/]types[\\/]src[\\/]tech-tags\.ts$/;
+
 /** Long-lived vendor chunks: they change rarely, so they stay cached across deploys. */
 const VENDOR_CHUNKS: [chunk: string, pattern: RegExp][] = [
   ["react", nodeModule("react|react-dom|scheduler|react-router|react-router-dom|@remix-run[\\\\/]router")],
@@ -79,6 +88,9 @@ export default defineConfig(({ command, mode }) => {
       // No public source maps: there is no error-reporting service to upload them to.
       sourcemap: false,
       rollupOptions: {
+        treeshake: {
+          moduleSideEffects: (id: string) => !PURE_MODULES.test(id),
+        },
         output: {
           manualChunks(id) {
             for (const [chunk, pattern] of VENDOR_CHUNKS) {

@@ -19,6 +19,8 @@ export const queryKeys = {
 
   // CV
   cvVersions: ["cv-versions"] as const,
+  /** Under cvVersions, so every invalidation of the full list refreshes it too. */
+  cvVersionSummaries: ["cv-versions", "summary"] as const,
   cvSectionsAll: ["cv-sections"] as const,
   cvSections: (versionId: string | null) => ["cv-sections", versionId] as const,
   cvHtmlPreviewAll: ["cv-html-preview"] as const,

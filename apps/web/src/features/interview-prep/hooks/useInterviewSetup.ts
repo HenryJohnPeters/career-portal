@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MAX_SELECTED_TAGS,
@@ -31,16 +31,25 @@ const TIMEOUT_MESSAGE =
 
 const UNKNOWN_TAGS_MESSAGE = "Those topics aren't available any more — please pick technologies from the list.";
 
+/** The session has fewer questions than the interviewer offers (not enough for this combination yet). */
+export interface QuestionShortfall {
+  sessionId: string;
+  questionCount: number;
+  requested: number;
+}
+
 interface UseInterviewSetupOptions {
   /** Premium (or trial): every interviewer is selectable. */
   allInterviewers: boolean;
-  onCreated: (sessionId: string) => void;
+  /** `shortfall` is set when the new session has fewer questions than requested. */
+  onCreated: (sessionId: string, shortfall?: QuestionShortfall) => void;
 }
 
 /** Setup form state and session creation (with recovery when the request times out). */
 export function useInterviewSetup({ allInterviewers, onCreated }: UseInterviewSetupOptions) {
   const qc = useQueryClient();
   const createSession = useCreateInterviewSession();
+  const startingRef = useRef(false);
 
   const [track, setTrackState] = useState<InterviewTrack>("frontend");
   const [level, setLevel] = useState<InterviewLevel>("mid");
@@ -130,12 +139,14 @@ export function useInterviewSetup({ allInterviewers, onCreated }: UseInterviewSe
   );
 
   const start = useCallback(() => {
-    if (createSession.isPending || recovering) return;
+    // A ref, not mutation state: two quick clicks land before the re-render.
+    if (startingRef.current || createSession.isPending || recovering) return;
     const { tags } = normalizeTags(selectedTags);
     if (tags.length === 0) {
       if (selectedTags.length > 0) setError(new Error(UNKNOWN_TAGS_MESSAGE));
       return;
     }
+    startingRef.current = true;
 
     const cached = qc.getQueryData<ApiResponse<InterviewSessionSummary[]>>(queryKeys.interviewSessions);
     const knownIds = cached ? new Set(cached.data.map((s) => s.id)) : null;
@@ -152,16 +163,28 @@ export function useInterviewSetup({ allInterviewers, onCreated }: UseInterviewSe
         interviewerId,
       },
       {
-        onSuccess: (res) => onCreated(res.data.id),
+        onSuccess: (res) => {
+          startingRef.current = false;
+          const { id, questionCount, requestedQuestionCount } = res.data;
+          const shortfall =
+            typeof requestedQuestionCount === "number" && questionCount < requestedQuestionCount
+              ? { sessionId: id, questionCount, requested: requestedQuestionCount }
+              : undefined;
+          onCreated(id, shortfall);
+        },
         onError: async (err) => {
-          if (isApiError(err) && (err.kind === "timeout" || err.kind === "network")) {
-            // No response: the server may still have created the session.
-            if (await recoverAfterTimeout({ track, level, since, knownIds })) return;
-            setError(err.kind === "timeout" ? new Error(TIMEOUT_MESSAGE) : err);
-            return;
+          try {
+            if (isApiError(err) && (err.kind === "timeout" || err.kind === "network")) {
+              // No response: the server may still have created the session.
+              if (await recoverAfterTimeout({ track, level, since, knownIds })) return;
+              setError(err.kind === "timeout" ? new Error(TIMEOUT_MESSAGE) : err);
+              return;
+            }
+            requestUpgradeForError(err);
+            setError(err);
+          } finally {
+            startingRef.current = false;
           }
-          requestUpgradeForError(err);
-          setError(err);
         },
       },
     );

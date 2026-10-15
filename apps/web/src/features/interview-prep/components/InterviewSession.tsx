@@ -6,6 +6,7 @@ import { getErrorMessage, isApiError, useInterviewSession } from "@careerportal/
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { getInterviewerById, hasPersona, type InterviewerConfig } from "../interviewer-configs";
 import { useInterviewRun, type InterviewRunState } from "../hooks/useInterviewRun";
+import type { QuestionShortfall } from "../hooks/useInterviewSetup";
 import { getTrackMeta } from "../meta";
 import { ActionError, LevelBadge, TrackBadge, requestQuotaUpgrade } from "./common";
 import { AnswerChoices } from "./AnswerChoices";
@@ -18,6 +19,9 @@ interface InterviewSessionProps {
   onToggleVoiceMute: () => void;
   /** Free plan: this month's practice questions are used up. */
   questionsExhausted: boolean;
+  /** This new session has fewer questions than the interviewer offers. */
+  shortfall?: QuestionShortfall | null;
+  onDismissShortfall?: () => void;
   onViewReport: () => void;
   onLeave: () => void;
 }
@@ -27,6 +31,8 @@ export function InterviewSession({
   voiceMuted,
   onToggleVoiceMute,
   questionsExhausted,
+  shortfall = null,
+  onDismissShortfall,
   onViewReport,
   onLeave,
 }: InterviewSessionProps) {
@@ -72,6 +78,8 @@ export function InterviewSession({
       voiceMuted={voiceMuted}
       onToggleVoiceMute={onToggleVoiceMute}
       questionsExhausted={questionsExhausted}
+      shortfall={shortfall}
+      onDismissShortfall={onDismissShortfall}
       onViewReport={onViewReport}
       onLeave={onLeave}
     />
@@ -85,6 +93,8 @@ function SessionRunner({
   voiceMuted,
   onToggleVoiceMute,
   questionsExhausted,
+  shortfall,
+  onDismissShortfall,
   onViewReport,
   onLeave,
 }: {
@@ -94,6 +104,8 @@ function SessionRunner({
   voiceMuted: boolean;
   onToggleVoiceMute: () => void;
   questionsExhausted: boolean;
+  shortfall: QuestionShortfall | null;
+  onDismissShortfall?: () => void;
   onViewReport: () => void;
   onLeave: () => void;
 }) {
@@ -170,6 +182,22 @@ function SessionRunner({
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
         <div className="min-w-0 space-y-4">
+          {shortfall && (
+            <Alert
+              variant="info"
+              action={
+                onDismissShortfall && (
+                  <Button variant="ghost" size="sm" onClick={onDismissShortfall}>
+                    Got it
+                  </Button>
+                )
+              }
+            >
+              Only {shortfall.questionCount} questions are available for this track, level and tech stack so far, so
+              this session has {shortfall.questionCount} instead of {shortfall.requested}. Choosing fewer technologies
+              usually gives you more.
+            </Alert>
+          )}
           {run.skippedNotice && (
             <Alert variant="info">That question had already been answered, so here's the next one.</Alert>
           )}

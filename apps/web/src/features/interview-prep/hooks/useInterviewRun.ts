@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { AnswerFeedback } from "@careerportal/shared/types";
 import {
   isApiError,
@@ -28,6 +28,9 @@ export function useInterviewRun(sessionId: string, onFinished: () => void) {
   const nextQuery = useNextInterviewQuestion(sessionId);
   const submit = useSubmitInterviewAnswer();
   const complete = useCompleteInterviewSession();
+  // Refs, not mutation state: two quick clicks land before the re-render.
+  const submittingRef = useRef(false);
+  const endingRef = useRef(false);
 
   const [selection, setSelection] = useState<{ questionId: string; indices: number[] } | null>(null);
   const [answered, setAnswered] = useState<AnsweredQuestion | null>(null);
@@ -57,13 +60,17 @@ export function useInterviewRun(sessionId: string, onFinished: () => void) {
   );
 
   const submitAnswer = useCallback(() => {
-    if (!question || selected.length === 0 || submit.isPending) return;
+    if (!question || selected.length === 0 || submittingRef.current || submit.isPending) return;
     const current = question;
+    submittingRef.current = true;
     setSubmitError(null);
     setSkippedNotice(false);
     submit.mutate(
       { sessionId, questionId: current.id, answer: encodeAnswer(selected) },
       {
+        onSettled: () => {
+          submittingRef.current = false;
+        },
         onSuccess: (res) => {
           markAnswered(current.id);
           setAnswered({
@@ -94,9 +101,13 @@ export function useInterviewRun(sessionId: string, onFinished: () => void) {
   }, []);
 
   const endSession = useCallback(() => {
-    if (complete.isPending) return;
+    if (endingRef.current || complete.isPending) return;
+    endingRef.current = true;
     setCompleteError(null);
     complete.mutate(sessionId, {
+      onSettled: () => {
+        endingRef.current = false;
+      },
       onSuccess: onFinished,
       onError: (err) => setCompleteError(err),
     });

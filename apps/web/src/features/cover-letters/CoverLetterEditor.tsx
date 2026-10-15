@@ -1,7 +1,8 @@
 import { useCallback, useId, useMemo, useState } from "react";
+import type { Location } from "react-router-dom";
 import { ArrowLeft, PenLine, Save, Undo2 } from "lucide-react";
 import type { CoverLetter } from "@careerportal/shared/types";
-import { useCvVersions, useJobs, useUpdateCoverLetter } from "@careerportal/web/data-access";
+import { useCvVersionSummaries, useJobs, useUpdateCoverLetter } from "@careerportal/web/data-access";
 import { Button, ConfirmDialog } from "@careerportal/web/ui";
 import { showToast } from "../../lib/toast";
 import { SaveStatus } from "../cv-builder/components/SaveStatus";
@@ -15,6 +16,14 @@ import { ACTIVE_CV, type CvChoice } from "./cv-choice";
 import { LETTER_BODY_MAX, LETTER_TITLE_MAX, type LetterFields } from "./letter-fields";
 import { useCoverLetterDraft } from "./useCoverLetterDraft";
 
+/** The editor stays mounted while the URL keeps this page and `?letter=`. */
+function leavesLetter(current: Location, next: Location): boolean {
+  return (
+    current.pathname !== next.pathname ||
+    new URLSearchParams(current.search).get("letter") !== new URLSearchParams(next.search).get("letter")
+  );
+}
+
 interface Replacement {
   label: string;
   previous: LetterFields;
@@ -22,7 +31,8 @@ interface Replacement {
 
 /**
  * One cover letter: autosaving editor, export, templates and AI. Rendered with
- * `key={letter.id}`; unmounting saves pending edits.
+ * `key={letter.id}`. Leaving it first saves pending edits, and asks before
+ * dropping edits that couldn't be saved.
  */
 export function CoverLetterEditor({ letter, onClose }: { letter: CoverLetter; onClose: () => void }) {
   const ids = useId();
@@ -30,13 +40,12 @@ export function CoverLetterEditor({ letter, onClose }: { letter: CoverLetter; on
   const draft = useStoreSelector(saver, (s) => s.draft);
   const status = useStoreSelector(saver, (s) => s.status);
   const error = useStoreSelector(saver, (s) => s.error);
-  const { data: cvData } = useCvVersions();
+  const { data: cvData } = useCvVersionSummaries();
   const { data: jobsData } = useJobs();
   const linkJob = useUpdateCoverLetter();
 
   const [cvChoice, setCvChoice] = useState<CvChoice>(ACTIVE_CV);
   const [replacement, setReplacement] = useState<Replacement | null>(null);
-  const [leaveBlocked, setLeaveBlocked] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const cvVersions = cvData?.data ?? [];
@@ -51,7 +60,7 @@ export function CoverLetterEditor({ letter, onClose }: { letter: CoverLetter; on
 
   const flush = useCallback(() => saver.flush(), [saver]);
   const hasUnsaved = useCallback(() => saver.hasUnsavedChanges(), [saver]);
-  useUnsavedChangesGuard(hasUnsaved, flush);
+  const leaveGuard = useUnsavedChangesGuard(hasUnsaved, flush, leavesLetter);
 
   if (!draft) return null;
   const { title, body } = draft.fields;
@@ -75,16 +84,11 @@ export function CoverLetterEditor({ letter, onClose }: { letter: CoverLetter; on
     }
   };
 
-  const handleBack = async () => {
-    if (await saver.flush()) onClose();
-    else setLeaveBlocked(true);
-  };
-
   return (
     <div className="space-y-4">
       <button
         type="button"
-        onClick={() => void handleBack()}
+        onClick={onClose}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -245,16 +249,13 @@ export function CoverLetterEditor({ letter, onClose }: { letter: CoverLetter; on
       </div>
 
       <ConfirmDialog
-        open={leaveBlocked}
+        open={leaveGuard.blocked}
         title="Leave without saving?"
         description={`Your latest changes couldn't be saved${error ? `: ${error}` : ""}. If you leave now they'll be lost.`}
         confirmLabel="Leave anyway"
         cancelLabel="Stay and fix"
-        onConfirm={() => {
-          setLeaveBlocked(false);
-          onClose();
-        }}
-        onCancel={() => setLeaveBlocked(false)}
+        onConfirm={leaveGuard.leave}
+        onCancel={leaveGuard.stay}
       />
     </div>
   );

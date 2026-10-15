@@ -3,6 +3,7 @@ import type {
   PremiumRequiredDetails,
   QuotaExceededDetails,
 } from "@careerportal/shared/types";
+import { hasDotSegment } from "./api-path";
 import { supabase } from "./supabase";
 
 const API_URL = resolveApiUrl();
@@ -292,6 +293,10 @@ async function send<T>(
   options: RequestOptions,
   read: (res: Response) => Promise<T>,
 ): Promise<T> {
+  if (hasDotSegment(path)) {
+    // Never let an id from a URL climb to another route (see api-path.ts).
+    throw new ApiError("Not found.", { status: 404, kind: "http" });
+  }
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   let token = await getToken();
 

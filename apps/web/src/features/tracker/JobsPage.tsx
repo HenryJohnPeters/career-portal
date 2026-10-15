@@ -13,7 +13,7 @@ import {
   getErrorMessage,
   queryKeys,
   useCoverLetterSummaries,
-  useCvVersions,
+  useCvVersionSummaries,
   useDashboardSummary,
   useJobs,
   useMoveJob,
@@ -21,6 +21,7 @@ import {
 } from "@careerportal/web/data-access";
 import { Alert, Button, ErrorState, Spinner } from "@careerportal/web/ui";
 import { useAuth } from "../../lib/auth";
+import { idParam } from "../../lib/ids";
 import { useToast } from "../../lib/toast";
 import { PageHero } from "../shared";
 import { JOB_LIST_CAP, isClosedStatus, statusLabel } from "./constants";
@@ -38,7 +39,6 @@ import { TrackerFilters } from "./components/TrackerFilters";
 import type { DocumentOption } from "./components/drawer/DrawerSection";
 
 const NO_JOBS: readonly Job[] = [];
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Job tracker. URL state:
@@ -54,7 +54,7 @@ export function JobsPage() {
   const { user } = useAuth();
 
   const jobsQuery = useJobs();
-  const cvQuery = useCvVersions();
+  const cvQuery = useCvVersionSummaries();
   const lettersQuery = useCoverLetterSummaries();
   const summaryTotal = useDashboardSummary().data?.data.counts?.jobs;
   const features = usePlanUsage().data?.data.features;
@@ -71,13 +71,19 @@ export function JobsPage() {
     () => (lettersQuery.data?.data ?? []).map(({ id, title }) => ({ id, title })),
     [lettersQuery.data],
   );
-  const titles = useMemo(
-    () => ({
+  const titles = useMemo(() => {
+    // A letter can also be linked from the cover-letter editor ("For job"),
+    // which sets CoverLetter.jobId rather than Job.coverLetterId.
+    const lettersByJob = new Map<string, string>();
+    for (const letter of lettersQuery.data?.data ?? []) {
+      if (letter.jobId && !lettersByJob.has(letter.jobId)) lettersByJob.set(letter.jobId, letter.title);
+    }
+    return {
       cv: new Map(cvOptions.map((o) => [o.id, o.title])),
       letters: new Map(letterOptions.map((o) => [o.id, o.title])),
-    }),
-    [cvOptions, letterOptions],
-  );
+      lettersByJob,
+    };
+  }, [cvOptions, letterOptions, lettersQuery.data]);
 
   // Filtering waits for typing to settle (useDeferredValue) so the board stays responsive.
   const [filters, setFilters] = useState<TrackerFilterState>(EMPTY_FILTERS);
@@ -90,8 +96,9 @@ export function JobsPage() {
         jobs,
         { search: deferredSearch, status: statusFilter, followUpDue, missingCv, missingCoverLetter },
         today,
+        titles.lettersByJob,
       ),
-    [jobs, deferredSearch, statusFilter, followUpDue, missingCv, missingCoverLetter, today],
+    [jobs, deferredSearch, statusFilter, followUpDue, missingCv, missingCoverLetter, today, titles.lettersByJob],
   );
   // Results hidden by the column settings are easy to miss while searching or filtering.
   const filtering = hasActiveFilters(filters);
@@ -105,7 +112,7 @@ export function JobsPage() {
   /* ── Drawer (?job=) and add dialog (?new=1) ─────────────────────── */
 
   const rawJobId = params.get("job");
-  const drawerJobId = rawJobId && UUID_PATTERN.test(rawJobId) ? rawJobId : null;
+  const drawerJobId = idParam(rawJobId);
   const openedFromBoard = (location.state as { fromBoard?: boolean } | null)?.fromBoard === true;
 
   const openJob = useCallback(
@@ -157,12 +164,26 @@ export function JobsPage() {
   const [lastMove, setLastMove] = useState<LastMove | null>(null);
   const dismissMove = useCallback(() => setLastMove(null), []);
 
+  /** `undoing` is the move being reverted (its status and appliedAt are restored). */
   const moveJob = useCallback(
-    (jobId: string, status: JobStatus, isUndo = false) => {
+    (jobId: string, status: JobStatus, undoing?: LastMove) => {
       const job = queryClient.getQueryData<ApiResponse<Job[]>>(queryKeys.jobs)?.data.find((j) => j.id === jobId);
       if (!job || job.status === status) return;
-      setLastMove(isUndo ? null : { key: Date.now(), jobId, company: job.company, from: job.status, to: status });
-      moveAsync({ id: jobId, status }).catch((err: unknown) => {
+      const currentAppliedAt = job.appliedAt ?? null;
+      let appliedAt: string | null | undefined;
+      if (undoing) {
+        // Clear the date the move stamped (or put back the one it replaced).
+        if (undoing.appliedAt !== currentAppliedAt) appliedAt = undoing.appliedAt;
+      } else if (job.status === "wishlist" && status !== "wishlist" && !currentAppliedAt) {
+        // Stamp the user's calendar date, as "Applied on" shows it (not the server's UTC date).
+        appliedAt = localDateKey();
+      }
+      setLastMove(
+        undoing
+          ? null
+          : { key: Date.now(), jobId, company: job.company, from: job.status, to: status, appliedAt: currentAppliedAt },
+      );
+      moveAsync({ id: jobId, status, ...(appliedAt !== undefined && { appliedAt }) }).catch((err: unknown) => {
         setLastMove((current) => (current?.jobId === jobId ? null : current));
         toast(
           "error",
@@ -179,7 +200,7 @@ export function JobsPage() {
     const csv = buildJobsCsv(jobs, titles);
     downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), jobsCsvFilename(today));
   };
-  const undoMove = useCallback((move: LastMove) => moveJob(move.jobId, move.from, true), [moveJob]);
+  const undoMove = useCallback((move: LastMove) => moveJob(move.jobId, move.from, move), [moveJob]);
 
   /* ── Render ─────────────────────────────────────────────────────── */
 
@@ -311,6 +332,7 @@ export function JobsPage() {
           listJob={jobs.find((j) => j.id === drawerJobId)}
           cvOptions={cvOptions}
           letterOptions={letterOptions}
+          letterLinkedFromLetter={titles.lettersByJob.get(drawerJobId) ?? null}
           documentsLoaded={cvQuery.isSuccess && lettersQuery.isSuccess}
           canTailor={canTailor}
           onClose={closeJob}

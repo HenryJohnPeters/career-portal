@@ -1,4 +1,4 @@
-import { memo, useCallback, useState, type HTMLAttributes } from "react";
+import { memo, useCallback, useRef, useState, type HTMLAttributes } from "react";
 import { LayoutTemplate, Plus, Sparkles } from "lucide-react";
 import {
   DndContext,
@@ -90,6 +90,7 @@ interface SectionEditorProps {
 export function SectionEditor({ versionId, sections, drafts, onDelete }: SectionEditorProps) {
   const editingId = useStoreSelector(drafts, (s) => s.draft?.id ?? null);
   const createSection = useCreateCvSection();
+  const adding = useRef(false);
   const moveSection = useMoveCvSection();
   const reorderSections = useReorderCvSections();
 
@@ -137,13 +138,17 @@ export function SectionEditor({ versionId, sections, drafts, onDelete }: Section
   };
 
   const addSection = async (input: { title: string; content?: string; sectionType: string }) => {
-    if (atSectionLimit || createSection.isPending) return false;
+    // A ref, not mutation state: a double click lands before the re-render.
+    if (atSectionLimit || adding.current) return false;
+    adding.current = true;
     try {
       const res = await createSection.mutateAsync({ versionId, ...input });
       startEdit(res.data);
       return true;
     } catch {
       return false; // Toasted by the global handler.
+    } finally {
+      adding.current = false;
     }
   };
 

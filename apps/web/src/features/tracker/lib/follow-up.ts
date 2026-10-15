@@ -1,4 +1,4 @@
-import { localDateKey, toDateKey } from "../../../lib/follow-ups";
+import { appliedDateKey, localDateKey, toDateKey } from "../../../lib/follow-ups";
 import { isClosedStatus } from "../constants";
 
 /*
@@ -8,7 +8,7 @@ import { isClosedStatus } from "../constants";
  * shift a day.
  */
 
-export { localDateKey, toDateKey };
+export { appliedDateKey, localDateKey, toDateKey };
 
 const DAY_MS = 86_400_000;
 /** "Due soon" window, in days after today. */

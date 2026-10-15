@@ -1,4 +1,5 @@
 import type { CvContactFields } from "@careerportal/shared/types";
+import { isEmailAddress, isWebUrl } from "../../../lib/validation";
 
 /** Contact fields edited in the CV builder (photoUrl has no editor). */
 export type ContactKey = Exclude<keyof CvContactFields, "photoUrl">;
@@ -51,36 +52,23 @@ export function normaliseUrl(value: string, key?: ContactKey): string {
   return SCHEME.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
-/** Mirrors the API's IsUrl rule: http(s) with a dotted host and a real TLD. */
+/** Mirrors the API's IsUrl rule (see lib/validation.ts). */
 export function validateUrl(value: string, key?: ContactKey): string | null {
   const normalised = normaliseUrl(value, key);
   if (!normalised) return null;
   if (normalised.length > 500) return "Links can be at most 500 characters.";
   if (/\s/.test(normalised)) return "Links can't contain spaces.";
-  let url: URL;
-  try {
-    url = new URL(normalised);
-  } catch {
-    return "Enter a valid link, e.g. linkedin.com/in/your-name.";
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:") {
-    return "Links must start with http:// or https://.";
-  }
-  const labels = url.hostname.split(".");
-  const tld = labels[labels.length - 1] ?? "";
-  if (labels.length < 2 || labels.some((l) => !l) || !/^([a-z]{2,63}|xn--[a-z0-9-]+)$/i.test(tld)) {
-    return "Enter a valid link, e.g. linkedin.com/in/your-name.";
-  }
+  if (!/^https?:\/\//i.test(normalised)) return "Links must start with http:// or https://.";
+  if (!isWebUrl(normalised)) return "Enter a valid link, e.g. linkedin.com/in/your-name.";
   return null;
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@.]{2,}$/;
-
+/** Mirrors the API's IsEmail rule (see lib/validation.ts). */
 export function validateEmail(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
   if (trimmed.length > CONTACT_MAX_LENGTH.email) return "Email addresses can be at most 200 characters.";
-  return EMAIL.test(trimmed) ? null : "Enter a valid email address, e.g. jane@example.com.";
+  return isEmailAddress(trimmed) ? null : "Enter a valid email address, e.g. jane@example.com.";
 }
 
 /** A message when the value would be rejected by the API; null when it can be saved. */

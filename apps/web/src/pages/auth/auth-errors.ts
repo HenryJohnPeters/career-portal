@@ -149,6 +149,8 @@ export function authLinkErrorMessage(errorCode: string | null): string {
       return "This link was opened in a different browser or has expired. Please request a new one and open it on this device.";
     case "user_banned":
       return `This account has been suspended. Contact ${SUPPORT_EMAIL} for help.`;
+    case "network":
+      return "We couldn't reach the sign-in service to verify this link. Check your connection, then request a new link.";
     default:
       return "This link is invalid or has expired.";
   }

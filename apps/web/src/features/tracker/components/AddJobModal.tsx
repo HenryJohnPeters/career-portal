@@ -142,7 +142,13 @@ export function AddJobModal({ onClose, onCreated, cvOptions, letterOptions }: Ad
 
   const submit = async () => {
     // "Applied on" is hidden for wishlist jobs: drop a date picked before switching back.
-    const toSave = values.status === "wishlist" ? { ...values, appliedAt: "" } : values;
+    // Otherwise an empty date means today, as the user's calendar has it.
+    const toSave =
+      values.status === "wishlist"
+        ? { ...values, appliedAt: "" }
+        : values.appliedAt.trim()
+          ? values
+          : { ...values, appliedAt: localDateKey() };
     const nextErrors = validateJobForm(toSave);
     setErrors(nextErrors);
     if (hasErrors(nextErrors)) return;

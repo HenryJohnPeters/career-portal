@@ -146,21 +146,27 @@ export function useUpdateJob(options: MutationUiOptions = {}) {
 export interface MoveJobVariables {
   id: string;
   status: JobStatus;
+  /**
+   * Sent with the status when set: a "YYYY-MM-DD" stamp when the job leaves
+   * the wishlist, or the previous value (null clears) when undoing a move.
+   */
+  appliedAt?: string | null;
 }
 
 interface MoveJobContext {
-  previousStatus: JobStatus | null;
+  previous: Pick<Job, "status" | "appliedAt"> | null;
   version: number;
 }
 
-function setCachedStatus(qc: QueryClient, id: string, status: JobStatus) {
-  patchJob(qc, id, { status });
+/** The status (and appliedAt, when the move sets it) a move writes. */
+function movePatch({ status, appliedAt }: MoveJobVariables): Partial<Job> {
+  return appliedAt === undefined ? { status } : { status, appliedAt };
 }
 
 const MOVE_JOB_KEY = ["jobs", "move"] as const;
 
 /**
- * Kanban moves: PATCH /jobs/:id { status } with an instant board update.
+ * Kanban moves: PATCH /jobs/:id { status, appliedAt? } with an instant board update.
  *
  * - In-flight list fetches are cancelled first, so a stale response cannot
  *   move the card back.
@@ -183,9 +189,10 @@ export function useMoveJob() {
   return useMutation<JobData, Error, MoveJobVariables, MoveJobContext>({
     mutationKey: MOVE_JOB_KEY,
     meta: { silent: true },
-    mutationFn: ({ id, status }) => {
+    mutationFn: (variables) => {
+      const { id } = variables;
       const previous = queues.current.get(id) ?? Promise.resolve();
-      const request = previous.then(() => api.patch<JobData>(`/jobs/${id}`, { status }));
+      const request = previous.then(() => api.patch<JobData>(`/jobs/${id}`, movePatch(variables)));
       const settled = request.then(noop, noop);
       queues.current.set(id, settled);
       void settled.then(() => {
@@ -193,22 +200,25 @@ export function useMoveJob() {
       });
       return request;
     },
-    onMutate: async ({ id, status }) => {
+    onMutate: async (variables) => {
+      const { id } = variables;
       await qc.cancelQueries({ queryKey: queryKeys.jobs, exact: true });
-      const previousStatus =
-        qc.getQueryData<JobsData>(queryKeys.jobs)?.data.find((j) => j.id === id)?.status ?? null;
+      const cached = qc.getQueryData<JobsData>(queryKeys.jobs)?.data.find((j) => j.id === id);
+      const previous = cached ? { status: cached.status, appliedAt: cached.appliedAt } : null;
       const version = (versions.current.get(id) ?? 0) + 1;
       versions.current.set(id, version);
-      setCachedStatus(qc, id, status);
-      return { previousStatus, version };
+      patchJob(qc, id, movePatch(variables));
+      return { previous, version };
     },
     onSuccess: (res, { id }, context) => {
       // An older move's response must not overwrite a newer optimistic status.
       if (versions.current.get(id) === context.version) writeJob(qc, res.data);
     },
-    onError: (_err, { id }, context) => {
-      if (context && context.previousStatus && versions.current.get(id) === context.version) {
-        setCachedStatus(qc, id, context.previousStatus);
+    onError: (_err, variables, context) => {
+      const { id } = variables;
+      if (context?.previous && versions.current.get(id) === context.version) {
+        const { status, appliedAt } = context.previous;
+        patchJob(qc, id, variables.appliedAt === undefined ? { status } : { status, appliedAt });
       }
       needsResync.current = true;
     },

@@ -72,6 +72,15 @@ describe("buildJobsCsv", () => {
     );
   });
 
+  test("a letter linked from the letter side fills the cover-letter column", () => {
+    const csv = buildJobsCsv([job], {
+      cv: new Map(),
+      letters: new Map(),
+      lettersByJob: new Map([["job-1", "Acme letter"]]),
+    });
+    assert.ok(csv.includes('"Acme letter"'));
+  });
+
   test("names the file by date", () => {
     assert.equal(jobsCsvFilename("2026-10-15"), "job-applications-2026-10-15.csv");
   });

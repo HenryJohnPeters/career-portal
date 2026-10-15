@@ -10,6 +10,8 @@ export interface LastMove {
   company: string;
   from: JobStatus;
   to: JobStatus;
+  /** The job's appliedAt before the move; undo restores it (a move off the wishlist stamps one). */
+  appliedAt: string | null;
 }
 
 const VISIBLE_MS = 8000;

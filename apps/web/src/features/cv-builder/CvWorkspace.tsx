@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import type { Location } from "react-router-dom";
 import { LayoutList, List, Palette, Target, User } from "lucide-react";
 import type { CvSection, CvVersion } from "@careerportal/shared/types";
 import {
@@ -38,12 +39,21 @@ const CONTENT_TABS: readonly TabItem<ContentTab>[] = [
   { key: "sections", label: "Sections", icon: LayoutList },
 ];
 
+/** The editor stays mounted while the URL keeps this page and `?version=`. */
+function leavesVersion(current: Location, next: Location): boolean {
+  return (
+    current.pathname !== next.pathname ||
+    new URLSearchParams(current.search).get("version") !== new URLSearchParams(next.search).get("version")
+  );
+}
+
 const PANEL_CLASS =
   "rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-5";
 
 /**
- * Editor + live preview for one CV version. Rendered with `key={version.id}`,
- * so switching versions unmounts it, which saves every pending edit.
+ * Editor + live preview for one CV version. Rendered with `key={version.id}`.
+ * Leaving it (Back, another page, another version) first saves every pending
+ * edit, and asks before dropping edits that couldn't be saved.
  */
 export function CvWorkspace({
   version,
@@ -73,7 +83,6 @@ export function CvWorkspace({
     version.name || (version.sections?.length ?? 0) > 0 ? "sections" : "contact",
   );
   const [pendingDelete, setPendingDelete] = useState<CvSection | null>(null);
-  const [leaveBlocked, setLeaveBlocked] = useState(false);
 
   const flushDesign = design.flush;
   const designUnsaved = design.hasUnsavedChanges;
@@ -86,16 +95,11 @@ export function CvWorkspace({
     () => drafts.hasUnsavedChanges() || designUnsaved(),
     [drafts, designUnsaved],
   );
-  useUnsavedChangesGuard(hasUnsavedChanges, flushAll);
+  const leaveGuard = useUnsavedChangesGuard(hasUnsavedChanges, flushAll, leavesVersion);
 
   const downloadMutate = downloadPdf.mutateAsync;
   const fetchPdf = useCallback(() => downloadMutate(version.id), [downloadMutate, version.id]);
   const pdf = usePdfExport(fetchPdf, flushAll);
-
-  const handleBack = async () => {
-    if (await flushAll()) onBack();
-    else setLeaveBlocked(true);
-  };
 
   const editSection = useCallback(
     (sectionId: string) => {
@@ -128,7 +132,7 @@ export function CvWorkspace({
         sections={sections}
         showPreview={showPreview}
         pdfBusy={pdf.busy}
-        onBack={() => void handleBack()}
+        onBack={onBack}
         onTogglePreview={() => setShowPreview((p) => !p)}
         onPreviewPdf={() => void pdf.preview()}
         onDownloadPdf={() => void pdf.download()}
@@ -231,16 +235,13 @@ export function CvWorkspace({
       />
 
       <ConfirmDialog
-        open={leaveBlocked}
+        open={leaveGuard.blocked}
         title="Leave without saving?"
         description="Some of your latest changes couldn't be saved. If you leave now they'll be lost."
         confirmLabel="Leave anyway"
         cancelLabel="Stay and fix"
-        onConfirm={() => {
-          setLeaveBlocked(false);
-          onBack();
-        }}
-        onCancel={() => setLeaveBlocked(false)}
+        onConfirm={leaveGuard.leave}
+        onCancel={leaveGuard.stay}
       />
     </div>
   );

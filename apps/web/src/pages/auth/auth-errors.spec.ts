@@ -100,6 +100,8 @@ describe("authLinkErrorMessage", () => {
   test("known codes get specific copy; anything else is generic", () => {
     assert.match(authLinkErrorMessage("otp_expired"), /expired or has already been used/);
     assert.match(authLinkErrorMessage("flow_state_expired"), /different browser/);
+    assert.match(authLinkErrorMessage("bad_code_verifier"), /different browser/);
+    assert.match(authLinkErrorMessage("network"), /couldn't reach the sign-in service/);
     assert.equal(authLinkErrorMessage("<script>"), "This link is invalid or has expired.");
     assert.equal(authLinkErrorMessage(null), "This link is invalid or has expired.");
   });

@@ -1,6 +1,6 @@
 import { useCallback, useId, useState } from "react";
 import { Copy, Download, Eye, FileDown, Loader2 } from "lucide-react";
-import type { CvVersion } from "@careerportal/shared/types";
+import type { CvVersionSummary } from "@careerportal/shared/types";
 import { downloadBlob, useDownloadCoverLetterPdf } from "@careerportal/web/data-access";
 import { showToast } from "../../lib/toast";
 import { usePdfExport } from "../cv-builder/hooks/usePdfExport";
@@ -25,7 +25,7 @@ export function CoverLetterExportBar({
   letterId: string;
   title: string;
   body: string;
-  cvVersions: CvVersion[];
+  cvVersions: readonly CvVersionSummary[];
   /** Save pending edits first so the PDF matches the editor. */
   prepare: () => Promise<boolean>;
 }) {

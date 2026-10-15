@@ -14,7 +14,6 @@ import {
   clearPasswordRecovery,
   hasPasswordRecovery,
   isRecoveryNavigationState,
-  markPasswordRecovery,
 } from "./auth/auth-redirect";
 import { withPasswordConfirmation } from "./auth/password-rules";
 
@@ -53,16 +52,10 @@ export function ResetPasswordPage() {
       .catch(() => {
         if (active) setView("invalid");
       });
-
-    // A recovery link that lands here directly (not via /auth/callback).
-    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
-      if (event !== "PASSWORD_RECOVERY" || !active) return;
-      markPasswordRecovery();
-      setView("ready");
-    });
+    // Reset links land on /auth/callback, which marks the recovery (PKCE
+    // emits no PASSWORD_RECOVERY event) before sending the user here.
     return () => {
       active = false;
-      listener.subscription.unsubscribe();
     };
   }, [fromRecoveryLink]);
 
