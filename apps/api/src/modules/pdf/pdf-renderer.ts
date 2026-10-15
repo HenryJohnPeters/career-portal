@@ -2,7 +2,7 @@ import {
   Inject,
   Injectable,
   Logger,
-  OnModuleDestroy,
+  OnApplicationShutdown,
   Optional,
   ServiceUnavailableException,
 } from "@nestjs/common";
@@ -61,7 +61,7 @@ function errorText(err: unknown): string {
  * discarded and relaunched by the next render.
  */
 @Injectable()
-export class PdfRenderer implements OnModuleDestroy {
+export class PdfRenderer implements OnApplicationShutdown {
   private readonly logger = new Logger(PdfRenderer.name);
   private readonly limits: PdfRenderLimits;
   private readonly slots: Semaphore;
@@ -79,7 +79,8 @@ export class PdfRenderer implements OnModuleDestroy {
     );
   }
 
-  async onModuleDestroy(): Promise<void> {
+  /** Runs after the HTTP server has drained, so in-flight renders can finish. */
+  async onApplicationShutdown(): Promise<void> {
     const browser = this.browser;
     this.browser = null;
     if (browser) await browser.close().catch(() => undefined);

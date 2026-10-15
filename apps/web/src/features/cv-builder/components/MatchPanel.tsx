@@ -38,6 +38,8 @@ interface MatchPanelProps {
   /** Save pending edits first so the server scores the latest text. */
   prepare: () => Promise<boolean>;
   onEditSection: (sectionId: string) => void;
+  /** Tracked job to preselect (deep link from the tracker's "Improve this CV"). */
+  initialJobId?: string;
 }
 
 /**
@@ -45,14 +47,20 @@ interface MatchPanelProps {
  * description or pick a tracked job, then see matched and missing keywords and
  * ATS checks.
  */
-export function MatchPanel({ versionId, sections, prepare, onEditSection }: MatchPanelProps) {
+export function MatchPanel({
+  versionId,
+  sections,
+  prepare,
+  onEditSection,
+  initialJobId,
+}: MatchPanelProps) {
   const ids = useId();
   const { data: jobsData } = useJobs();
   const trackedJobs = useMemo(
     () => (jobsData?.data ?? []).filter((job) => job.hasJobDescription),
     [jobsData],
   );
-  const [jobId, setJobId] = useState("");
+  const [jobId, setJobId] = useState(initialJobId ?? "");
   const {
     data: jobData,
     isFetching: jobLoading,

@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import * as apiConstants from "./constants";
 import * as apiTags from "./tech-tags";
+import { SCENARIO_TEMPLATES } from "../modules/technical-tests/engine/templates";
 
 /*
  * The API cannot import libs/shared/types at runtime, so plan limits and the
@@ -125,12 +126,12 @@ test("every question-bank seed tag is in the catalog", () => {
   assert.deepStrictEqual(unknown, []);
 });
 
-test("every scenario-generator tag is in the catalog", () => {
-  const file = "apps/api/src/modules/technical-tests/engine/scenario-generator.ts";
-  const tags = [
-    ...literalsIn(file, /tagMatch:\s*\[([\s\S]*?)\]/g),
-    ...literalsIn(file, /findTag\(\s*tags,\s*\[([\s\S]*?)\]/g),
-  ];
+test("every scenario-template tag is in the catalog", () => {
+  const tags = SCENARIO_TEMPLATES.flatMap((t) => [
+    ...Object.values<readonly string[]>(t.slots).flat(),
+    ...(t.topics ?? []),
+  ]);
+  assert.ok(tags.length > 0, "templates declare no tags");
   const unknown = tags.filter((t) => !apiTags.isKnownTag(t));
   assert.deepStrictEqual(unknown, []);
 });

@@ -24,7 +24,7 @@ import { TemplateSelector } from "./components/TemplateSelector";
 import { ThemeCustomiser } from "./components/ThemeCustomiser";
 import { VersionToolbar } from "./components/VersionToolbar";
 
-type WorkspaceTab = "content" | "design" | "match";
+export type WorkspaceTab = "content" | "design" | "match";
 type ContentTab = "contact" | "sections";
 
 const WORKSPACE_TABS: readonly TabItem<WorkspaceTab>[] = [
@@ -45,7 +45,18 @@ const PANEL_CLASS =
  * Editor + live preview for one CV version. Rendered with `key={version.id}`,
  * so switching versions unmounts it, which saves every pending edit.
  */
-export function CvWorkspace({ version, onBack }: { version: CvVersion; onBack: () => void }) {
+export function CvWorkspace({
+  version,
+  onBack,
+  initialTab = "content",
+  initialJobId,
+}: {
+  version: CvVersion;
+  onBack: () => void;
+  /** Deep links (e.g. `?tab=match&job=<id>` from the tracker) open a tab directly. */
+  initialTab?: WorkspaceTab;
+  initialJobId?: string;
+}) {
   const { user } = useAuth();
   const plan = usePlanStatus();
   const { data: sectionsData } = useCvSections(version.id);
@@ -57,7 +68,7 @@ export function CvWorkspace({ version, onBack }: { version: CvVersion; onBack: (
   const design = useCvDesign(version);
 
   const [showPreview, setShowPreview] = useState(true);
-  const [tab, setTab] = useState<WorkspaceTab>("content");
+  const [tab, setTab] = useState<WorkspaceTab>(initialTab);
   const [contentTab, setContentTab] = useState<ContentTab>(
     version.name || (version.sections?.length ?? 0) > 0 ? "sections" : "contact",
   );
@@ -187,6 +198,7 @@ export function CvWorkspace({ version, onBack }: { version: CvVersion; onBack: (
                   sections={sections}
                   prepare={flushAll}
                   onEditSection={editSection}
+                  initialJobId={initialJobId}
                 />
               </div>
             )}

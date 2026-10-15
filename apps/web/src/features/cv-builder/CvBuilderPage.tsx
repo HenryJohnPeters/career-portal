@@ -4,19 +4,24 @@ import { FileText } from "lucide-react";
 import { getErrorMessage, useCvVersions } from "@careerportal/web/data-access";
 import { ErrorState, Spinner } from "@careerportal/web/ui";
 import { PageHero } from "../shared";
-import { CvWorkspace } from "./CvWorkspace";
+import { CvWorkspace, type WorkspaceTab } from "./CvWorkspace";
 import { VersionList } from "./components/VersionList";
 
 /**
  * CV builder. The open version lives in the URL (`?version=<id>`) so links
  * (e.g. from the Tailor kit) and the browser Back button work; `?new=1` opens
- * the create form.
+ * the create form. `?tab=match&job=<jobId>` opens the Match tab with that
+ * tracked job preselected.
  */
 export function CvBuilderPage() {
   const [params, setParams] = useSearchParams();
   const { data, isLoading, isFetching, isError, error, refetch } = useCvVersions();
   const versions = data?.data ?? [];
   const selectedId = params.get("version");
+  const tabParam = params.get("tab");
+  const initialTab: WorkspaceTab | undefined =
+    tabParam === "match" || tabParam === "design" || tabParam === "content" ? tabParam : undefined;
+  const initialJobId = params.get("job") ?? undefined;
   const selected = selectedId ? versions.find((v) => v.id === selectedId) ?? null : null;
   const resolving = !!selectedId && !selected && isFetching;
   const refetchedFor = useRef<string | null>(null);
@@ -68,7 +73,13 @@ export function CvBuilderPage() {
       />
 
       {selected ? (
-        <CvWorkspace key={selected.id} version={selected} onBack={back} />
+        <CvWorkspace
+          key={selected.id}
+          version={selected}
+          onBack={back}
+          initialTab={initialTab}
+          initialJobId={initialJobId}
+        />
       ) : (
         <VersionList
           versions={versions}

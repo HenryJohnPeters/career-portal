@@ -135,12 +135,17 @@ export class BillingService {
   async cancelSubscriptionsForAccountDeletion(userId: string): Promise<void> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { stripeCustomerId: true },
+      select: { stripeCustomerId: true, stripeCheckoutSessionId: true },
     });
     if (!user?.stripeCustomerId) return;
 
     let cancelled: string[];
     try {
+      // Expire an open checkout first so a payment finished in another tab
+      // cannot start a subscription after the account is gone.
+      if (user.stripeCheckoutSessionId) {
+        await this.expireCheckoutIfOpen(user.stripeCheckoutSessionId);
+      }
       cancelled = await this.sync.cancelLiveSubscriptions(user.stripeCustomerId);
     } catch (err) {
       throw toBillingHttpError(err, this.logger, "account deletion");
@@ -151,6 +156,18 @@ export class BillingService {
       "account_deletion",
       { cancelledSubscriptions: cancelled.length },
     );
+  }
+
+  private async expireCheckoutIfOpen(sessionId: string): Promise<void> {
+    try {
+      const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+      if (session.status === "open") {
+        await this.stripe.checkout.sessions.expire(sessionId);
+      }
+    } catch (err) {
+      // Already gone in Stripe: nothing left that could be completed.
+      if (!isStripeResourceMissing(err)) throw err;
+    }
   }
 
   private async openCheckout(userId: string): Promise<{ url: string }> {

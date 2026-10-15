@@ -16,6 +16,7 @@ import {
 
 /** The largest legitimate body (a 30-section CV apply) is well under this. */
 const JSON_BODY_LIMIT = "1mb";
+const FORBIDDEN_JSON_KEYS = new Set(["__proto__", "constructor", "prototype"]);
 /**
  * Longer than the edge proxy's idle timeout, so the proxy never reuses a
  * keep-alive socket Node has just closed (which surfaces as random 502s).
@@ -97,7 +98,15 @@ async function bootstrap() {
   logger.log(`Allowed CORS origins: ${[...allowedOrigins].join(", ")}`);
 
   // After CORS, so body errors (413, malformed JSON) stay readable cross-origin.
-  app.useBodyParser("json", { limit: JSON_BODY_LIMIT });
+  // Keys like "constructor" crash class-transformer inside the ValidationPipe
+  // (500) and are prototype-pollution vectors; no DTO uses them, so refuse them.
+  app.useBodyParser("json", {
+    limit: JSON_BODY_LIMIT,
+    reviver: (key: string, value: unknown) => {
+      if (FORBIDDEN_JSON_KEYS.has(key)) throw new SyntaxError("Forbidden key");
+      return value;
+    },
+  });
   app.use(
     (err: unknown, _req: Request, _res: Response, next: NextFunction) => {
       const isParseError =

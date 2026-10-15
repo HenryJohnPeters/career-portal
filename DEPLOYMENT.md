@@ -43,7 +43,7 @@ everything with comments.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `DATABASE_URL` | yes | Reference the plugin: `${{Postgres.DATABASE_URL}}` |
+| `DATABASE_URL` | yes | Reference the plugin: `${{Postgres.DATABASE_URL}}`. Prisma's pool defaults to `cpus * 2 + 1`; on small instances append `?connection_limit=10` (the dashboard runs its summary queries in parallel). |
 | `SUPABASE_URL` | one of these two | Project URL. Verifies ES256/RS256 tokens via the project's JWKS and checks the issuer. |
 | `SUPABASE_JWT_SECRET` | one of these two | Legacy HS256 secret; only if the project still signs tokens with it. |
 | `SUPABASE_SERVICE_ROLE_KEY` | no | Lets account deletion also delete the Supabase user. Server-side only. Needs `SUPABASE_URL`. |
@@ -70,8 +70,12 @@ Content-Security-Policy `connect-src`.
 
 ## 3. Supabase
 
-- **Authentication → URL configuration**: Site URL = `CLIENT_URL`; add `CLIENT_URL/auth/callback` to
-  the redirect URLs.
+- **Authentication → URL configuration**: Site URL = `CLIENT_URL`; add `CLIENT_URL/auth/callback**` to
+  the redirect URLs (the wildcard matters: the app appends `?type=recovery`, `?intent=premium` and
+  `?next=/app/...` to the callback).
+- **Authentication → Providers → Email**: keep "Confirm email" on; enable **Secure email change**
+  and **Secure password change** (re-authentication for password updates), set the minimum password
+  length to at least 8 and turn on leaked-password protection.
 - **JWT signing keys**: with asymmetric keys (recommended) set `SUPABASE_URL`; the API fetches and
   caches the public keys (cached for an hour, unknown key ids refetched at most every 30 s). After
   *revoking* a key, redeploy the API to drop it from the cache at once. Legacy HS256 projects set

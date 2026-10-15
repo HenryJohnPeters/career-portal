@@ -41,3 +41,19 @@ export function removeStorage(key: string, kind: StorageKind = "local"): void {
     // Nothing to clean up when storage is unavailable.
   }
 }
+
+/** Removes every key starting with `prefix` (e.g. per-user drafts on sign-out). */
+export function removeStorageByPrefix(prefix: string, kind: StorageKind = "local"): void {
+  try {
+    const storage = getStorage(kind);
+    if (!storage) return;
+    const keys: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      if (key?.startsWith(prefix)) keys.push(key);
+    }
+    for (const key of keys) storage.removeItem(key);
+  } catch {
+    // Nothing to clean up when storage is unavailable.
+  }
+}

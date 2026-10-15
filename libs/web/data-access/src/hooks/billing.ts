@@ -32,6 +32,8 @@ export function useCreateCheckoutSession() {
 export function useVerifyCheckoutSession() {
   const qc = useQueryClient();
   return useMutation({
+    // BillingPage handles failures itself (falls back to polling the status).
+    meta: { silent: true },
     mutationFn: (sessionId: string) =>
       api.post<ApiResponse<SubscriptionStatus>>("/billing/checkout/verify", {
         sessionId,

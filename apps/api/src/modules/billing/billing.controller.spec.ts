@@ -2,12 +2,11 @@ import "reflect-metadata";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { BillingController } from "./billing.controller";
+import { THROTTLER_NAMES } from "../../common/throttler.config";
 
 /* @nestjs/throttler metadata keys (prefix + throttler name; not exported by the package). */
 const SKIP = "THROTTLER:SKIP";
 const LIMIT = "THROTTLER:LIMIT";
-/** The throttlers configured in app.module (PLAN contract). */
-const THROTTLER_NAMES = ["default", "burst"];
 
 describe("BillingController throttling", () => {
   test("the Stripe webhook skips every throttler", () => {

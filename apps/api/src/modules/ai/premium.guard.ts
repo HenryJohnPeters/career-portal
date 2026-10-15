@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from "@nestjs/common";
+import type { Response } from "express";
 import type { AuthenticatedRequest } from "../auth/auth.guard";
 import { CooldownException } from "../../common/errors";
 import { AiUsageService } from "./ai-usage.service";
@@ -51,6 +52,15 @@ export class PremiumGuard implements CanActivate {
       throw new CooldownException((AI_COOLDOWN_MS - (now - last)) / 1000);
     }
     recentRequests.set(key, now);
+    // A rejected request (validation 400, not-found 404, ...) never reached
+    // the model, so let the user retry their corrected request immediately.
+    const response = context.switchToHttp().getResponse<Response>();
+    response.once("finish", () => {
+      const status = response.statusCode;
+      if (status >= 400 && status < 500 && status !== 429 && recentRequests.get(key) === now) {
+        recentRequests.delete(key);
+      }
+    });
     return true;
   }
 }

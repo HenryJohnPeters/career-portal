@@ -16,7 +16,15 @@ import {
   supabase,
   useMe,
 } from "@careerportal/web/data-access";
+import { removeStorageByPrefix } from "./storage";
 import { showToast } from "./toast";
+
+/** Users' own unsent work kept in this browser; never leave it on a shared device. */
+const PRIVATE_DRAFT_PREFIXES = ["careerportal:techtest-draft:"];
+
+function clearPrivateDrafts(): void {
+  for (const prefix of PRIVATE_DRAFT_PREFIXES) removeStorageByPrefix(prefix);
+}
 
 export interface LogoutOptions {
   /** Revoke the session on every device ("Sign out everywhere"), not just this browser. */
@@ -91,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (previousId !== null) {
             queryClient.clear();
             dismissUpgrade();
+            clearPrivateDrafts();
           }
           sessionUserIdRef.current = nextId;
           setSessionUserId(nextId);
@@ -152,6 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSigningOut(true);
       queryClient.clear();
       dismissUpgrade();
+      clearPrivateDrafts();
       window.location.replace(safeRedirectPath(options.redirectTo));
       return true;
     },

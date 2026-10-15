@@ -23,6 +23,7 @@
   },
   "packageManager": "pnpm@9.15.0",
   "dependencies": {
+    "compression": "1.8.1",
     "express": "4.22.1"
   },
   "pnpm": {
@@ -38,5 +39,8 @@
       "path-to-regexp@<0.1.13": "0.1.13",
       "qs": "6.15.0"
     }
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
