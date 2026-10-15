@@ -1,34 +1,42 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import {
-  Sparkles,
-  X,
-  Loader2,
-  Check,
-  RotateCcw,
-  Crown,
-  Wand2,
-  FileText,
-  User,
-  Briefcase,
-  GraduationCap,
-  Code2,
-  Trophy,
   AlertCircle,
+  Briefcase,
+  Check,
   ChevronDown,
+  Code2,
+  FileText,
+  GraduationCap,
+  History,
+  Loader2,
+  RotateCcw,
+  Sparkles,
+  Trophy,
+  User,
+  Wand2,
+  X,
 } from "lucide-react";
-import { Button } from "@careerportal/web/ui";
+import type { AiFullCvResult } from "@careerportal/shared/types";
 import {
   useAiGenerateFullCv,
-  useCreateCvSection,
-  useUpdateCvVersion,
-  useDeleteCvSection,
-  useAiUsage,
+  useApplyCvContent,
+  useRestoreCvSnapshot,
 } from "@careerportal/web/data-access";
-import type { AiFullCvResult } from "@careerportal/web/data-access";
-import { useAuth } from "../../../lib/auth";
-import { useNavigate } from "react-router-dom";
-import type { CvSection } from "@careerportal/shared/types";
-import { isActivePremium } from "@careerportal/shared/types";
+import { Button } from "@careerportal/web/ui";
+import { showToast } from "../../../lib/toast";
+import {
+  AiLimitReachedCard,
+  AiUsesLeft,
+  EMPTY_AI_RESULT,
+  aiErrorMessage,
+  usePlanStatus,
+} from "../../ai-assist";
+import { toApplyCvContent } from "../lib/cv-content";
+
+const RAW_TEXT_MAX = 20_000;
+const RAW_TEXT_MIN = 20;
+const JOB_TITLE_MAX = 200;
+const JOB_DESCRIPTION_MAX = 10_000;
 
 const SECTION_ICONS: Record<string, typeof Briefcase> = {
   profile: User,
@@ -39,435 +47,346 @@ const SECTION_ICONS: Record<string, typeof Briefcase> = {
   certifications: Trophy,
 };
 
+const CONTACT_PREVIEW: { key: keyof AiFullCvResult; label: string }[] = [
+  { key: "name", label: "Name" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Phone" },
+  { key: "location", label: "Location" },
+  { key: "linkedin", label: "LinkedIn" },
+  { key: "github", label: "GitHub" },
+  { key: "website", label: "Website" },
+];
+
 const PLACEHOLDER_TEXT = `Just dump everything here — messy is fine! For example:
 
-"I'm John Smith, live in London, john@email.com. Worked at Google as a senior engineer for 3 years building search infrastructure in Go and Python, led a team of 4. Before that I was at a startup called Acme for 2 years doing full-stack React/Node stuff. I went to UCL and got a CS degree in 2018. I know TypeScript, React, Node, Python, Go, AWS, Docker, Kubernetes. I built a side project called DevTrack that got 2k users — it's a developer productivity tool. I also have an AWS Solutions Architect cert. I speak English natively and conversational Spanish."
+"I'm John Smith, live in London, john@email.com. Worked at Google as a senior engineer for 3 years building search infrastructure in Go and Python, led a team of 4. Before that I was at a startup called Acme for 2 years doing full-stack React/Node stuff. I went to UCL and got a CS degree in 2018. I know TypeScript, React, Node, Python, Go, AWS, Docker, Kubernetes…"
 
 The AI will turn this into a polished, structured CV with all sections filled out.`;
 
+const inputClass =
+  "w-full rounded-lg border border-accent-muted bg-white dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent";
+
 interface RawTextCvPanelProps {
   versionId: string;
-  existingSections: CvSection[];
-  onComplete: () => void;
+  /** Whether the CV already has content (applying replaces it). */
+  hasContent: boolean;
+  /** A previous apply can be undone (CvVersion.hasSnapshot). */
+  hasSnapshot: boolean;
+  /** Save pending edits before content is replaced; false aborts. */
+  beforeReplace: () => Promise<boolean>;
+  /** All sections were replaced (new ids): reset editors. */
+  onReplaced: () => void;
 }
 
+/**
+ * "Brain dump → full CV": the AI structures pasted text into contact details
+ * and sections, which replace the CV's content in one transactional request.
+ * The previous content is kept server-side and can be restored.
+ */
 export function RawTextCvPanel({
   versionId,
-  existingSections,
-  onComplete,
+  hasContent,
+  hasSnapshot,
+  beforeReplace,
+  onReplaced,
 }: RawTextCvPanelProps) {
-  const { user } = useAuth();
-  const { data: usageData } = useAiUsage();
-  const usage = usageData?.data;
-  const isPremium = usage?.isPremium ?? isActivePremium(user);
-  const hasUsesLeft = isPremium || (usage?.remaining ?? 1) > 0;
-  const navigate = useNavigate();
+  const plan = usePlanStatus();
+  const ids = useId();
+  const generate = useAiGenerateFullCv({ silent: true });
+  const apply = useApplyCvContent({ silent: true });
+  const restore = useRestoreCvSnapshot();
 
   const [isOpen, setIsOpen] = useState(false);
   const [rawText, setRawText] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [result, setResult] = useState<AiFullCvResult | null>(null);
+  const [truncated, setTruncated] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isApplying, setIsApplying] = useState(false);
-  const [applyProgress, setApplyProgress] = useState("");
 
-  const generateFullCv = useAiGenerateFullCv();
-  const createSection = useCreateCvSection();
-  const updateVersion = useUpdateCvVersion();
-  const deleteSection = useDeleteCvSection();
+  const busy = generate.isPending || apply.isPending || restore.isPending;
 
   const handleGenerate = async () => {
-    if (!rawText.trim()) return;
+    if (rawText.trim().length < RAW_TEXT_MIN || generate.isPending) return;
     setResult(null);
     setError(null);
-
     try {
-      const res = await generateFullCv.mutateAsync({
+      const res = await generate.mutateAsync({
         versionId,
         rawText: rawText.trim(),
         jobTitle: jobTitle.trim() || undefined,
         jobDescription: jobDescription.trim() || undefined,
       });
-      setResult(res.data);
-    } catch (err: any) {
-      setError(err.message || "Failed to generate CV. Please try again.");
+      const data = res.data as AiFullCvResult & { truncated?: boolean };
+      if (!toApplyCvContent(data)) {
+        setError(EMPTY_AI_RESULT);
+        return;
+      }
+      setTruncated(data.truncated === true);
+      setResult(data);
+    } catch (err) {
+      setError(aiErrorMessage(err));
     }
   };
 
   const handleApply = async () => {
-    if (!result) return;
-    setIsApplying(true);
-
+    if (!result || busy) return;
+    const body = toApplyCvContent(result);
+    if (!body) {
+      setError(EMPTY_AI_RESULT);
+      return;
+    }
+    setError(null);
+    if (!(await beforeReplace())) {
+      setError("Some of your edits couldn't be saved yet. Fix or discard them, then apply again.");
+      return;
+    }
     try {
-      // 1. Update contact info on the version
-      const contactFields: Record<string, string> = {};
-      if (result.name) contactFields.name = result.name;
-      if (result.email) contactFields.email = result.email;
-      if (result.phone) contactFields.phone = result.phone;
-      if (result.location) contactFields.location = result.location;
-      if (result.website) contactFields.website = result.website;
-      if (result.linkedin) contactFields.linkedin = result.linkedin;
-      if (result.github) contactFields.github = result.github;
-
-      if (Object.keys(contactFields).length > 0) {
-        setApplyProgress("Updating contact info…");
-        await updateVersion.mutateAsync({ id: versionId, ...contactFields });
-      }
-
-      // 2. Delete existing sections (replacing the whole CV)
-      if (existingSections.length > 0) {
-        setApplyProgress("Clearing old sections…");
-        for (const section of existingSections) {
-          await deleteSection.mutateAsync(section.id);
-        }
-      }
-
-      // 3. Create each AI-generated section
-      for (let i = 0; i < result.sections.length; i++) {
-        const s = result.sections[i];
-        setApplyProgress(
-          `Creating section ${i + 1}/${result.sections.length}: ${s.title}…`,
-        );
-        await createSection.mutateAsync({
-          versionId,
-          title: s.title,
-          content: s.content,
-          sectionType: s.sectionType,
-        });
-      }
-
-      setApplyProgress("");
-      setIsApplying(false);
+      await apply.mutateAsync({ versionId, ...body });
+      onReplaced();
       setResult(null);
       setRawText("");
       setJobTitle("");
       setJobDescription("");
       setIsOpen(false);
-      onComplete();
-    } catch (err: any) {
-      setError(err.message || "Failed to apply CV sections.");
-      setIsApplying(false);
-      setApplyProgress("");
+      showToast("success", "Your CV was updated. Use “Restore previous content” to undo.");
+    } catch (err) {
+      setError(aiErrorMessage(err, "Couldn't apply the generated CV. Your CV was not changed."));
     }
   };
 
-  // Collapsed button state
+  const handleRestore = async () => {
+    if (busy) return;
+    if (!(await beforeReplace())) {
+      showToast("error", "Some of your edits couldn't be saved yet. Fix or discard them first.");
+      return;
+    }
+    try {
+      await restore.mutateAsync(versionId);
+      onReplaced();
+      showToast("success", "Previous content restored.");
+    } catch {
+      // Toasted by the global handler.
+    }
+  };
+
+  const restoreButton = hasSnapshot && (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => void handleRestore()}
+      loading={restore.isPending}
+      disabled={busy && !restore.isPending}
+      title="Swap your current sections with the ones you had before the last AI apply"
+    >
+      {!restore.isPending && <History className="h-3.5 w-3.5" aria-hidden="true" />}
+      Restore previous content
+    </Button>
+  );
+
   if (!isOpen) {
     return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="group w-full rounded-xl border-2 border-primary-500/40 bg-gradient-to-r from-primary-500/10 to-primary-400/5 p-4 text-left hover:border-primary-500/70 hover:from-primary-500/15 hover:to-primary-400/10 hover:shadow-md hover:shadow-primary-500/10 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm group-hover:bg-primary-500 group-hover:shadow-md transition-all">
-            <Wand2 className="h-5 w-5" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-text-primary">
-                AI Brain Dump → Full CV
-              </h3>
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-semibold text-white">
-                <Sparkles className="h-2.5 w-2.5" />
-                AI
-              </span>
-              {!isPremium && usage && (
-                <span className="text-[9px] font-medium text-text-tertiary">
-                  {usage.remaining}/{usage.limit} uses
-                </span>
-              )}
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          aria-expanded={false}
+          className="group w-full rounded-xl border-2 border-primary-500/40 bg-gradient-to-r from-primary-500/10 to-primary-400/5 p-4 text-left hover:border-primary-500/70 hover:shadow-md hover:shadow-primary-500/10 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm">
+              <Wand2 className="h-5 w-5" aria-hidden="true" />
             </div>
-            <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">
-              Paste everything about yourself — AI builds your full CV
-              instantly.{" "}
-              <span className="font-semibold text-primary-600 dark:text-primary-400 underline underline-offset-2 decoration-dashed">
-                Click to open ↓
-              </span>
-            </p>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-bold text-text-primary">AI Brain Dump → Full CV</h3>
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
+                  AI
+                </span>
+                <AiUsesLeft meter={plan.aiMeter} isPremium={plan.isPremium} />
+              </div>
+              <p className="text-xs text-text-secondary mt-0.5 leading-relaxed">
+                Paste everything about yourself — AI structures it into a full CV you can review before applying.
+              </p>
+            </div>
+            <ChevronDown className="h-4 w-4 shrink-0 text-primary-600 dark:text-primary-400" aria-hidden="true" />
           </div>
-          <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 group-hover:bg-primary-200 dark:group-hover:bg-primary-800/50 transition-colors shrink-0">
-            <ChevronDown className="h-4 w-4" />
-          </div>
-        </div>
-      </button>
+        </button>
+        {restoreButton && <div className="flex justify-end">{restoreButton}</div>}
+      </div>
     );
   }
 
-  // Free tier cap reached
-  if (!hasUsesLeft) {
+  if (!plan.hasAiUsesLeft && !result) {
     return (
-      <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-5">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <Crown className="h-5 w-5 text-accent-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-accent-700 dark:text-accent-300">
-              Monthly Limit Reached
-            </span>
-          </div>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="rounded-md p-1 text-text-tertiary hover:text-text-primary transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <p className="text-sm text-accent-800 dark:text-accent-200 mb-1">
-          You've used all {usage?.limit} free AI uses this month. Upgrade to
-          Premium for unlimited AI-powered tools.
-        </p>
-        {usage?.resetsAt && (
-          <p className="text-[10px] text-accent-600 dark:text-accent-400 mb-3">
-            Resets{" "}
-            {new Date(usage.resetsAt).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "long",
-            })}
-          </p>
-        )}
-        <Button
-          size="sm"
-          className="!bg-accent-400 hover:!bg-accent-500"
-          onClick={() => navigate("/app/billing")}
-        >
-          <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-          Upgrade to Premium
-        </Button>
+      <div className="space-y-2">
+        <AiLimitReachedCard meter={plan.aiMeter} onClose={() => setIsOpen(false)} />
+        {restoreButton && <div className="flex justify-end">{restoreButton}</div>}
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 shadow-sm overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-primary-500/10">
+    <section
+      aria-label="AI brain dump"
+      className="rounded-xl border border-primary-500/20 bg-primary-500/5 shadow-sm overflow-hidden"
+    >
+      <div className="flex items-center justify-between gap-2 px-5 py-4 border-b border-primary-500/10">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white shadow-sm">
-            <Wand2 className="h-4 w-4" />
+            <Wand2 className="h-4 w-4" aria-hidden="true" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-text-primary">
-              AI Brain Dump → Full CV
-            </h3>
-            <p className="text-[10px] text-text-secondary mt-0.5">
-              Paste everything. We'll handle the rest.
-            </p>
+            <h3 className="text-sm font-bold text-text-primary">AI Brain Dump → Full CV</h3>
+            <p className="text-[11px] text-text-secondary mt-0.5">Paste everything. Review, then apply.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {!isPremium && usage && (
-            <span className="text-[10px] font-medium text-text-tertiary">
-              {usage.remaining}/{usage.limit} uses left
-            </span>
-          )}
+          <AiUsesLeft meter={plan.aiMeter} isPremium={plan.isPremium} />
           <button
+            type="button"
             onClick={() => {
               setIsOpen(false);
               setResult(null);
               setError(null);
             }}
+            disabled={apply.isPending}
+            aria-label="Close the brain dump"
             className="rounded-lg p-1.5 text-text-tertiary hover:text-text-primary hover:bg-bg-tertiary transition-colors"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
 
       <div className="p-5 space-y-4">
-        {/* Input phase */}
-        {!result && !generateFullCv.isPending && (
+        {!result && !generate.isPending && (
           <>
-            {/* Helper callout */}
             <div className="flex gap-3 rounded-lg border border-accent-200 dark:border-accent-700 bg-accent-50 dark:bg-accent-900/20 p-3">
-              <AlertCircle className="h-4 w-4 shrink-0 text-accent-600 dark:text-accent-400 mt-0.5" />
-              <div className="text-xs text-accent-700 dark:text-accent-200 leading-relaxed">
-                <span className="font-semibold text-accent-800 dark:text-accent-100">
-                  Don't overthink it.
-                </span>{" "}
-                Just brain-dump everything — your work history, skills,
-                education, projects, certifications, contact info, anything at
-                all. Messy notes, bullet points, full sentences, copy-pasted
-                LinkedIn — all fine. The AI will extract, organise, and rewrite
-                it into a professional CV.
-                {existingSections.some((s) => s.content.trim()) && (
-                  <span className="block mt-1.5 font-medium text-amber-600 dark:text-amber-400">
-                    ⚠ This will replace all your existing sections.
+              <AlertCircle className="h-4 w-4 shrink-0 text-accent-600 dark:text-accent-400 mt-0.5" aria-hidden="true" />
+              <div className="text-xs text-accent-800 dark:text-accent-200 leading-relaxed">
+                <span className="font-semibold">Don't overthink it.</span> Work history, skills,
+                education, projects, contact info — messy notes or a pasted LinkedIn profile are fine.
+                {hasContent && (
+                  <span className="block mt-1.5 font-medium text-amber-700 dark:text-amber-400">
+                    Applying replaces your current sections. You can restore them afterwards.
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Raw text area */}
-            <textarea
-              value={rawText}
-              onChange={(e) => setRawText(e.target.value)}
-              placeholder={PLACEHOLDER_TEXT}
-              rows={10}
-              className="w-full rounded-xl border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-4 py-3 text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow resize-y leading-relaxed"
-            />
-
-            {/* Optional job title */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                Target Role{" "}
-                <span className="normal-case font-normal">— optional</span>
-              </label>
-              <input
-                value={jobTitle}
-                onChange={(e) => setJobTitle(e.target.value)}
-                placeholder="e.g. Senior Frontend Engineer"
-                className="w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow"
-              />
-            </div>
-
-            {/* Job description — always visible */}
-            <div className="space-y-1.5">
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-                Job Description{" "}
-                <span className="normal-case font-normal text-text-tertiary">
-                  — paste for best results, AI will tailor your CV to the role
-                </span>
+            <div>
+              <label htmlFor={`${ids}-raw`} className="sr-only">
+                Everything about you
               </label>
               <textarea
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Paste the full job description here — the AI will tailor your CV's profile, skills emphasis, and wording to match this role…"
-                rows={4}
-                className="w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow resize-y leading-relaxed"
+                id={`${ids}-raw`}
+                value={rawText}
+                onChange={(e) => setRawText(e.target.value)}
+                maxLength={RAW_TEXT_MAX}
+                placeholder={PLACEHOLDER_TEXT}
+                rows={10}
+                aria-describedby={`${ids}-raw-count`}
+                className={`${inputClass} rounded-xl px-4 py-3 text-sm resize-y leading-relaxed`}
               />
             </div>
 
-            {/* Character count + generate */}
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                {rawText.length.toLocaleString()} characters
-                {rawText.length > 0 && rawText.length < 50 && (
-                  <span className="text-amber-500 ml-1">
-                    — write more for better results
-                  </span>
+            <div className="space-y-1.5">
+              <label htmlFor={`${ids}-role`} className="block text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                Target role <span className="normal-case font-normal">— optional</span>
+              </label>
+              <input
+                id={`${ids}-role`}
+                value={jobTitle}
+                onChange={(e) => setJobTitle(e.target.value)}
+                maxLength={JOB_TITLE_MAX}
+                placeholder="e.g. Senior Frontend Engineer"
+                className={inputClass}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor={`${ids}-jd`} className="block text-[11px] font-semibold uppercase tracking-wider text-text-tertiary">
+                Job description <span className="normal-case font-normal">— optional, tailors the wording</span>
+              </label>
+              <textarea
+                id={`${ids}-jd`}
+                value={jobDescription}
+                onChange={(e) => setJobDescription(e.target.value)}
+                maxLength={JOB_DESCRIPTION_MAX}
+                placeholder="Paste the job description to tailor your profile, skills and wording…"
+                rows={4}
+                className={`${inputClass} resize-y leading-relaxed`}
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span id={`${ids}-raw-count`} className="text-[11px] text-text-tertiary tabular-nums">
+                {rawText.length.toLocaleString("en-GB")}/{RAW_TEXT_MAX.toLocaleString("en-GB")} characters
+                {rawText.trim().length > 0 && rawText.trim().length < 50 && (
+                  <span className="text-amber-600 dark:text-amber-400 ml-1">— write more for better results</span>
                 )}
               </span>
-              <Button
-                onClick={handleGenerate}
-                disabled={rawText.trim().length < 20}
-                className={rawText.trim().length < 20 ? "opacity-50" : ""}
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Generate My CV
+              <Button onClick={() => void handleGenerate()} disabled={rawText.trim().length < RAW_TEXT_MIN}>
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                Generate my CV
               </Button>
             </div>
           </>
         )}
 
-        {/* Loading state */}
-        {generateFullCv.isPending && (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <div className="relative">
-              <div className="h-16 w-16 rounded-2xl bg-primary-600 flex items-center justify-center shadow-sm">
-                <Sparkles className="h-7 w-7 text-white animate-pulse" />
-              </div>
-              <Loader2 className="absolute -top-2 -right-2 h-6 w-6 text-primary-600 animate-spin" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-primary-700 dark:text-primary-300">
-                AI is building your CV…
-              </p>
-              <p className="text-xs text-text-secondary mt-1">
-                Extracting info, organising sections, polishing language
-              </p>
-            </div>
-            <div className="flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="h-1.5 w-1.5 rounded-full bg-primary-400 animate-bounce"
-                  style={{ animationDelay: `${i * 0.15}s` }}
-                />
-              ))}
-            </div>
+        {generate.isPending && (
+          <div role="status" className="flex flex-col items-center justify-center py-12 gap-3">
+            <Loader2 className="h-8 w-8 text-primary-600 animate-spin" aria-hidden="true" />
+            <p className="text-sm font-semibold text-primary-700 dark:text-primary-300">AI is building your CV…</p>
+            <p className="text-xs text-text-secondary">Extracting info, organising sections, polishing language</p>
           </div>
         )}
 
-        {/* Error state */}
         {error && (
-          <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
+          <div role="alert" className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
             <p className="text-xs text-red-700 dark:text-red-300">{error}</p>
             <button
+              type="button"
               onClick={() => setError(null)}
-              className="mt-2 text-xs font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 underline"
+              className="mt-2 text-xs font-medium text-red-700 hover:text-red-900 dark:text-red-400 dark:hover:text-red-200 underline"
             >
               Dismiss
             </button>
           </div>
         )}
 
-        {/* Result preview */}
-        {result && !isApplying && (
+        {result && (
           <div className="space-y-4">
-            {/* Success banner */}
             <div className="flex items-center gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-4 py-2.5">
-              <Check className="h-4 w-4 text-emerald-500" />
+              <Check className="h-4 w-4 text-emerald-500" aria-hidden="true" />
               <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
-                CV generated! Review below then apply.
+                CV generated — review it below, then apply.
               </span>
             </div>
+            {truncated && (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Your text was long, so the AI only used the first part of it. Check nothing important is missing.
+              </p>
+            )}
 
-            {/* Contact info preview */}
-            {(result.name ||
-              result.email ||
-              result.phone ||
-              result.location) && (
+            {CONTACT_PREVIEW.some(({ key }) => result[key]) && (
               <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
-                  Contact Info Detected
+                <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-2">
+                  Contact info detected
                 </p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700 dark:text-gray-300">
-                  {result.name && (
-                    <p>
-                      <span className="text-gray-400">Name:</span> {result.name}
-                    </p>
-                  )}
-                  {result.email && (
-                    <p>
-                      <span className="text-gray-400">Email:</span>{" "}
-                      {result.email}
-                    </p>
-                  )}
-                  {result.phone && (
-                    <p>
-                      <span className="text-gray-400">Phone:</span>{" "}
-                      {result.phone}
-                    </p>
-                  )}
-                  {result.location && (
-                    <p>
-                      <span className="text-gray-400">Location:</span>{" "}
-                      {result.location}
-                    </p>
-                  )}
-                  {result.linkedin && (
-                    <p>
-                      <span className="text-gray-400">LinkedIn:</span>{" "}
-                      {result.linkedin}
-                    </p>
-                  )}
-                  {result.github && (
-                    <p>
-                      <span className="text-gray-400">GitHub:</span>{" "}
-                      {result.github}
-                    </p>
-                  )}
-                  {result.website && (
-                    <p>
-                      <span className="text-gray-400">Website:</span>{" "}
-                      {result.website}
-                    </p>
-                  )}
-                </div>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-700 dark:text-gray-300">
+                  {CONTACT_PREVIEW.filter(({ key }) => result[key]).map(({ key, label }) => (
+                    <div key={key} className="flex gap-1 min-w-0">
+                      <dt className="text-text-tertiary">{label}:</dt>
+                      <dd className="truncate">{String(result[key])}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             )}
 
-            {/* Sections preview */}
             <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
               {result.sections.map((s, i) => {
                 const Icon = SECTION_ICONS[s.sectionType] || FileText;
@@ -477,13 +396,9 @@ export function RawTextCvPanel({
                     className="group rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 overflow-hidden"
                   >
                     <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors select-none">
-                      <Icon className="h-4 w-4 text-accent shrink-0" />
-                      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex-1">
-                        {s.title}
-                      </span>
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
-                        {s.content.length} chars
-                      </span>
+                      <Icon className="h-4 w-4 text-accent shrink-0" aria-hidden="true" />
+                      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100 flex-1">{s.title}</span>
+                      <span className="text-[10px] text-text-tertiary tabular-nums">{s.content.length} chars</span>
                     </summary>
                     <div className="px-4 pb-3 border-t border-gray-100 dark:border-gray-700/50 pt-2">
                       <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap leading-relaxed font-sans">
@@ -495,20 +410,13 @@ export function RawTextCvPanel({
               })}
             </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 pt-1">
-              <Button onClick={handleApply}>
-                <Check className="h-4 w-4 mr-1.5" />
-                Apply to CV
-                {existingSections.some((s) => s.content.trim()) &&
-                  " (Replaces All)"}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Button onClick={() => void handleApply()} loading={apply.isPending}>
+                {!apply.isPending && <Check className="h-4 w-4" aria-hidden="true" />}
+                {hasContent ? "Replace my CV with this" : "Apply to CV"}
               </Button>
-              <Button
-                variant="ghost"
-                onClick={handleGenerate}
-                disabled={generateFullCv.isPending}
-              >
-                <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              <Button variant="ghost" onClick={() => void handleGenerate()} disabled={busy}>
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
                 Regenerate
               </Button>
               <Button
@@ -517,29 +425,15 @@ export function RawTextCvPanel({
                   setResult(null);
                   setError(null);
                 }}
+                disabled={apply.isPending}
               >
-                <X className="h-3.5 w-3.5 mr-1.5" />
-                Back to Edit
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+                Back to edit
               </Button>
             </div>
           </div>
         )}
-
-        {/* Applying state */}
-        {isApplying && (
-          <div className="flex flex-col items-center justify-center py-10 gap-3">
-            <Loader2 className="h-8 w-8 text-accent-dark animate-spin" />
-            <p className="text-sm font-medium text-accent-dark dark:text-accent">
-              Applying your new CV…
-            </p>
-            {applyProgress && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 animate-pulse">
-                {applyProgress}
-              </p>
-            )}
-          </div>
-        )}
       </div>
-    </div>
+    </section>
   );
 }

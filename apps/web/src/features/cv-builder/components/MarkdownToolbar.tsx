@@ -1,179 +1,86 @@
-import {
-  Bold,
-  Italic,
-  List,
-  ListOrdered,
-  Heading3,
-  Link,
-  Minus,
-} from "lucide-react";
-import { useRef, useCallback } from "react";
+import type { RefObject } from "react";
+import type { LucideIcon } from "lucide-react";
+import { Bold, Heading3, Italic, Link, List, ListOrdered, Minus } from "lucide-react";
+import { applyFormat, BOLD, ITALIC, type FormatAction } from "../lib/markdown-format";
 
-interface MarkdownToolbarProps {
-  textareaRef: React.RefObject<HTMLTextAreaElement>;
-  value: string;
-  onChange: (value: string) => void;
+interface Tool {
+  icon: LucideIcon;
+  label: string;
+  shortcut?: string;
+  action: FormatAction;
 }
 
-type FormatAction =
-  | { type: "wrap"; before: string; after: string }
-  | { type: "line-prefix"; prefix: string }
-  | { type: "insert"; text: string };
+const TOOL_GROUPS: Tool[][] = [
+  [
+    { icon: Bold, label: "Bold", shortcut: "Ctrl+B", action: BOLD },
+    { icon: Italic, label: "Italic", shortcut: "Ctrl+I", action: ITALIC },
+  ],
+  [
+    { icon: Heading3, label: "Subheading", action: { type: "line-prefix", prefix: "### " } },
+    { icon: List, label: "Bullet list", action: { type: "line-prefix", prefix: "- " } },
+    { icon: ListOrdered, label: "Numbered list", action: { type: "line-prefix", prefix: "1. " } },
+  ],
+  [
+    { icon: Link, label: "Link", action: { type: "wrap", before: "[", after: "](https://)" } },
+    { icon: Minus, label: "Divider", action: { type: "insert", text: "\n---\n" } },
+  ],
+];
+
+/** Apply a format to a textarea and restore its focus and selection. */
+export function formatTextarea(
+  textarea: HTMLTextAreaElement,
+  value: string,
+  action: FormatAction,
+  onChange: (value: string) => void,
+) {
+  const result = applyFormat(value, textarea.selectionStart, textarea.selectionEnd, action);
+  onChange(result.value);
+  requestAnimationFrame(() => {
+    textarea.focus();
+    textarea.setSelectionRange(result.selectionStart, result.selectionEnd);
+  });
+}
 
 export function MarkdownToolbar({
   textareaRef,
   value,
   onChange,
-}: MarkdownToolbarProps) {
-  const applyFormat = useCallback(
-    (action: FormatAction) => {
-      const ta = textareaRef.current;
-      if (!ta) return;
-
-      const start = ta.selectionStart;
-      const end = ta.selectionEnd;
-      const selected = value.substring(start, end);
-
-      let newValue: string;
-      let cursorStart: number;
-      let cursorEnd: number;
-
-      switch (action.type) {
-        case "wrap": {
-          const wrapped = `${action.before}${selected || "text"}${
-            action.after
-          }`;
-          newValue = value.substring(0, start) + wrapped + value.substring(end);
-          cursorStart = start + action.before.length;
-          cursorEnd = cursorStart + (selected || "text").length;
-          break;
-        }
-        case "line-prefix": {
-          // Find the start of the current line
-          const lineStart = value.lastIndexOf("\n", start - 1) + 1;
-          const lineEnd = value.indexOf("\n", end);
-          const actualEnd = lineEnd === -1 ? value.length : lineEnd;
-          const currentLine = value.substring(lineStart, actualEnd);
-
-          // If line already has the prefix, remove it
-          if (currentLine.startsWith(action.prefix)) {
-            newValue =
-              value.substring(0, lineStart) +
-              currentLine.substring(action.prefix.length) +
-              value.substring(actualEnd);
-            cursorStart = Math.max(lineStart, start - action.prefix.length);
-            cursorEnd = cursorStart;
-          } else {
-            newValue =
-              value.substring(0, lineStart) +
-              action.prefix +
-              currentLine +
-              value.substring(actualEnd);
-            cursorStart = start + action.prefix.length;
-            cursorEnd = cursorStart;
-          }
-          break;
-        }
-        case "insert": {
-          const needsNewline =
-            start > 0 && value[start - 1] !== "\n" ? "\n" : "";
-          const text = needsNewline + action.text;
-          newValue = value.substring(0, start) + text + value.substring(end);
-          cursorStart = start + text.length;
-          cursorEnd = cursorStart;
-          break;
-        }
-      }
-
-      onChange(newValue);
-
-      // Restore focus and cursor position
-      requestAnimationFrame(() => {
-        ta.focus();
-        ta.setSelectionRange(cursorStart, cursorEnd);
-      });
-    },
-    [textareaRef, value, onChange]
-  );
-
-  const tools = [
-    {
-      icon: Bold,
-      label: "Bold",
-      shortcut: "⌘B",
-      action: { type: "wrap" as const, before: "**", after: "**" },
-    },
-    {
-      icon: Italic,
-      label: "Italic",
-      shortcut: "⌘I",
-      action: { type: "wrap" as const, before: "*", after: "*" },
-    },
-    { type: "separator" as const },
-    {
-      icon: Heading3,
-      label: "Subheading",
-      shortcut: "",
-      action: { type: "line-prefix" as const, prefix: "### " },
-    },
-    {
-      icon: List,
-      label: "Bullet List",
-      shortcut: "",
-      action: { type: "line-prefix" as const, prefix: "- " },
-    },
-    {
-      icon: ListOrdered,
-      label: "Numbered List",
-      shortcut: "",
-      action: { type: "line-prefix" as const, prefix: "1. " },
-    },
-    { type: "separator" as const },
-    {
-      icon: Link,
-      label: "Link",
-      shortcut: "",
-      action: { type: "wrap" as const, before: "[", after: "](https://)" },
-    },
-    {
-      icon: Minus,
-      label: "Divider",
-      shortcut: "",
-      action: { type: "insert" as const, text: "\n---\n" },
-    },
-  ];
-
+}: {
+  textareaRef: RefObject<HTMLTextAreaElement>;
+  value: string;
+  onChange: (value: string) => void;
+}) {
   return (
-    <div className="flex items-center gap-0.5 border-b border-gray-200 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-700/40 px-2 py-1.5 rounded-t-lg">
-      {tools.map((tool, i) => {
-        if ("type" in tool && tool.type === "separator") {
-          return (
-            <div
-              key={`sep-${i}`}
-              className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1"
-            />
-          );
-        }
-        const t = tool as (typeof tools)[0] & {
-          icon: any;
-          label: string;
-          action: FormatAction;
-          shortcut: string;
-        };
-        const Icon = t.icon;
-        return (
-          <button
-            key={t.label}
-            type="button"
-            onClick={() => applyFormat(t.action)}
-            className="rounded-md p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200/70 dark:hover:bg-gray-600/50 transition-colors"
-            title={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}
-          >
-            <Icon className="h-3.5 w-3.5" />
-          </button>
-        );
-      })}
-      <div className="ml-auto text-[9px] font-medium text-gray-400 dark:text-gray-500 select-none">
+    <div
+      role="toolbar"
+      aria-label="Formatting"
+      className="flex items-center gap-0.5 border-b border-gray-200 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-700/40 px-2 py-1.5 rounded-t-lg"
+    >
+      {TOOL_GROUPS.map((group, groupIndex) => (
+        <div key={groupIndex} className="flex items-center gap-0.5">
+          {groupIndex > 0 && <div className="w-px h-5 bg-gray-200 dark:bg-gray-600 mx-1" aria-hidden="true" />}
+          {group.map((tool) => {
+            const Icon = tool.icon;
+            const label = tool.shortcut ? `${tool.label} (${tool.shortcut})` : tool.label;
+            return (
+              <button
+                key={tool.label}
+                type="button"
+                aria-label={label}
+                title={label}
+                onClick={() => {
+                  const textarea = textareaRef.current;
+                  if (textarea) formatTextarea(textarea, value, tool.action, onChange);
+                }}
+                className="rounded-md p-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-200/70 dark:hover:bg-gray-600/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              >
+                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            );
+          })}
+        </div>
+      ))}
+      <div className="ml-auto text-[10px] font-medium text-gray-500 dark:text-gray-400 select-none">
         Markdown supported
       </div>
     </div>

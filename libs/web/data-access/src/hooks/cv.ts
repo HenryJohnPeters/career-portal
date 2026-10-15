@@ -19,6 +19,21 @@ import { invalidateUsage, queryKeys } from "../query-keys";
 type VersionsData = ApiResponse<CvVersion[]>;
 type SectionsData = ApiResponse<CvSection[]>;
 
+/**
+ * Per-call UI options. `silent: true` sets `meta.silent`, telling the app's
+ * global error handler that the caller shows the error (and any upgrade
+ * prompt) itself — use it for autosave and inline error UIs.
+ */
+export interface MutationUiOptions {
+  silent?: boolean;
+}
+
+const uiMeta = (options: MutationUiOptions = {}) =>
+  options.silent ? { silent: true } : undefined;
+
+/** Version PATCHes run one at a time (theme, contact, template, rename…). */
+const CV_VERSION_UPDATE_KEY = ["cv-version-update"] as const;
+
 const byOrder = (a: CvSection, b: CvSection) => a.order - b.order;
 
 /** Replace one version in the cached list (merging, so fields the response omits survive). */
@@ -55,8 +70,23 @@ function setVersionSections(
   );
 }
 
+const PREVIEW_REFRESH_DELAY_MS = 400;
+const previewRefreshTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Re-render the HTML preview once a burst of edits settles: every save would
+ * otherwise trigger its own server-side render.
+ */
 function refreshPreview(qc: QueryClient, versionId: string) {
-  return qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(versionId) });
+  const pending = previewRefreshTimers.get(versionId);
+  if (pending) clearTimeout(pending);
+  previewRefreshTimers.set(
+    versionId,
+    setTimeout(() => {
+      previewRefreshTimers.delete(versionId);
+      void qc.invalidateQueries({ queryKey: queryKeys.cvHtmlPreview(versionId) });
+    }, PREVIEW_REFRESH_DELAY_MS),
+  );
 }
 
 /** After a whole-version write (apply content / restore snapshot). */
@@ -68,9 +98,25 @@ function storeFullVersion(qc: QueryClient, version: CvVersion) {
       data: [...version.sections].sort(byOrder),
     }));
   }
-  void refreshPreview(qc, version.id);
+  refreshPreview(qc, version.id);
   void qc.invalidateQueries({ queryKey: queryKeys.dashboardSummary });
 }
+
+/** The optimistic copy of a version after a PATCH. */
+function applyVersionPatch(
+  version: CvVersion,
+  id: string,
+  patch: UpdateCvVersionRequest,
+): CvVersion {
+  if (version.id !== id) {
+    // Only one version can be active.
+    return patch.isActive ? { ...version, isActive: false } : version;
+  }
+  return { ...version, ...(patch as Partial<CvVersion>) };
+}
+
+/** Fields that do not change the rendered CV. */
+const NON_VISUAL_FIELDS = new Set(["title", "isActive"]);
 
 // === Versions ===
 
@@ -94,20 +140,48 @@ export function useCreateCvVersion() {
   });
 }
 
-export function useUpdateCvVersion() {
+/**
+ * PATCH /cv/versions/:id. Optimistic: the cached version changes immediately,
+ * so a second change (e.g. another theme toggle) merges onto the first instead
+ * of the stale server copy. PATCHes are serialised; only the last response of
+ * a burst is written back, so an older response never overwrites a newer edit.
+ */
+export function useUpdateCvVersion(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
+  const othersPending = () => qc.isMutating({ mutationKey: CV_VERSION_UPDATE_KEY }) > 1;
   return useMutation({
+    mutationKey: CV_VERSION_UPDATE_KEY,
+    scope: { id: "cv-version-update" },
+    meta: uiMeta(options),
     mutationFn: ({ id, ...data }: { id: string } & UpdateCvVersionRequest) =>
       api.patch<ApiResponse<CvVersion>>(`/cv/versions/${id}`, data),
-    onSuccess: (res, vars) => {
-      if (vars.isActive !== undefined) {
+    onMutate: async ({ id, ...patch }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.cvVersions });
+      const previous = qc.getQueryData<VersionsData>(queryKeys.cvVersions);
+      qc.setQueryData<VersionsData>(
+        queryKeys.cvVersions,
+        (old) =>
+          old && { ...old, data: old.data.map((v) => applyVersionPatch(v, id, patch)) },
+      );
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      // A queued PATCH's response (or its own rollback) restores the server copy.
+      if (othersPending()) return;
+      if (context?.previous) qc.setQueryData(queryKeys.cvVersions, context.previous);
+      void qc.invalidateQueries({ queryKey: queryKeys.cvVersions });
+    },
+    onSuccess: (res, { id, ...patch }) => {
+      if (patch.isActive !== undefined) {
         // The server toggles the other versions' isActive too.
         void qc.invalidateQueries({ queryKey: queryKeys.cvVersions });
-      } else {
+      } else if (!othersPending()) {
         mergeVersion(qc, res.data);
       }
-      void refreshPreview(qc, vars.id);
-      if (vars.title !== undefined) {
+      if (Object.keys(patch).some((key) => !NON_VISUAL_FIELDS.has(key))) {
+        refreshPreview(qc, id);
+      }
+      if (patch.title !== undefined) {
         // Titles appear on job cards, insights and recent activity.
         void qc.invalidateQueries({ queryKey: queryKeys.jobs });
         void qc.invalidateQueries({ queryKey: queryKeys.dashboardSummary });
@@ -152,9 +226,10 @@ export function useDuplicateCvVersion() {
  * PUT /cv/versions/:id/content — replace contact + all sections in one
  * transaction (the previous content becomes the undo snapshot).
  */
-export function useApplyCvContent() {
+export function useApplyCvContent(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
+    meta: uiMeta(options),
     mutationFn: ({ versionId, ...data }: { versionId: string } & ApplyCvContentRequest) =>
       api.put<ApiResponse<CvVersion>>(`/cv/versions/${versionId}/content`, data),
     onSuccess: (res) => storeFullVersion(qc, res.data),
@@ -162,9 +237,10 @@ export function useApplyCvContent() {
 }
 
 /** POST /cv/versions/:id/restore-snapshot — undo the last apply (404 when there is none). */
-export function useRestoreCvSnapshot() {
+export function useRestoreCvSnapshot(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
+    meta: uiMeta(options),
     mutationFn: (versionId: string) =>
       api.post<ApiResponse<CvVersion>>(`/cv/versions/${versionId}/restore-snapshot`),
     onSuccess: (res) => storeFullVersion(qc, res.data),
@@ -199,14 +275,17 @@ export function useCreateCvSection() {
       setVersionSections(qc, vars.versionId, (sections) =>
         [...sections.filter((s) => s.id !== res.data.id), res.data].sort(byOrder),
       );
-      void refreshPreview(qc, vars.versionId);
+      refreshPreview(qc, vars.versionId);
     },
   });
 }
 
-export function useUpdateCvSection() {
+/** PATCH /cv/sections/:id. Saves run one at a time, in the order they were made. */
+export function useUpdateCvSection(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
+    scope: { id: "cv-section-save" },
+    meta: uiMeta(options),
     mutationFn: ({
       id,
       ...data
@@ -221,7 +300,7 @@ export function useUpdateCvSection() {
       setVersionSections(qc, section.cvVersionId, (sections) =>
         sections.map((s) => (s.id === section.id ? { ...s, ...section } : s)),
       );
-      void refreshPreview(qc, section.cvVersionId);
+      refreshPreview(qc, section.cvVersionId);
     },
   });
 }
@@ -251,7 +330,7 @@ export function useDeleteCvSection() {
       setVersionSections(qc, versionId, (sections) =>
         sections.filter((s) => s.id !== id),
       );
-      void refreshPreview(qc, versionId);
+      refreshPreview(qc, versionId);
     },
   });
 }
@@ -265,12 +344,16 @@ function storeOrderedSections(qc: QueryClient, sections: CvSection[], versionId?
     return;
   }
   setVersionSections(qc, id, () => [...sections].sort(byOrder));
-  void refreshPreview(qc, id);
+  refreshPreview(qc, id);
 }
+
+/** Move and reorder share a queue so quick clicks apply in order. */
+const SECTION_ORDER_SCOPE = { id: "cv-section-order" } as const;
 
 export function useMoveCvSection() {
   const qc = useQueryClient();
   return useMutation({
+    scope: SECTION_ORDER_SCOPE,
     mutationFn: ({ id, direction }: { id: string; direction: "up" | "down" }) =>
       api.post<ApiResponse<CvSection[]>>(`/cv/sections/${id}/move`, {
         direction,
@@ -282,6 +365,7 @@ export function useMoveCvSection() {
 export function useReorderCvSections() {
   const qc = useQueryClient();
   return useMutation({
+    scope: SECTION_ORDER_SCOPE,
     mutationFn: ({
       versionId,
       sectionIds,
@@ -342,9 +426,10 @@ export function useDownloadCvPdf() {
 
 // === AI ===
 
-export function useAiGenerateCvSection() {
+export function useAiGenerateCvSection(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
+    meta: uiMeta(options),
     mutationFn: ({
       sectionId,
       ...data
@@ -368,9 +453,10 @@ export function useAiGenerateCvSection() {
 }
 
 /** Generates a full CV from pasted text; nothing is saved until the result is applied (useApplyCvContent). */
-export function useAiGenerateFullCv() {
+export function useAiGenerateFullCv(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
+    meta: uiMeta(options),
     mutationFn: ({
       versionId,
       ...data

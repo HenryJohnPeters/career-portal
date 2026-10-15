@@ -1,55 +1,64 @@
-import { X, Plus } from "lucide-react";
-import type { SectionTemplate } from "../hooks/useCvBuilder";
+import { Plus, X } from "lucide-react";
+import type { SectionTemplate } from "../sectionTemplates";
 
 interface SectionTemplatePanelProps {
   templates: SectionTemplate[];
+  disabled?: boolean;
   onSelect: (template: SectionTemplate) => void;
   onClose: () => void;
 }
 
 export function SectionTemplatePanel({
   templates,
+  disabled = false,
   onSelect,
   onClose,
 }: SectionTemplatePanelProps) {
   return (
-    <div className="rounded-xl border border-border bg-bg-elevated shadow-sm overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200">
+    <section
+      aria-label="Section templates"
+      className="rounded-xl border border-border bg-bg-elevated shadow-sm overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200"
+    >
       <div className="flex items-center justify-between px-4 py-3 border-b border-accent-muted/50">
         <div>
-          <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-            Quick-Add from Template
-          </h3>
-          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white">Quick-add from a template</h3>
+          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
             Pre-filled sections to get you started fast
           </p>
         </div>
         <button
+          type="button"
           onClick={onClose}
+          aria-label="Close templates"
           className="rounded-lg p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
         >
-          <X className="h-4 w-4" />
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-2 p-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3">
         {templates.map((t) => (
           <button
             key={t.title}
+            type="button"
+            disabled={disabled}
             onClick={() => onSelect(t)}
-            className="group flex items-start gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 p-3 text-left hover:border-accent dark:hover:border-accent hover:shadow-sm transition-all duration-150"
+            className="group flex items-start gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 p-3 text-left hover:border-accent hover:shadow-sm transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
           >
-            <span className="text-lg leading-none mt-0.5">{t.icon}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 group-hover:text-accent-dark dark:group-hover:text-accent transition-colors">
+            <span className="text-lg leading-none mt-0.5" aria-hidden="true">
+              {t.icon}
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-xs font-semibold text-gray-900 dark:text-gray-100 group-hover:text-accent-dark dark:group-hover:text-accent transition-colors">
                 {t.title}
-              </p>
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+              </span>
+              <span className="block text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 truncate">
                 {t.description}
-              </p>
-            </div>
-            <Plus className="h-3.5 w-3.5 shrink-0 text-gray-300 dark:text-gray-600 group-hover:text-accent dark:group-hover:text-accent transition-colors mt-0.5" />
+              </span>
+            </span>
+            <Plus className="h-3.5 w-3.5 shrink-0 text-gray-400 group-hover:text-accent transition-colors mt-0.5" aria-hidden="true" />
           </button>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

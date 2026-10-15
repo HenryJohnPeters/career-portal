@@ -14,8 +14,12 @@ import type {
 } from "@careerportal/shared/types";
 import { AI_TIMEOUT_MS, PDF_TIMEOUT_MS, api } from "../api-client";
 import { invalidateUsage, queryKeys } from "../query-keys";
+import type { MutationUiOptions } from "./cv";
 
 type LettersData = ApiResponse<CoverLetter[]>;
+
+const uiMeta = (options: MutationUiOptions = {}) =>
+  options.silent ? { silent: true } : undefined;
 
 /** Letters appear in pickers, on job cards and in recent activity. */
 function invalidateLetterViews(qc: QueryClient, opts: { jobs?: boolean } = {}) {
@@ -61,7 +65,16 @@ export function useCreateCoverLetter() {
   return useMutation({
     mutationFn: (data: { title: string; body?: string; jobId?: string | null }) =>
       api.post<ApiResponse<CoverLetter>>("/cover-letters", data),
-    onSuccess: (_res, vars) => {
+    onSuccess: (res, vars) => {
+      // Show the new letter straight away (the editor opens it from the cache).
+      qc.setQueryData<LettersData>(
+        queryKeys.coverLetters,
+        (old) =>
+          old && {
+            ...old,
+            data: [res.data, ...old.data.filter((l) => l.id !== res.data.id)],
+          },
+      );
       void invalidateUsage(qc);
       invalidateLetterViews(qc, { jobs: !!vars.jobId });
       return qc.invalidateQueries({ queryKey: queryKeys.coverLetters, exact: true });
@@ -69,9 +82,12 @@ export function useCreateCoverLetter() {
   });
 }
 
-export function useUpdateCoverLetter() {
+/** PATCH /cover-letters/:id. Saves run one at a time, in the order they were made. */
+export function useUpdateCoverLetter(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
+    scope: { id: "cover-letter-save" },
+    meta: uiMeta(options),
     mutationFn: ({
       id,
       ...data
@@ -121,9 +137,10 @@ export function useDeleteCoverLetter() {
 // === AI ===
 
 /** POST /cover-letters/:id/suggest — accepts the id alone or the id plus editor context. */
-export function useSuggestCoverLetter() {
+export function useSuggestCoverLetter(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
+    meta: uiMeta(options),
     mutationFn: (arg: string | ({ id: string } & CoverLetterAiContext)) => {
       const { id, ...context } = typeof arg === "string" ? { id: arg } : arg;
       return api.post<ApiResponse<string[]>>(
@@ -138,9 +155,10 @@ export function useSuggestCoverLetter() {
   });
 }
 
-export function useRewriteCoverLetter() {
+export function useRewriteCoverLetter(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
+    meta: uiMeta(options),
     mutationFn: ({
       id,
       ...data
@@ -154,9 +172,10 @@ export function useRewriteCoverLetter() {
   });
 }
 
-export function useAiGenerateCoverLetter() {
+export function useAiGenerateCoverLetter(options: MutationUiOptions = {}) {
   const qc = useQueryClient();
   return useMutation({
+    meta: uiMeta(options),
     mutationFn: ({
       id,
       ...data

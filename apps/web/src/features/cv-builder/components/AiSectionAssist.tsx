@@ -1,318 +1,210 @@
-import { useState } from "react";
+import { useId, useState } from "react";
+import { ChevronDown, Loader2, Sparkles, X } from "lucide-react";
+import type { AiWritingAction } from "@careerportal/shared/types";
+import { useAiGenerateCvSection } from "@careerportal/web/data-access";
 import {
-  Sparkles,
-  Wand2,
-  Target,
-  Zap,
-  X,
-  Check,
-  Loader2,
-  RotateCcw,
-  Crown,
-  ChevronDown,
-} from "lucide-react";
-import { Button } from "@careerportal/web/ui";
-import {
-  useAiGenerateCvSection,
-  useAiUsage,
-} from "@careerportal/web/data-access";
-import { useAuth } from "../../../lib/auth";
-import { useNavigate } from "react-router-dom";
-import { isActivePremium } from "@careerportal/shared/types";
+  AiActionGrid,
+  AiLimitReachedCard,
+  AiResultPreview,
+  AiUsesLeft,
+  EMPTY_AI_RESULT,
+  aiErrorMessage,
+  usePlanStatus,
+} from "../../ai-assist";
 
-type AiAction = "generate" | "improve" | "tailor";
+const JOB_DESCRIPTION_MAX = 10_000;
+const JOB_TITLE_MAX = 200;
 
 interface AiSectionAssistProps {
   sectionId: string;
   sectionTitle: string;
-  sectionType: string;
-  hasContent: boolean;
+  /** The editor text — the AI works on this, not the last saved copy. */
+  currentContent: string;
   onApply: (content: string) => void;
+  /** Called before each AI request (e.g. to save other pending edits used as context). */
+  onBeforeGenerate?: () => void;
 }
 
+/** Generate / improve / tailor one CV section with AI. */
 export function AiSectionAssist({
   sectionId,
   sectionTitle,
-  sectionType,
-  hasContent,
+  currentContent,
   onApply,
+  onBeforeGenerate,
 }: AiSectionAssistProps) {
-  const { user } = useAuth();
-  const { data: usageData } = useAiUsage();
-  const usage = usageData?.data;
-  // Prefer server-computed isPremium (checks both flag + period end)
-  // Fall back to client-side isActivePremium check while usage is loading
-  const isPremium = usage?.isPremium ?? isActivePremium(user);
-  const hasUsesLeft = isPremium || (usage?.remaining ?? 1) > 0;
-  const navigate = useNavigate();
+  const plan = usePlanStatus();
+  const aiGenerate = useAiGenerateCvSection({ silent: true });
+  const ids = useId();
 
   const [open, setOpen] = useState(false);
-  const [action, setAction] = useState<AiAction | null>(null);
+  const [action, setAction] = useState<AiWritingAction | null>(null);
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const aiGenerate = useAiGenerateCvSection();
+  const hasContent = currentContent.trim().length > 0;
 
-  const getErrorMessage = (err: unknown): string => {
-    if (err instanceof Error && err.message.trim().length > 0) {
-      return err.message;
-    }
-    return "Failed to generate content. Please try again.";
-  };
-
-  const handleGenerate = async (selectedAction: AiAction) => {
-    setAction(selectedAction);
+  const handleGenerate = async (selected: AiWritingAction) => {
+    setAction(selected);
     setResult(null);
     setError(null);
-
+    onBeforeGenerate?.();
     try {
       const res = await aiGenerate.mutateAsync({
         sectionId,
-        action: selectedAction,
+        action: selected,
         jobTitle: jobTitle.trim() || undefined,
         jobDescription: jobDescription.trim() || undefined,
+        currentContent,
       });
-      setResult(res.data.content);
-    } catch (err: unknown) {
-      setError(getErrorMessage(err));
+      const content = typeof res.data?.content === "string" ? res.data.content.trim() : "";
+      if (content) setResult(content);
+      else setError(EMPTY_AI_RESULT);
+    } catch (err) {
+      setError(aiErrorMessage(err));
     }
   };
 
-  const handleApply = () => {
-    if (result) {
-      onApply(result);
-      setResult(null);
-      setOpen(false);
-      setAction(null);
-    }
-  };
-
-  const handleDiscard = () => {
+  const reset = () => {
     setResult(null);
     setAction(null);
     setError(null);
   };
 
+  const close = () => {
+    reset();
+    setOpen(false);
+  };
+
   if (!open) {
     return (
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-primary-500/20 bg-primary-500/5 px-3 py-1.5 text-xs font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 hover:-translate-y-0.5 transition-all duration-200"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-primary-500/20 bg-primary-500/5 px-3 py-1.5 text-xs font-medium text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
       >
-        <Sparkles className="h-3.5 w-3.5" />
+        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
         AI Assist
-        {!isPremium && usage && (
-          <span className="text-[9px] text-primary-400 dark:text-primary-500">
-            {usage.remaining}/{usage.limit}
-          </span>
-        )}
+        <AiUsesLeft meter={plan.aiMeter} isPremium={plan.isPremium} compact />
       </button>
     );
   }
 
-  // Free tier cap reached
-  if (!hasUsesLeft) {
-    return (
-      <div className="rounded-xl border border-accent-400/30 bg-accent-50 dark:bg-accent-900/20 p-4">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 mb-2">
-            <Crown className="h-4 w-4 text-accent-500" />
-            <span className="text-xs font-bold uppercase tracking-wider text-accent-700 dark:text-accent-300">
-              Monthly Limit Reached
-            </span>
-          </div>
-          <button
-            onClick={() => setOpen(false)}
-            className="rounded-md p-1 text-text-tertiary hover:text-text-primary transition-colors"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <p className="text-xs text-accent-800 dark:text-accent-200 mb-2">
-          You've used all {usage?.limit} free AI uses this month. Upgrade to
-          Premium for unlimited AI-powered tools.
-        </p>
-        {usage?.resetsAt && (
-          <p className="text-[10px] text-accent-600 dark:text-accent-400 mb-3">
-            Resets{" "}
-            {new Date(usage.resetsAt).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "long",
-            })}
-          </p>
-        )}
-        <Button
-          size="sm"
-          className="!bg-accent-400 hover:!bg-accent-500"
-          onClick={() => navigate("/app/billing")}
-        >
-          <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-          Upgrade to Premium
-        </Button>
-      </div>
-    );
+  if (!plan.hasAiUsesLeft && !result) {
+    return <AiLimitReachedCard meter={plan.aiMeter} onClose={close} />;
   }
 
   return (
-    <div className="rounded-xl border border-primary-500/20 bg-primary-500/5 dark:bg-primary-500/5 p-4 space-y-3">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary-600 text-white">
-            <Sparkles className="h-3.5 w-3.5" />
+    <section
+      aria-label={`AI assist for ${sectionTitle || "this section"}`}
+      className="rounded-xl border border-primary-500/20 bg-primary-500/5 p-4 space-y-3"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary-600 text-white">
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
           </div>
-          <span className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300">
-            AI Assist — {sectionTitle}
+          <span className="text-xs font-bold uppercase tracking-wider text-primary-700 dark:text-primary-300 truncate">
+            AI Assist — {sectionTitle || "Section"}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {!isPremium && usage && (
-            <span className="text-[10px] font-medium text-text-tertiary">
-              {usage.remaining}/{usage.limit} uses left
-            </span>
-          )}
+          <AiUsesLeft meter={plan.aiMeter} isPremium={plan.isPremium} />
           <button
-            onClick={() => {
-              setOpen(false);
-              setResult(null);
-              setAction(null);
-              setError(null);
-            }}
+            type="button"
+            onClick={close}
+            aria-label="Close AI assist"
             className="rounded-md p-1 text-text-tertiary hover:text-text-primary transition-colors"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
         </div>
       </div>
 
-      {/* Context inputs */}
-      {!result && (
+      {!result && !aiGenerate.isPending && (
         <>
           <div className="space-y-2">
+            <label htmlFor={`${ids}-role`} className="sr-only">
+              Target role (optional)
+            </label>
             <input
+              id={`${ids}-role`}
               value={jobTitle}
               onChange={(e) => setJobTitle(e.target.value)}
+              maxLength={JOB_TITLE_MAX}
               placeholder="Target role (e.g. Senior Frontend Engineer) — optional"
-              className="w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow"
+              className="w-full rounded-lg border border-accent-muted bg-white dark:bg-gray-800 px-3 py-2 text-xs text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent"
             />
             <details className="group">
-              <summary className="flex items-center gap-1 cursor-pointer text-[10px] font-medium text-accent-dark dark:text-accent hover:text-accent dark:hover:text-accent-light transition-colors select-none">
-                <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" />
-                Add job description for better tailoring
+              <summary className="flex items-center gap-1 cursor-pointer text-[11px] font-medium text-accent-dark dark:text-accent select-none">
+                <ChevronDown className="h-3 w-3 transition-transform group-open:rotate-180" aria-hidden="true" />
+                Add a job description for tailoring
               </summary>
+              <label htmlFor={`${ids}-jd`} className="sr-only">
+                Job description
+              </label>
               <textarea
+                id={`${ids}-jd`}
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Paste the job description here for AI to tailor your content…"
+                maxLength={JOB_DESCRIPTION_MAX}
+                placeholder="Paste the job description here…"
                 rows={3}
-                className="mt-2 w-full rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800 px-3 py-2 text-xs text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent transition-shadow resize-y"
+                className="mt-2 w-full rounded-lg border border-accent-muted bg-white dark:bg-gray-800 px-3 py-2 text-xs text-gray-700 dark:text-gray-300 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-accent-dark focus:border-transparent resize-y"
               />
+              <p className="text-right text-[10px] text-text-tertiary tabular-nums">
+                {jobDescription.length.toLocaleString("en-GB")}/{JOB_DESCRIPTION_MAX.toLocaleString("en-GB")}
+              </p>
             </details>
           </div>
-
-          {/* Action buttons */}
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              onClick={() => handleGenerate("generate")}
-              disabled={aiGenerate.isPending}
-              className="flex flex-col items-center gap-1.5 rounded-xl border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800/50 p-3 text-center hover:shadow-md hover:shadow-accent/10 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none"
-            >
-              <Zap className="h-4 w-4 text-accent-dark dark:text-accent" />
-              <span className="text-[10px] font-semibold text-gray-800 dark:text-gray-200">
-                {hasContent ? "Regenerate" : "Generate"}
-              </span>
-              <span className="text-[9px] text-gray-400 leading-tight">
-                {hasContent ? "Fresh content" : "Write from scratch"}
-              </span>
-            </button>
-            <button
-              onClick={() => handleGenerate("improve")}
-              disabled={aiGenerate.isPending || !hasContent}
-              className="flex flex-col items-center gap-1.5 rounded-xl border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800/50 p-3 text-center hover:shadow-md hover:shadow-accent/10 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none"
-            >
-              <Wand2 className="h-4 w-4 text-accent-dark dark:text-accent" />
-              <span className="text-[10px] font-semibold text-gray-800 dark:text-gray-200">
-                Improve
-              </span>
-              <span className="text-[9px] text-gray-400 leading-tight">
-                Polish existing
-              </span>
-            </button>
-            <button
-              onClick={() => handleGenerate("tailor")}
-              disabled={aiGenerate.isPending || !hasContent}
-              className="flex flex-col items-center gap-1.5 rounded-xl border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800/50 p-3 text-center hover:shadow-md hover:shadow-accent/10 hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none"
-            >
-              <Target className="h-4 w-4 text-accent-dark dark:text-accent" />
-              <span className="text-[10px] font-semibold text-gray-800 dark:text-gray-200">
-                Tailor
-              </span>
-              <span className="text-[9px] text-gray-400 leading-tight">
-                Match job desc
-              </span>
-            </button>
-          </div>
+          <AiActionGrid
+            hasContent={hasContent}
+            disabled={aiGenerate.isPending}
+            onAction={(selected) => void handleGenerate(selected)}
+            regenerateHint="Fresh content"
+          />
         </>
       )}
 
-      {/* Loading */}
       {aiGenerate.isPending && (
-        <div className="flex items-center justify-center gap-2 py-6">
-          <Loader2 className="h-5 w-5 text-accent-dark dark:text-accent animate-spin" />
-          <span className="text-xs font-medium text-accent-dark dark:text-accent animate-pulse">
-            AI is writing your {sectionTitle.toLowerCase()} section…
+        <div className="flex items-center justify-center gap-2 py-6" role="status">
+          <Loader2 className="h-5 w-5 text-accent-dark dark:text-accent animate-spin" aria-hidden="true" />
+          <span className="text-xs font-medium text-accent-dark dark:text-accent">
+            AI is writing your {(sectionTitle || "section").toLowerCase()}…
           </span>
         </div>
       )}
 
-      {/* Error */}
       {error && (
-        <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
+        <div role="alert" className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
           <p className="text-xs text-red-700 dark:text-red-300">{error}</p>
           <button
-            onClick={handleDiscard}
-            className="mt-2 text-[10px] font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200"
+            type="button"
+            onClick={reset}
+            className="mt-2 text-[11px] font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-200 underline"
           >
             Try again
           </button>
         </div>
       )}
 
-      {/* Result preview */}
       {result && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Check className="h-3.5 w-3.5 text-emerald-500" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-              AI-Generated Content
-            </span>
-          </div>
-          <pre className="max-h-60 overflow-y-auto rounded-lg border border-accent-muted dark:border-accent-muted bg-white dark:bg-gray-800/50 p-3 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed font-mono">
-            {result}
-          </pre>
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={handleApply}>
-              <Check className="h-3.5 w-3.5 mr-1.5" />
-              Apply to Section
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleGenerate(action!)}
-              loading={aiGenerate.isPending}
-            >
-              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-              Regenerate
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleDiscard}>
-              <X className="h-3.5 w-3.5 mr-1.5" />
-              Discard
-            </Button>
-          </div>
-        </div>
+        <AiResultPreview
+          heading="AI-generated content"
+          content={result}
+          applyLabel="Apply to section"
+          replacesText={hasContent}
+          regenerating={aiGenerate.isPending}
+          onApply={() => {
+            onApply(result);
+            close();
+          }}
+          onRegenerate={() => void handleGenerate(action ?? "generate")}
+          onDiscard={reset}
+        />
       )}
-    </div>
+    </section>
   );
 }
