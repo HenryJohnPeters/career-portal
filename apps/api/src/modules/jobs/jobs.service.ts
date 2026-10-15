@@ -1,170 +1,269 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
+import { lockedTransaction, userLockKey } from "../../common/plan";
+import { EntitlementsService } from "../entitlements/entitlements.service";
+import { coverLetterNotFound } from "../cover-letters/cover-letters.queries";
+import { JOB_FIELD_LIMITS, JOB_LIMITS, normalizeJobStatus } from "./jobs.constants";
+import type { CreateJobDto, MatchJobDto, MatchTextDto, UpdateJobDto } from "./jobs.dto";
+import { buildJobInsights, type JobInsights } from "./jobs-insights";
+import {
+  JOB_DETAIL_SELECT,
+  JOB_LIST_SELECT,
+  MATCH_CV_SELECT,
+  cvVersionNotFound,
+  jobNotFound,
+  toJobListPayload,
+  toJobPayload,
+  type JobPayload,
+} from "./jobs.queries";
+import { matchCvToJobDescription, type KeywordMatch } from "./match/match-engine";
 
-const JOB_INCLUDE = {
-  cvVersion: { select: { id: true, title: true } },
-  linkedCoverLetter: { select: { id: true, title: true } },
-} as const;
+/** POST /jobs/:id/match and /jobs/match-text response. */
+export type MatchResult = KeywordMatch & { cvVersionId: string; checkedAt: string };
 
-const LEGACY_STATUS_MAP: Record<string, string> = {
-  saved: "wishlist",
-  interview: "phone_screen",
-  offer: "accepted",
-  ghosted: "rejected",
-};
+/** Insights read at most this many jobs (above the per-user cap, for old accounts). */
+const INSIGHTS_ROW_CAP = 5000;
+
+/** "" never reaches here (the DTO maps it to null); undefined = unchanged. */
+function toDate(value: string | null | undefined): Date | null | undefined {
+  if (value === undefined || value === null) return value;
+  return new Date(value);
+}
 
 @Injectable()
 export class JobsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
-  async findAll(userId: string) {
-    const jobs = await this.prisma.job.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 500,
-      include: JOB_INCLUDE,
-    });
+  /* ── CRUD ───────────────────────────────────────────────────────── */
 
-    return jobs.map((job) => this.normalizeJob(job));
+  /** Most recently updated first, without job descriptions (see `hasJobDescription`). */
+  async findAll(userId: string): Promise<JobPayload[]> {
+    const [rows, withDescription] = await Promise.all([
+      this.prisma.job.findMany({
+        where: { userId },
+        orderBy: { updatedAt: "desc" },
+        take: JOB_FIELD_LIMITS.listCap,
+        select: JOB_LIST_SELECT,
+      }),
+      this.prisma.job.findMany({
+        where: { userId, jobDescription: { not: null } },
+        select: { id: true },
+      }),
+    ]);
+    const described = new Set(withDescription.map((job) => job.id));
+    return rows.map((row) => toJobListPayload(row, described.has(row.id)));
   }
 
-  async create(
-    userId: string,
-    data: {
-      company: string;
-      role: string;
-      status?: string;
-      url?: string;
-      notes?: string;
-      cvVersionId?: string;
-      coverLetterId?: string;
-    },
-  ) {
-    const { cvVersionId, coverLetterId } = await this.resolveOwnedRelations(
-      userId,
+  async findOne(userId: string, id: string): Promise<JobPayload> {
+    const row = await this.prisma.job.findFirst({
+      where: { id, userId },
+      select: JOB_DETAIL_SELECT,
+    });
+    if (!row) throw jobNotFound();
+    return toJobPayload(row);
+  }
+
+  async create(userId: string, dto: CreateJobDto): Promise<JobPayload> {
+    await this.assertOwnedLinks(userId, dto);
+    const status = dto.status ?? "applied";
+    const appliedAt =
+      dto.appliedAt !== undefined
+        ? toDate(dto.appliedAt)
+        : status === "wishlist"
+          ? null
+          : new Date();
+
+    const row = await lockedTransaction(this.prisma, userLockKey("job", userId), async (tx) => {
+      const count = await tx.job.count({ where: { userId } });
+      if (count >= JOB_LIMITS.jobsPerUser) {
+        throw new ForbiddenException(
+          `You can track up to ${JOB_LIMITS.jobsPerUser.toLocaleString("en-GB")} jobs. Delete old applications to add new ones.`,
+        );
+      }
+      return tx.job.create({
+        data: {
+          userId,
+          company: dto.company,
+          role: dto.role,
+          status,
+          url: dto.url ?? null,
+          notes: dto.notes ?? null,
+          cvVersionId: dto.cvVersionId ?? null,
+          coverLetterId: dto.coverLetterId ?? null,
+          followUpDate: toDate(dto.followUpDate) ?? null,
+          jobDescription: dto.jobDescription ?? null,
+          location: dto.location ?? null,
+          salary: dto.salary ?? null,
+          appliedAt,
+          keySkills: dto.keySkills ?? [],
+        },
+        select: JOB_DETAIL_SELECT,
+      });
+    });
+    return toJobPayload(row);
+  }
+
+  /**
+   * Partial update: undefined = unchanged, null clears. Leaving the wishlist
+   * stamps `appliedAt` (when not set); a changed job description clears the
+   * now-stale match score.
+   */
+  async update(userId: string, id: string, dto: UpdateJobDto): Promise<JobPayload> {
+    const current = await this.prisma.job.findFirst({
+      where: { id, userId },
+      select: { status: true, appliedAt: true, jobDescription: true },
+    });
+    if (!current) throw jobNotFound();
+    await this.assertOwnedLinks(userId, dto);
+
+    const data: Prisma.JobUncheckedUpdateInput = {
+      company: dto.company,
+      role: dto.role,
+      status: dto.status,
+      url: dto.url,
+      notes: dto.notes,
+      cvVersionId: dto.cvVersionId,
+      coverLetterId: dto.coverLetterId,
+      followUpDate: toDate(dto.followUpDate),
+      jobDescription: dto.jobDescription,
+      location: dto.location,
+      salary: dto.salary,
+      appliedAt: toDate(dto.appliedAt),
+      keySkills: dto.keySkills,
+    };
+    const leavesWishlist =
+      dto.status !== undefined &&
+      dto.status !== "wishlist" &&
+      normalizeJobStatus(current.status) === "wishlist";
+    if (dto.appliedAt === undefined && leavesWishlist && !current.appliedAt) {
+      data.appliedAt = new Date();
+    }
+    if (dto.jobDescription !== undefined && dto.jobDescription !== current.jobDescription) {
+      data.matchScore = null;
+    }
+
+    // A delete racing this update surfaces as P2025 → 404 via the global filter.
+    const row = await this.prisma.job.update({
+      where: { id },
       data,
-    );
-
-    const created = await this.prisma.job.create({
-      data: {
-        userId,
-        company: data.company,
-        role: data.role,
-        status: this.normalizeStatus(data.status) ?? "applied",
-        url: data.url ?? null,
-        notes: data.notes ?? null,
-        cvVersionId: cvVersionId ?? null,
-        coverLetterId: coverLetterId ?? null,
-      },
-      include: JOB_INCLUDE,
+      select: JOB_DETAIL_SELECT,
     });
-
-    return this.normalizeJob(created);
+    return toJobPayload(row);
   }
 
-  async update(
-    userId: string,
-    jobId: string,
-    data: {
-      company?: string;
-      role?: string;
-      status?: string;
-      url?: string;
-      notes?: string;
-      cvVersionId?: string;
-      coverLetterId?: string;
-      followUpDate?: string;
-    },
-  ) {
-    await this.assertOwner(userId, jobId);
-    const { cvVersionId, coverLetterId } = await this.resolveOwnedRelations(
-      userId,
-      data,
-    );
-
-    const updated = await this.prisma.job.update({
-      where: { id: jobId },
-      data: {
-        company: data.company,
-        role: data.role,
-        status:
-          data.status !== undefined
-            ? this.normalizeStatus(data.status)
-            : undefined,
-        url: data.url !== undefined ? data.url || null : undefined,
-        notes: data.notes !== undefined ? data.notes || null : undefined,
-        cvVersionId,
-        coverLetterId,
-        followUpDate:
-          data.followUpDate !== undefined
-            ? data.followUpDate
-              ? new Date(data.followUpDate)
-              : null
-            : undefined,
-      },
-      include: JOB_INCLUDE,
-    });
-
-    return this.normalizeJob(updated);
+  async remove(userId: string, id: string): Promise<void> {
+    const { count } = await this.prisma.job.deleteMany({ where: { id, userId } });
+    if (count === 0) throw jobNotFound();
   }
 
-  async remove(userId: string, jobId: string) {
-    await this.assertOwner(userId, jobId);
-    await this.prisma.job.delete({ where: { id: jobId } });
-  }
+  /* ── Keyword match ──────────────────────────────────────────────── */
 
-  private async assertOwner(userId: string, jobId: string) {
+  /**
+   * Scores a CV against the job's description and saves the score on the
+   * job. The CV defaults to the job's linked CV, else the most recently
+   * updated one.
+   */
+  async match(userId: string, jobId: string, dto: MatchJobDto): Promise<MatchResult> {
     const job = await this.prisma.job.findFirst({
       where: { id: jobId, userId },
+      select: { jobDescription: true, cvVersionId: true },
     });
-    if (!job) throw new NotFoundException("Job not found");
-    return job;
+    if (!job) throw jobNotFound();
+    if (!job.jobDescription?.trim()) {
+      throw new BadRequestException(
+        "Add the job description to this job to check your CV against it.",
+      );
+    }
+    const cv = await this.loadCvForMatch(userId, dto.cvVersionId ?? job.cvVersionId);
+    const result = this.score(cv, job.jobDescription);
+
+    const { count } = await this.prisma.job.updateMany({
+      where: { id: jobId, userId },
+      data: { matchScore: result.score, matchCheckedAt: new Date(result.checkedAt) },
+    });
+    if (count === 0) throw jobNotFound();
+    return result;
   }
 
-  private normalizeStatus(status: string | undefined): string | undefined {
-    if (!status) return undefined;
-    return LEGACY_STATUS_MAP[status] ?? status;
+  /** Scores a CV against pasted text; nothing is saved. */
+  async matchText(userId: string, dto: MatchTextDto): Promise<MatchResult> {
+    const cv = await this.loadCvForMatch(userId, dto.cvVersionId);
+    return this.score(cv, dto.jobDescription);
   }
 
-  private normalizeJob<T extends { status: string }>(job: T): T {
+  /* ── Insights ───────────────────────────────────────────────────── */
+
+  /** Funnel, rates and weekly volume for everyone; the per-CV breakdown is Premium. */
+  async insights(userId: string): Promise<JobInsights> {
+    const [plan, jobs, cvVersions] = await Promise.all([
+      this.entitlements.getPlan(userId),
+      this.prisma.job.findMany({
+        where: { userId },
+        orderBy: { updatedAt: "desc" },
+        select: { status: true, appliedAt: true, createdAt: true, cvVersionId: true },
+        take: INSIGHTS_ROW_CAP,
+      }),
+      this.prisma.cvVersion.findMany({
+        where: { userId },
+        select: { id: true, title: true },
+      }),
+    ]);
+    return buildJobInsights(jobs, {
+      now: new Date(),
+      includeByCv: plan.isPremium,
+      cvTitles: new Map(cvVersions.map((cv) => [cv.id, cv.title])),
+    });
+  }
+
+  /* ── Internals ──────────────────────────────────────────────────── */
+
+  private score(
+    cv: Prisma.CvVersionGetPayload<{ select: typeof MATCH_CV_SELECT }>,
+    jobDescription: string,
+  ): MatchResult {
+    const { id, ...cvContent } = cv;
     return {
-      ...job,
-      status: this.normalizeStatus(job.status) ?? "applied",
+      ...matchCvToJobDescription(cvContent, jobDescription),
+      cvVersionId: id,
+      checkedAt: new Date().toISOString(),
     };
   }
 
-  private async resolveOwnedRelations(
+  private async loadCvForMatch(userId: string, cvVersionId: string | null | undefined) {
+    const cv = await this.prisma.cvVersion.findFirst({
+      where: cvVersionId ? { id: cvVersionId, userId } : { userId },
+      orderBy: { updatedAt: "desc" },
+      select: MATCH_CV_SELECT,
+    });
+    if (cv) return cv;
+    if (cvVersionId) throw cvVersionNotFound();
+    throw new BadRequestException("Create a CV first, then check it against this job.");
+  }
+
+  /** Linked CV / cover-letter ids must be the user's own (404 otherwise). */
+  private async assertOwnedLinks(
     userId: string,
-    data: { cvVersionId?: string; coverLetterId?: string },
-  ): Promise<{
-    cvVersionId: string | null | undefined;
-    coverLetterId: string | null | undefined;
-  }> {
-    const resolveId = (id: string | undefined) => {
-      if (id === undefined) return undefined;
-      const trimmed = id.trim();
-      return trimmed.length > 0 ? trimmed : null;
-    };
-
-    const cvVersionId = resolveId(data.cvVersionId);
-    const coverLetterId = resolveId(data.coverLetterId);
-
-    if (cvVersionId) {
-      const cv = await this.prisma.cvVersion.findFirst({
-        where: { id: cvVersionId, userId },
-        select: { id: true },
-      });
-      if (!cv) throw new NotFoundException("CV version not found");
-    }
-
-    if (coverLetterId) {
-      const coverLetter = await this.prisma.coverLetter.findFirst({
-        where: { id: coverLetterId, userId },
-        select: { id: true },
-      });
-      if (!coverLetter) throw new NotFoundException("Cover letter not found");
-    }
-
-    return { cvVersionId, coverLetterId };
+    links: { cvVersionId?: string | null; coverLetterId?: string | null },
+  ): Promise<void> {
+    const [cv, letter] = await Promise.all([
+      links.cvVersionId
+        ? this.prisma.cvVersion.findFirst({
+            where: { id: links.cvVersionId, userId },
+            select: { id: true },
+          })
+        : undefined,
+      links.coverLetterId
+        ? this.prisma.coverLetter.findFirst({
+            where: { id: links.coverLetterId, userId },
+            select: { id: true },
+          })
+        : undefined,
+    ]);
+    if (cv === null) throw cvVersionNotFound();
+    if (letter === null) throw coverLetterNotFound();
   }
 }
