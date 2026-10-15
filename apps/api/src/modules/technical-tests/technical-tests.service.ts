@@ -1,127 +1,121 @@
 import {
+  BadRequestException,
+  ConflictException,
   Injectable,
+  InternalServerErrorException,
+  Logger,
   NotFoundException,
-  ForbiddenException,
 } from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Prisma, type TechnicalTest } from "@prisma/client";
+import { ROLE_TO_TRACK } from "../../common/constants";
+import { QuotaExceededException } from "../../common/errors";
+import { getMonthWindow, lockedTransaction, userLockKey } from "../../common/plan";
 import { PrismaService } from "../../common/prisma.service";
-import { CreateTechnicalTestDto } from "./technical-tests.dto";
-import {
-  generateScenario,
-  TechTestScenario,
-} from "./engine/scenario-generator";
+import { normalizeTags } from "../../common/tech-tags";
+import { AiService } from "../ai/ai.service";
 import { AiScenarioGeneratorService } from "../ai/ai-scenario-generator.service";
-import { ROLE_TO_TRACK, FREE_TIER, sanitiseTags } from "../../common/constants";
-import { computeGrade } from "../../common/grade.util";
-import { isActivePremium } from "../../common/subscription.util";
+import { EntitlementsService } from "../entitlements/entitlements.service";
+import { generateScenario } from "./engine/scenario-generator";
+import { evaluateSubmission } from "./engine/self-check";
+import type { CreateTechnicalTestDto, SelfReviewTechnicalTestDto } from "./technical-tests.dto";
+import {
+  TEST_STATUS,
+  SUBMITTABLE_STATUSES,
+  aiReviewState,
+  buildSelfReview,
+  canSubmit,
+  isSubmitted,
+  readEvaluation,
+  readScenario,
+  shouldTryAiScenario,
+  suggestedMinutes,
+  toJson,
+} from "./technical-tests.rules";
+import type {
+  ScenarioCore,
+  StoredEvaluation,
+  StoredScenario,
+  TechTestAiReview,
+  TechnicalTestSummary,
+  TechnicalTestView,
+} from "./technical-tests.types";
+import { toSummary, toTestView, type TechnicalTestSummaryRow } from "./technical-tests.view";
 
-interface SubmissionEvaluation {
-  overallScore: number;
-  maxPossible: number;
-  percentage: number;
-  grade: string;
-  criteriaScores: {
-    name: string;
-    score: number;
-    maxScore: number;
-    description: string;
-  }[];
-  strengths: string[];
-  improvements: string[];
-  requirementsCovered: number;
-  requirementsTotal: number;
-  requirementsMissed: string[];
-  wordCount: number;
-  summary: string;
-}
+/** GET /technical-tests returns at most this many summaries, newest first. */
+const MAX_TEST_SUMMARIES = 100;
+/** How many recent tests' templates are de-prioritised for the next one. */
+const RECENT_TEMPLATE_LOOKBACK = 3;
+
+type Db = Prisma.TransactionClient | PrismaService;
 
 @Injectable()
 export class TechnicalTestsService {
+  private readonly logger = new Logger(TechnicalTestsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
-    private readonly aiScenarioGenerator: AiScenarioGeneratorService,
+    private readonly entitlements: EntitlementsService,
+    private readonly aiScenarios: AiScenarioGeneratorService,
+    private readonly ai: AiService,
   ) {}
 
-  private isTechTestScenario(value: unknown): value is TechTestScenario {
-    if (!value || typeof value !== "object") return false;
-    const record = value as Record<string, unknown>;
-
-    return (
-      typeof record.title === "string" &&
-      Array.isArray(record.requirements) &&
-      Array.isArray(record.evaluationCriteria)
-    );
+  /** Newest first, soft-deleted excluded; no scenario, submission or review text loaded. */
+  async listSummaries(userId: string): Promise<TechnicalTestSummary[]> {
+    const rows = await this.prisma.$queryRaw<TechnicalTestSummaryRow[]>`
+      SELECT "id", "title", "track", "level", "difficulty", "roleFocus", "tags", "timeLimit",
+             "status", "createdAt", "startedAt", "submittedAt",
+             CASE WHEN jsonb_typeof("evaluation"->'percentage') = 'number'
+                  THEN ("evaluation"->>'percentage')::float8 END AS "score",
+             CASE WHEN jsonb_typeof("evaluation"->'grade') = 'string'
+                  THEN "evaluation"->>'grade' END AS "grade",
+             COALESCE(jsonb_typeof("evaluation"->'aiReview') = 'object', false) AS "hasAiReview"
+      FROM "TechnicalTest"
+      WHERE "userId" = ${userId} AND "deletedAt" IS NULL
+      ORDER BY "createdAt" DESC
+      LIMIT ${MAX_TEST_SUMMARIES}`;
+    return rows.map(toSummary);
   }
 
-  private toInputJson(value: unknown): Prisma.InputJsonValue {
-    return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+  async getTest(userId: string, testId: string): Promise<TechnicalTestView> {
+    return toTestView(await this.findOwned(this.prisma, userId, testId));
   }
 
-  private parseScenario(value: Prisma.JsonValue): TechTestScenario {
-    if (!this.isTechTestScenario(value)) {
-      throw new NotFoundException("Technical test scenario is invalid");
-    }
-    return value;
-  }
-
-  /** List all technical tests for a user */
-  async getTests(userId: string) {
-    return this.prisma.technicalTest.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-    });
-  }
-
-  /** Get a single test by id */
-  async getTest(userId: string, testId: string) {
-    const test = await this.prisma.technicalTest.findFirst({
-      where: { id: testId, userId },
-    });
-    if (!test) throw new NotFoundException("Technical test not found");
-    return test;
-  }
-
-  /** Generate a new technical test scenario */
-  async createTest(userId: string, dto: CreateTechnicalTestDto) {
-    // Enforce monthly limit for free users
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user) throw new ForbiddenException("User not found");
-
-    const isPremium = isActivePremium(user);
-
-    // Sanitize and normalize tags — the DB and generators store lowercase tags
-    const tags = sanitiseTags(dto.tags ?? []).map((t) => t.toLowerCase());
-
-    // Try the hardcoded template engine first
-    let scenario: TechTestScenario = generateScenario({
-      roleFocus: dto.roleFocus,
-      level: dto.level,
-      difficulty: dto.difficulty,
-      tags,
-    });
-
-    // If we want more variety for premium users, periodically use AI (~25% chance)
-    // or if the template feels like a weak match (no tag overlap), use AI
-    const templateTagMatch = this.countTagOverlap(scenario, tags);
-    const shouldUseAi = templateTagMatch === 0 || Math.random() < 0.25;
-
-    if (shouldUseAi) {
-      const aiScenario = await this.aiScenarioGenerator.generateScenario(
-        {
-          roleFocus: dto.roleFocus,
-          level: dto.level,
-          difficulty: dto.difficulty,
-          tags,
-        },
-        userId,
-      );
-      if (aiScenario) {
-        scenario = aiScenario;
-      }
+  /**
+   * Free users: monthly quota checked before any work and again atomically at
+   * insert; their scenarios always come from the static engine. Premium users
+   * may get an AI scenario (never inside the transaction); the AI generator
+   * returns null on any limit or failure, which keeps the template scenario.
+   */
+  async createTest(userId: string, dto: CreateTechnicalTestDto): Promise<TechnicalTestView> {
+    const { tags } = normalizeTags(dto.tags);
+    const plan = await this.entitlements.getPlan(userId);
+    const monthlyLimit = plan.limits.monthlyTechTests;
+    if (monthlyLimit !== null) {
+      await this.assertMonthlyQuota(this.prisma, userId, monthlyLimit);
     }
 
-    const createData = {
+    const input = { roleFocus: dto.roleFocus, level: dto.level, difficulty: dto.difficulty, tags };
+    const generated = generateScenario(input, {
+      recentTemplateIds: await this.recentTemplateIds(userId),
+    });
+    let scenario: StoredScenario = {
+      ...generated.scenario,
+      source: "template",
+      templateId: generated.templateId,
+    };
+
+    const tryAi = shouldTryAiScenario({
+      isPremium: plan.isPremium,
+      tagCount: tags.length,
+      tagMatches: generated.tagMatches,
+      roll: Math.random(),
+    });
+    if (tryAi) {
+      const aiScenario = await this.aiScenarios.generateScenario(input, userId);
+      if (aiScenario) scenario = { ...aiScenario, source: "ai" };
+    }
+
+    const data: Prisma.TechnicalTestUncheckedCreateInput = {
       userId,
       title: scenario.title,
       track: ROLE_TO_TRACK[dto.roleFocus] ?? "fullstack",
@@ -129,238 +123,243 @@ export class TechnicalTestsService {
       difficulty: dto.difficulty,
       roleFocus: dto.roleFocus,
       tags,
-      scenario: this.toInputJson(scenario),
-      status: "not_started",
+      timeLimit: suggestedMinutes(scenario.estimatedTime),
+      scenario: toJson(scenario),
+      status: TEST_STATUS.notStarted,
     };
 
-    const test = isPremium
-      ? await this.prisma.technicalTest.create({ data: createData })
-      : await this.prisma.$transaction(
-          async (tx) => {
-            const monthStart = new Date();
-            monthStart.setUTCDate(1);
-            monthStart.setUTCHours(0, 0, 0, 0);
+    if (monthlyLimit === null) {
+      return toTestView(await this.prisma.technicalTest.create({ data }));
+    }
+    const created = await lockedTransaction(this.prisma, this.lockKey(userId), async (tx) => {
+      await this.assertMonthlyQuota(tx, userId, monthlyLimit);
+      return tx.technicalTest.create({ data });
+    });
+    return toTestView(created);
+  }
 
-            const testCount = await tx.technicalTest.count({
-              where: { userId, createdAt: { gte: monthStart } },
-            });
+  /** not_started → in_progress. Starting an in-progress test is a no-op; a submitted one is 409. */
+  async startTest(userId: string, testId: string): Promise<TechnicalTestView> {
+    await this.prisma.technicalTest.updateMany({
+      where: { id: testId, userId, deletedAt: null, status: TEST_STATUS.notStarted },
+      data: { status: TEST_STATUS.inProgress, startedAt: new Date() },
+    });
+    const test = await this.findOwned(this.prisma, userId, testId);
+    if (isSubmitted(test.status)) {
+      throw new ConflictException("This test has already been submitted.");
+    }
+    return toTestView(test);
+  }
 
-            if (testCount >= FREE_TIER.monthlyTechTests) {
-              throw new ForbiddenException(
-                `Free users are limited to ${FREE_TIER.monthlyTechTests} technical tests per month. Upgrade to Premium for unlimited tests.`,
-              );
-            }
+  /** Stores the solution and its automated checklist. Exactly once: re-submits are 409. */
+  async submitTest(
+    userId: string,
+    testId: string,
+    submission: string,
+  ): Promise<TechnicalTestView> {
+    if (!submission.trim()) {
+      throw new BadRequestException("Your submission is empty.");
+    }
+    const test = await this.findOwned(this.prisma, userId, testId);
+    if (!canSubmit(test.status)) {
+      throw new ConflictException("This test has already been submitted.");
+    }
+    const evaluation = evaluateSubmission(submission, this.requireScenario(test));
+    const now = new Date();
 
-            return tx.technicalTest.create({ data: createData });
-          },
-          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-        );
+    // Guarded on status so concurrent submits can't overwrite each other.
+    const { count } = await this.prisma.technicalTest.updateMany({
+      where: { id: testId, userId, deletedAt: null, status: { in: SUBMITTABLE_STATUSES } },
+      data: {
+        status: TEST_STATUS.submitted,
+        submission,
+        submittedAt: now,
+        startedAt: test.startedAt ?? now,
+        evaluation: toJson(evaluation),
+      },
+    });
+    const updated = await this.findOwned(this.prisma, userId, testId);
+    if (count === 0) {
+      throw new ConflictException("This test has already been submitted.");
+    }
+    return toTestView(updated);
+  }
 
+  /** Free rubric self-rating of a submitted test; may be updated any time. */
+  async saveSelfReview(
+    userId: string,
+    testId: string,
+    dto: SelfReviewTechnicalTestDto,
+  ): Promise<TechnicalTestView> {
+    return lockedTransaction(this.prisma, this.lockKey(userId), async (tx) => {
+      const test = await this.findOwned(tx, userId, testId);
+      if (!isSubmitted(test.status)) {
+        throw new ConflictException("Submit your solution before reviewing it.");
+      }
+      const scenario = this.requireScenario(test);
+      const selfReview = buildSelfReview(dto, scenario.evaluationCriteria.length);
+      const evaluation = this.currentEvaluation(test, scenario);
+      return toTestView(await this.writeEvaluation(tx, test.id, { ...evaluation, selfReview }));
+    });
+  }
+
+  /**
+   * Premium AI review of a submitted test, once per test. A claim stored on
+   * the evaluation (under the per-user lock) stops double requests from
+   * paying twice; it is released if the AI call fails so the user can retry.
+   */
+  async requestAiReview(userId: string, testId: string): Promise<TechnicalTestView> {
+    await this.entitlements.assertPremium(userId, "aiTechReview");
+    const { test, scenario } = await this.claimAiReview(userId, testId);
+
+    let review: TechTestAiReview;
+    try {
+      const result = await this.ai.reviewTechTestSubmission(userId, {
+        title: scenario.title,
+        brief: scenario.brief,
+        requirements: scenario.requirements.map((r) => r.text),
+        evaluationCriteria: scenario.evaluationCriteria.map((c) => c.name),
+        level: test.level,
+        submission: test.submission ?? "",
+      });
+      review = { ...result, reviewedAt: new Date().toISOString() };
+    } catch (error) {
+      await this.releaseAiReviewClaim(userId, testId);
+      throw error;
+    }
+
+    return lockedTransaction(this.prisma, this.lockKey(userId), async (tx) => {
+      const current = await this.findOwned(tx, userId, testId);
+      const { aiReviewPendingSince: _claim, ...evaluation } = this.currentEvaluation(
+        current,
+        scenario,
+      );
+      // Never replace a review that is already stored.
+      const aiReview = evaluation.aiReview ?? review;
+      return toTestView(await this.writeEvaluation(tx, current.id, { ...evaluation, aiReview }));
+    });
+  }
+
+  /**
+   * Soft delete: hidden everywhere but still counted toward the monthly free
+   * allowance. The user's solution and reviews are erased. Runs under the
+   * user lock so a concurrent review write can't put the evaluation back.
+   */
+  async deleteTest(userId: string, testId: string): Promise<void> {
+    const { count } = await lockedTransaction(this.prisma, this.lockKey(userId), (tx) =>
+      tx.technicalTest.updateMany({
+        where: { id: testId, userId, deletedAt: null },
+        data: { deletedAt: new Date(), submission: null, evaluation: Prisma.DbNull },
+      }),
+    );
+    if (count === 0) throw new NotFoundException("Technical test not found");
+  }
+
+  /* ── Internals ──────────────────────────────────────────────────── */
+
+  private lockKey(userId: string): string {
+    return userLockKey("tech-test", userId);
+  }
+
+  private async findOwned(db: Db, userId: string, testId: string): Promise<TechnicalTest> {
+    const test = await db.technicalTest.findFirst({
+      where: { id: testId, userId, deletedAt: null },
+    });
+    if (!test) throw new NotFoundException("Technical test not found");
     return test;
   }
 
-  /**
-   * Count how many of the user's selected tags appear in the scenario text.
-   * Used to decide if the hardcoded template is a good match.
-   */
-  private countTagOverlap(scenario: TechTestScenario, tags: string[]): number {
-    const scenarioText = JSON.stringify(scenario).toLowerCase();
-    return tags.filter((t) => scenarioText.includes(t.toLowerCase())).length;
-  }
-
-  /** Start the test — sets startedAt and status */
-  async startTest(userId: string, testId: string) {
-    const test = await this.getTest(userId, testId);
-    if (test.status !== "not_started") {
-      return test; // Already started
+  /** Counts every test created this month, including deleted ones. */
+  private async assertMonthlyQuota(db: Db, userId: string, limit: number): Promise<void> {
+    const { start, nextStart } = getMonthWindow();
+    const used = await db.technicalTest.count({
+      where: { userId, createdAt: { gte: start } },
+    });
+    if (used >= limit) {
+      throw new QuotaExceededException("techTests", limit, used, nextStart);
     }
-
-    return this.prisma.technicalTest.update({
-      where: { id: testId },
-      data: {
-        status: "in_progress",
-        startedAt: new Date(),
-      },
-    });
   }
 
-  /** Submit the user's solution */
-  async submitTest(userId: string, testId: string, submission: string) {
-    const test = await this.getTest(userId, testId);
-    if (test.status === "submitted" || test.status === "evaluated") {
-      return test; // Already submitted
+  /** Template ids of the user's latest tests (deleted included), newest first. */
+  private async recentTemplateIds(userId: string): Promise<(string | null)[]> {
+    const rows = await this.prisma.$queryRaw<{ templateId: string | null }[]>`
+      SELECT "scenario"->>'templateId' AS "templateId"
+      FROM "TechnicalTest"
+      WHERE "userId" = ${userId}
+      ORDER BY "createdAt" DESC
+      LIMIT ${RECENT_TEMPLATE_LOOKBACK}`;
+    return rows.map((row) => row.templateId);
+  }
+
+  private requireScenario(test: TechnicalTest): ScenarioCore {
+    const scenario = readScenario(test.scenario);
+    if (!scenario) {
+      this.logger.error(`Technical test ${test.id} has a malformed scenario`);
+      throw new InternalServerErrorException(
+        "This test's brief couldn't be read. Please generate a new test.",
+      );
     }
+    return scenario;
+  }
 
-    const scenario = this.parseScenario(test.scenario);
-    const evaluation = this.evaluateSubmission(submission, scenario);
+  /** The stored evaluation, or a fresh checklist for legacy submissions saved without one. */
+  private currentEvaluation(test: TechnicalTest, scenario: ScenarioCore): StoredEvaluation {
+    return readEvaluation(test.evaluation) ?? evaluateSubmission(test.submission ?? "", scenario);
+  }
 
-    return this.prisma.technicalTest.update({
+  private writeEvaluation(
+    tx: Prisma.TransactionClient,
+    testId: string,
+    evaluation: StoredEvaluation,
+  ): Promise<TechnicalTest> {
+    return tx.technicalTest.update({
       where: { id: testId },
-      data: {
-        status: "submitted",
-        submission,
-        submittedAt: new Date(),
-        evaluation: this.toInputJson(evaluation),
-      },
+      data: { evaluation: toJson(evaluation) },
     });
   }
 
-  /** Delete a test */
-  async deleteTest(userId: string, testId: string) {
-    await this.getTest(userId, testId); // Verify ownership
-    return this.prisma.technicalTest.delete({ where: { id: testId } });
+  private claimAiReview(
+    userId: string,
+    testId: string,
+  ): Promise<{ test: TechnicalTest; scenario: ScenarioCore }> {
+    return lockedTransaction(this.prisma, this.lockKey(userId), async (tx) => {
+      const test = await this.findOwned(tx, userId, testId);
+      if (!isSubmitted(test.status)) {
+        throw new ConflictException("Submit your solution before requesting an AI review.");
+      }
+      const scenario = this.requireScenario(test);
+      const evaluation = this.currentEvaluation(test, scenario);
+      const now = new Date();
+      const state = aiReviewState(evaluation, now);
+      if (state === "done") {
+        throw new ConflictException("This test already has an AI review.");
+      }
+      if (state === "pending") {
+        throw new ConflictException("An AI review of this test is already in progress.");
+      }
+      await this.writeEvaluation(tx, test.id, {
+        ...evaluation,
+        aiReviewPendingSince: now.toISOString(),
+      });
+      return { test, scenario };
+    });
   }
 
-  /**
-   * Evaluate the submission against the scenario's evaluation criteria.
-   * This is a heuristic-based evaluation — in a real product you'd use AI.
-   * It checks length, keyword coverage, structure, and effort indicators.
-   */
-  private evaluateSubmission(
-    submission: string,
-    scenario: TechTestScenario,
-  ): SubmissionEvaluation {
-    const criteria: { name: string; weight: number; description: string }[] =
-      scenario.evaluationCriteria ?? [];
-    const requirements: { key: string; text: string }[] =
-      scenario.requirements ?? [];
-    const submissionLower = submission.toLowerCase();
-    const wordCount = submission.split(/\s+/).filter(Boolean).length;
-
-    // Heuristic scoring per criterion
-    const criteriaScores = criteria.map((c) => {
-      let score = 0;
-      const maxScore = c.weight;
-
-      // Base score from submission length/effort
-      if (wordCount >= 500) score += maxScore * 0.3;
-      else if (wordCount >= 200) score += maxScore * 0.2;
-      else if (wordCount >= 50) score += maxScore * 0.1;
-
-      // Check for structural indicators
-      const structureKeywords = [
-        "```",
-        "function",
-        "class",
-        "interface",
-        "import",
-        "export",
-        "const ",
-        "let ",
-        "def ",
-        "public ",
-        "private ",
-        "describe(",
-        "it(",
-        "test(",
-        "CREATE TABLE",
-        "SELECT",
-        "INSERT",
-        "docker",
-        "dockerfile",
-        "readme",
-        "documentation",
-      ];
-      const structureHits = structureKeywords.filter((k) =>
-        submissionLower.includes(k.toLowerCase()),
-      ).length;
-      score += Math.min(maxScore * 0.3, structureHits * (maxScore * 0.05));
-
-      // Check for requirement keyword coverage
-      const reqKeywords = requirements.map((r) => r.key.toLowerCase());
-      const reqHits = reqKeywords.filter((k) =>
-        submissionLower.includes(k),
-      ).length;
-      const reqCoverage =
-        reqKeywords.length > 0 ? reqHits / reqKeywords.length : 0;
-      score += maxScore * 0.2 * reqCoverage;
-
-      // Check for criterion-specific keywords
-      const criterionWords = c.name.toLowerCase().split(/\s+/);
-      const criterionHits = criterionWords.filter((w) =>
-        submissionLower.includes(w),
-      ).length;
-      score += Math.min(
-        maxScore * 0.2,
-        (criterionHits / Math.max(criterionWords.length, 1)) * maxScore * 0.2,
-      );
-
-      return {
-        name: c.name,
-        score: Math.round(Math.min(score, maxScore) * 10) / 10,
-        maxScore,
-        description: c.description,
-      };
-    });
-
-    const overallScore = criteriaScores.reduce((s, c) => s + c.score, 0);
-    const maxPossible = criteriaScores.reduce((s, c) => s + c.maxScore, 0);
-    const percentage =
-      maxPossible > 0 ? Math.round((overallScore / maxPossible) * 100) : 0;
-
-    const grade = computeGrade(percentage);
-
-    // Generate feedback
-    const strengths: string[] = [];
-    const improvements: string[] = [];
-
-    if (wordCount >= 300)
-      strengths.push("Thorough submission with good detail and explanation.");
-    if (submissionLower.includes("```"))
-      strengths.push("Included code examples demonstrating implementation.");
-    if (submissionLower.includes("test") || submissionLower.includes("spec"))
-      strengths.push("Mentioned or included testing approach.");
-    if (
-      submissionLower.includes("trade") ||
-      submissionLower.includes("decision")
-    )
-      strengths.push("Discussed trade-offs and architectural decisions.");
-    if (submissionLower.includes("error") || submissionLower.includes("edge"))
-      strengths.push("Considered error handling and edge cases.");
-
-    if (wordCount < 100)
-      improvements.push(
-        "Submission is very brief — provide more detail about your approach, implementation, and reasoning.",
-      );
-    if (!submissionLower.includes("```"))
-      improvements.push(
-        "Include code snippets or pseudocode to demonstrate your implementation.",
-      );
-    if (!submissionLower.includes("test") && !submissionLower.includes("spec"))
-      improvements.push(
-        "Discuss your testing strategy — what would you test and how?",
-      );
-    if (
-      !submissionLower.includes("trade") &&
-      !submissionLower.includes("decision") &&
-      !submissionLower.includes("why")
-    )
-      improvements.push(
-        "Explain WHY you made certain choices — trade-off analysis is crucial.",
-      );
-
-    const reqsMissed = requirements
-      .filter((r) => !submissionLower.includes(r.key.toLowerCase()))
-      .map((r) => r.key);
-
-    return {
-      overallScore,
-      maxPossible,
-      percentage,
-      grade,
-      criteriaScores,
-      strengths,
-      improvements,
-      requirementsCovered: requirements.length - reqsMissed.length,
-      requirementsTotal: requirements.length,
-      requirementsMissed: reqsMissed,
-      wordCount,
-      summary:
-        percentage >= 70
-          ? "Strong submission that covers the core requirements well. Review the improvement suggestions to push it further."
-          : percentage >= 40
-            ? "Good effort with room for improvement. Focus on the missed requirements and add more implementation detail."
-            : "The submission needs significantly more detail. Review the requirements carefully and expand your solution with code, explanations, and trade-off analysis.",
-    };
+  /** Best effort: an unreleased claim simply expires (AI_REVIEW_CLAIM_TTL_MS). */
+  private async releaseAiReviewClaim(userId: string, testId: string): Promise<void> {
+    try {
+      await lockedTransaction(this.prisma, this.lockKey(userId), async (tx) => {
+        const test = await tx.technicalTest.findFirst({
+          where: { id: testId, userId, deletedAt: null },
+        });
+        const evaluation = test ? readEvaluation(test.evaluation) : null;
+        if (!test || !evaluation?.aiReviewPendingSince) return;
+        const { aiReviewPendingSince: _claim, ...rest } = evaluation;
+        await this.writeEvaluation(tx, test.id, rest);
+      });
+    } catch (error) {
+      const name = error instanceof Error ? error.name : "unknown error";
+      this.logger.warn(`Could not release an AI review claim (${name})`);
+    }
   }
 }
