@@ -1,395 +1,224 @@
-import { Button } from "@careerportal/web/ui";
-import type { InterviewReport as InterviewReportType } from "@careerportal/shared/types";
+import { useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
+  ArrowLeft,
+  BarChart3,
+  BookOpen,
+  CheckCircle2,
+  Flag,
   Play,
   Star,
   Target,
-  AlertTriangle,
-  CheckCircle2,
-  BookOpen,
-  ChevronRight,
   Trophy,
-  BarChart3,
 } from "lucide-react";
+import type { InterviewReport as InterviewReportData, InterviewSession } from "@careerportal/shared/types";
+import { Button, ErrorState, IconButton, Spinner } from "@careerportal/web/ui";
 import {
-  StatCard,
-  ProgressRing,
-  TRACK_META,
-  LEVEL_META,
-  LEVEL_BADGE_STYLES,
-} from "../../shared";
-import type { InterviewReportProps } from "../types";
+  getErrorMessage,
+  isApiError,
+  useCompleteInterviewSession,
+  useInterviewSession,
+} from "@careerportal/web/data-access";
+import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { ProgressRing, StatCard } from "../../shared";
+import { getInterviewerById } from "../interviewer-configs";
+import { SCORE_TONE_TEXT, clampPercent, formatShortDate, getTrackMeta, scoreTone } from "../meta";
+import { ActionError, BulletList, LevelBadge, ScoreBar, TrackBadge } from "./common";
 
-export function InterviewReport({
-  activeSession,
-  onStartNew,
-}: InterviewReportProps) {
-  const report = activeSession.report as InterviewReportType | null;
-  const trackMeta = TRACK_META[activeSession.track] ?? TRACK_META.frontend;
-  const levelMeta = LEVEL_META[activeSession.level] ?? LEVEL_META.mid;
+interface InterviewReportViewProps {
+  sessionId: string;
+  onBack: () => void;
+  onResume: () => void;
+}
 
-  if (!report) {
+/** ?session=<id>&view=report — loads (and refreshes) the session, then shows its report. */
+export function InterviewReportView({ sessionId, onBack, onResume }: InterviewReportViewProps) {
+  const { data, isPending, isFetching, isError, error, refetch } = useInterviewSession(sessionId);
+  const session = data?.data;
+
+  if (isPending || (isFetching && !session?.report)) return <Spinner label="Loading your report" />;
+  if (isError || !session) {
+    const notFound = isApiError(error) && error.status === 404;
     return (
-      <div className="w-full">
-        <div className="max-w-2xl mx-auto text-center py-16">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-muted mb-4">
-            <BarChart3 className="h-7 w-7 text-accent" />
-          </div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4">
-            No report available for this session.
-          </p>
-          <Button variant="ghost" onClick={onStartNew}>
-            ← Back to Setup
+      <div className="space-y-4">
+        <ErrorState
+          message={notFound ? "We couldn't find that interview." : getErrorMessage(error, "Couldn't load this report.")}
+          onRetry={notFound ? undefined : () => void refetch()}
+        />
+        <div className="flex justify-center">
+          <Button variant="ghost" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Back to practice
           </Button>
         </div>
       </div>
     );
   }
 
-  const pct = report.percentage;
+  if (!session.report) return <UnfinishedSession session={session} onBack={onBack} onResume={onResume} />;
+  return <InterviewReport session={session} report={session.report} onBack={onBack} />;
+}
+
+function UnfinishedSession({
+  session,
+  onBack,
+  onResume,
+}: {
+  session: InterviewSession;
+  onBack: () => void;
+  onResume: () => void;
+}) {
+  const complete = useCompleteInterviewSession();
+  const [confirmEnd, setConfirmEnd] = useState(false);
+  const answered = (session.questions ?? []).filter((q) => q.userAnswer !== null).length;
+
+  return (
+    <div className="max-w-2xl mx-auto text-center py-16 space-y-4">
+      <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-muted" aria-hidden="true">
+        <BarChart3 className="h-7 w-7 text-accent" />
+      </span>
+      <h1 className="text-lg font-semibold text-text-primary">This interview isn't finished yet</h1>
+      <p className="text-sm text-text-secondary">
+        {answered > 0
+          ? `You've answered ${answered} question${answered === 1 ? "" : "s"}. Resume to finish it, or end it now to get a report on what you've answered.`
+          : "Resume it to answer the first question."}
+      </p>
+      <ActionError error={complete.error} title="Couldn't end the interview" className="text-left" />
+      <div className="flex flex-wrap justify-center gap-3">
+        {session.status !== "completed" && (
+          <Button onClick={onResume}>
+            <Play className="h-4 w-4" aria-hidden="true" /> Resume interview
+          </Button>
+        )}
+        {answered > 0 && (
+          <Button variant="outline" onClick={() => setConfirmEnd(true)} loading={complete.isPending}>
+            <Flag className="h-4 w-4" aria-hidden="true" /> End and see report
+          </Button>
+        )}
+        <Button variant="ghost" onClick={onBack}>
+          Back to practice
+        </Button>
+      </div>
+      <ConfirmDialog
+        open={confirmEnd}
+        title="End the interview now?"
+        description={`Your report will cover the ${answered} question${answered === 1 ? "" : "s"} you've answered.`}
+        confirmLabel="End and see report"
+        onConfirm={() => {
+          setConfirmEnd(false);
+          complete.mutate(session.id);
+        }}
+        onCancel={() => setConfirmEnd(false)}
+      />
+    </div>
+  );
+}
+
+function InterviewReport({
+  session,
+  report,
+  onBack,
+}: {
+  session: InterviewSession;
+  report: InterviewReportData;
+  onBack: () => void;
+}) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const pct = clampPercent(report.percentage);
+  const tone = scoreTone(pct);
+  const interviewer = getInterviewerById(session.interviewerId);
+  const breakdown = report.questionBreakdown ?? [];
+  const questionCount = breakdown.length;
+
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   return (
     <div className="w-full">
-      {/* Top bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-          <button
-            onClick={onStartNew}
-            className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-500 hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-700 transition-all shadow-sm"
-          >
-            <ChevronRight className="h-4 w-4 rotate-180" />
-          </button>
-          <span
-            className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg ${trackMeta.solid} ${trackMeta.solidText}`}
-          >
-            {trackMeta.icon} {trackMeta.label}
-          </span>
-          <span
-            className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg ${
-              LEVEL_BADGE_STYLES[activeSession.level] ?? ""
-            }`}
-          >
-            {levelMeta.icon} {levelMeta.label}
-          </span>
-          <span className="text-xs text-gray-400 dark:text-gray-500">
-            {new Date(activeSession.createdAt).toLocaleDateString()}
+          <IconButton label="Back to practice" onClick={onBack} className="border border-border bg-bg-elevated">
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          </IconButton>
+          <h1 ref={headingRef} tabIndex={-1} className="text-lg font-semibold text-text-primary focus:outline-none">
+            Interview report
+          </h1>
+          <TrackBadge track={session.track} />
+          <LevelBadge level={session.level} />
+          <span className="text-xs text-text-tertiary">
+            {formatShortDate(session.createdAt)}
+            {interviewer && interviewer.id !== "none" ? ` · with ${interviewer.name}` : ""}
           </span>
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6">
         <StatCard icon={Trophy} value={report.grade} label="Grade" />
-        <StatCard
-          icon={Star}
-          value={`${report.overallScore}/${report.maxPossibleScore}`}
-          label="Points"
-        />
-        <StatCard
-          icon={Target}
-          value={report.strengths.length}
-          label="Strengths"
-        />
-        <StatCard
-          icon={AlertTriangle}
-          value={report.weaknesses.length}
-          label="Weaknesses"
-        />
+        <StatCard icon={Star} value={`${report.overallScore}/${report.maxPossibleScore}`} label="Points" />
+        <StatCard icon={Target} value={`${pct}%`} label="Score" />
+        <StatCard icon={CheckCircle2} value={questionCount} label="Questions" />
       </div>
 
-      {/* Accuracy bar */}
-      <div className="mb-6">
-        <div className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ease-out ${
-              pct >= 70
-                ? "bg-emerald-500"
-                : pct >= 40
-                ? "bg-amber-500"
-                : "bg-red-400"
-            }`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
-        <div className="space-y-4">
-          {/* Summary card */}
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-            <div className={`h-1 ${trackMeta.solid}`} />
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
+        <div className="space-y-4 min-w-0">
+          <section className="rounded-2xl border border-border bg-bg-elevated overflow-hidden shadow-sm" aria-labelledby="summary-heading">
+            <div className={`h-1 ${getTrackMeta(session.track).accent}`} />
             <div className="p-6">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+              <h2 id="summary-heading" className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">
                 Summary
-              </p>
-              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                {report.trackSummary}
-              </p>
+              </h2>
+              <p className="text-sm text-text-primary leading-relaxed">{report.trackSummary}</p>
             </div>
-          </div>
+          </section>
 
-          {/* Strengths & Weaknesses */}
           <div className="grid sm:grid-cols-2 gap-3">
-            {report.strengths.length > 0 && (
-              <InfoList
-                icon={<CheckCircle2 className="h-3.5 w-3.5" />}
-                label="Strengths"
-                items={report.strengths}
-                color="emerald"
-              />
-            )}
-            {report.weaknesses.length > 0 && (
-              <InfoList
-                icon={<AlertTriangle className="h-3.5 w-3.5" />}
-                label="Weaknesses"
-                items={report.weaknesses}
-                color="amber"
-              />
-            )}
+            <BulletList icon={CheckCircle2} title="Strengths" items={report.strengths} tone="emerald" />
+            <BulletList icon={AlertTriangle} title="Weaknesses" items={report.weaknesses} tone="amber" />
           </div>
+          <BulletList icon={BookOpen} title="Suggested study areas" items={report.suggestedStudyAreas} tone="blue" />
 
-          {/* Suggested study areas */}
-          {report.suggestedStudyAreas.length > 0 && (
-            <InfoList
-              icon={<BookOpen className="h-3.5 w-3.5" />}
-              label="Suggested Study Areas"
-              items={report.suggestedStudyAreas}
-              color="blue"
-            />
+          {questionCount > 0 && (
+            <section className="rounded-2xl border border-border bg-bg-elevated p-5 space-y-4" aria-labelledby="breakdown-heading">
+              <h2 id="breakdown-heading" className="text-xs font-semibold text-text-tertiary uppercase tracking-wider">
+                Question by question
+              </h2>
+              <ol className="space-y-4">
+                {breakdown.map((q, i) => (
+                  <li key={`${q.questionId}-${i}`}>
+                    <ScoreBar
+                      label={
+                        <>
+                          <span className="font-semibold text-text-primary">Q{i + 1}.</span> {q.prompt}
+                        </>
+                      }
+                      percentage={q.maxScore > 0 ? (q.score / q.maxScore) * 100 : 0}
+                      valueText={`${q.score}/${q.maxScore}`}
+                    />
+                  </li>
+                ))}
+              </ol>
+            </section>
           )}
 
-          {/* Per-question breakdown */}
-          {report.questionBreakdown.length > 0 && (
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                Per-Question Breakdown
-              </p>
-              {report.questionBreakdown.map((q, i) => {
-                const qPct =
-                  q.maxScore > 0 ? Math.round((q.score / q.maxScore) * 100) : 0;
-                return (
-                  <div key={q.questionId ?? i} className="space-y-1.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug flex-1">
-                        <span className="inline-flex items-center text-[11px] font-bold px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 mr-1.5">
-                          Q{i + 1}
-                        </span>
-                        {q.prompt}
-                      </p>
-                      <span
-                        className={`text-xs font-semibold shrink-0 ${
-                          qPct >= 70
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : qPct >= 40
-                            ? "text-amber-600 dark:text-amber-400"
-                            : "text-red-500 dark:text-red-400"
-                        }`}
-                      >
-                        {q.score}/{q.maxScore}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                      <div
-                        className={`h-1.5 rounded-full transition-all ${
-                          qPct >= 70
-                            ? "bg-emerald-500"
-                            : qPct >= 40
-                            ? "bg-amber-500"
-                            : "bg-red-400"
-                        }`}
-                        style={{ width: `${qPct}%` }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Actions */}
-          <div>
-            <Button size="lg" onClick={onStartNew} className="w-full">
-              <Play className="h-4 w-4 mr-2" /> New Interview
-            </Button>
-          </div>
+          <Button size="lg" onClick={onBack} className="w-full">
+            <Play className="h-4 w-4" aria-hidden="true" /> Start another interview
+          </Button>
         </div>
 
-        {/* Mobile score summary */}
-        <div className="lg:hidden">
-          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
-            <div className="flex items-center gap-4">
-              <ProgressRing
-                percentage={pct}
-                size={60}
-                strokeWidth={5}
-                label={report.grade}
-              />
-              <div className="flex-1 space-y-1.5">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Score</span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400">{report.overallScore}/{report.maxPossibleScore}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Questions</span>
-                  <span className="font-bold text-gray-800 dark:text-gray-200">{report.questionBreakdown.length}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Desktop sidebar */}
-        <div className="hidden lg:block">
-          <div className="sticky top-6 space-y-4">
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 space-y-4">
-              <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                Score Overview
-              </p>
-              <ProgressRing
-                percentage={pct}
-                size={80}
-                strokeWidth={6}
-                label={report.grade}
-              />
-              <div className="space-y-2.5">
-                <SidebarStat
-                  label="Score"
-                  value={`${report.overallScore}/${report.maxPossibleScore}`}
-                  className="text-blue-600 dark:text-blue-400"
-                />
-                <SidebarStat
-                  label="Percentage"
-                  value={`${pct}%`}
-                  className={
-                    pct >= 70
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : pct >= 40
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-red-500 dark:text-red-400"
-                  }
-                />
-                <SidebarStat
-                  label="Questions"
-                  value={String(report.questionBreakdown.length)}
-                  className="text-gray-800 dark:text-gray-200"
-                />
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-4">
-              <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-                Session Details
-              </p>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <span>{trackMeta.icon}</span>
-                  <span>{trackMeta.label}</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <span>{levelMeta.icon}</span>
-                  <span>{levelMeta.label}</span>
-                </div>
-                {activeSession.persona && (
-                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span>🎭</span>
-                    <span className="capitalize">
-                      {activeSession.persona} interviewer
-                    </span>
-                  </div>
-                )}
-                {activeSession.interviewType && (
-                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                    <span>💻</span>
-                    <span className="capitalize">
-                      {activeSession.interviewType}
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <span>📅</span>
-                  <span>
-                    {new Date(activeSession.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <aside className="rounded-2xl border border-border bg-bg-elevated p-5 space-y-4 h-fit lg:sticky lg:top-6" aria-label="Score overview">
+          <ProgressRing percentage={pct} size={96} strokeWidth={7} label={report.grade} />
+          <dl className="grid grid-cols-2 gap-y-2 text-sm">
+            <dt className="text-text-tertiary">Score</dt>
+            <dd className="text-right font-bold text-text-primary tabular-nums">
+              {report.overallScore}/{report.maxPossibleScore}
+            </dd>
+            <dt className="text-text-tertiary">Percentage</dt>
+            <dd className={`text-right font-bold tabular-nums ${SCORE_TONE_TEXT[tone]}`}>{pct}%</dd>
+            <dt className="text-text-tertiary">Questions</dt>
+            <dd className="text-right font-bold text-text-primary tabular-nums">{questionCount}</dd>
+          </dl>
+        </aside>
       </div>
-    </div>
-  );
-}
-
-/* ── Local helpers ── */
-
-function SidebarStat({
-  label,
-  value,
-  className,
-}: {
-  label: string;
-  value: string;
-  className: string;
-}) {
-  return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-gray-500 dark:text-gray-400">{label}</span>
-      <span className={`font-bold ${className}`}>{value}</span>
-    </div>
-  );
-}
-
-const COLOR_MAP: Record<
-  string,
-  { border: string; bg: string; label: string; text: string }
-> = {
-  emerald: {
-    border: "border-emerald-200 dark:border-emerald-800/50",
-    bg: "bg-emerald-50/50 dark:bg-emerald-900/10",
-    label: "text-emerald-600",
-    text: "text-emerald-700 dark:text-emerald-400",
-  },
-  amber: {
-    border: "border-amber-200 dark:border-amber-800/50",
-    bg: "bg-amber-50/50 dark:bg-amber-900/10",
-    label: "text-amber-600",
-    text: "text-amber-700 dark:text-amber-400",
-  },
-  blue: {
-    border: "border-blue-200 dark:border-blue-800/50",
-    bg: "bg-blue-50/50 dark:bg-blue-900/10",
-    label: "text-blue-600",
-    text: "text-blue-700 dark:text-blue-400",
-  },
-};
-
-function InfoList({
-  icon,
-  label,
-  items,
-  color,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  items: string[];
-  color: string;
-}) {
-  const c = COLOR_MAP[color] ?? COLOR_MAP.blue;
-  return (
-    <div className={`rounded-2xl border ${c.border} ${c.bg} p-5`}>
-      <p
-        className={`text-xs font-semibold ${c.label} uppercase tracking-wider mb-3 flex items-center gap-1.5`}
-      >
-        {icon} {label}
-      </p>
-      <ul className="space-y-1.5">
-        {items.map((item, i) => (
-          <li key={i} className={`text-sm ${c.text}`}>
-            • {item}
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

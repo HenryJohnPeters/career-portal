@@ -1,216 +1,180 @@
-import { Button } from "@careerportal/web/ui";
+import { AlertCircle, Briefcase, ClipboardCheck, History, Play, Sparkles, TrendingUp } from "lucide-react";
+import { getTechTagLabel, isMeterExhausted, type PlanUsage } from "@careerportal/shared/types";
+import { Alert, Button } from "@careerportal/web/ui";
+import { useTechnicalTests } from "@careerportal/web/data-access";
+import { formatResetDate } from "../../../lib/plan-usage";
+import { PageHero } from "../../shared";
 import {
-  ClipboardCheck,
-  TrendingUp,
-  Play,
-  Sparkles,
-  History,
-} from "lucide-react";
-import { PageHero, OptionGrid, SectionHeading, LEVEL_META } from "../../shared";
-import type { OptionItem } from "../../shared";
+  ActionError,
+  AllowanceMeter,
+  ChoiceGrid,
+  requestQuotaUpgrade,
+  type Choice,
+} from "../../interview-prep/components/common";
 import { TechStackPicker } from "../../interview-prep/components/TechStackPicker";
-import type { InterviewLevel, AiUsageStatus } from "@careerportal/shared/types";
-import type { useTechTestState } from "../hooks/useTechTestState";
-import { PremiumUpgradeBanner } from "../../shared/components/PremiumUpgradeBanner";
+import { LEVELS, LEVEL_META, ROLE_FOCUSES, ROLE_FOCUS_META, getLevelMeta, getRoleFocusMeta } from "../../interview-prep/meta";
+import type { TechTestSetupState } from "../hooks/useTechTestSetup";
 
-const LEVEL_ITEMS: OptionItem[] = Object.entries(LEVEL_META).map(
-  ([key, m]) => ({
-    key,
-    icon: m.icon,
-    label: m.label,
-    description: m.description,
-  }),
-);
+const ROLE_CHOICES: Choice<(typeof ROLE_FOCUSES)[number]>[] = ROLE_FOCUSES.map((role) => ({
+  value: role,
+  ...ROLE_FOCUS_META[role],
+}));
+
+const LEVEL_CHOICES: Choice<(typeof LEVELS)[number]>[] = LEVELS.map((level) => ({
+  value: level,
+  ...LEVEL_META[level],
+}));
+
+const HOW_IT_WORKS = [
+  "A realistic take-home brief is generated for your role, level and stack",
+  "Read the requirements, acceptance criteria and rubric",
+  "Start when ready — a suggested time is shown, nothing is auto-submitted",
+  "Write your solution: code, architecture and trade-offs (drafts autosave on this device)",
+  "Submit for an automated checklist, then rate yourself against the rubric",
+  "Premium: get an AI review of your solution",
+];
 
 interface TechTestSetupProps {
-  state: ReturnType<typeof useTechTestState>;
+  setup: TechTestSetupState;
   isPremium: boolean;
-  usage?: AiUsageStatus;
+  usage: PlanUsage | undefined;
+  onShowHistory: () => void;
 }
 
-export function TechTestSetup({ state, isPremium, usage }: TechTestSetupProps) {
-  const levelMeta = LEVEL_META[state.level] ?? LEVEL_META.mid;
+export function TechTestSetup({ setup, isPremium, usage, onShowHistory }: TechTestSetupProps) {
+  const { data: testsData } = useTechnicalTests();
+  const testCount = testsData?.data.length ?? 0;
+  const meter = usage?.meters.techTests;
+  const exhausted = isMeterExhausted(meter);
+  const resetLabel = formatResetDate(meter?.resetsAt ?? usage?.periodResetsAt);
+  const role = getRoleFocusMeta(setup.role);
+  const level = getLevelMeta(setup.level);
+  const RoleIcon = role.icon;
+  const LevelIcon = level.icon;
+  const canGenerate = setup.selectedTags.length > 0 && !exhausted;
+
+  const historyButton =
+    testCount > 0 ? (
+      <Button variant="secondary" onClick={onShowHistory}>
+        <History className="h-4 w-4" aria-hidden="true" /> Past tests ({testCount})
+      </Button>
+    ) : undefined;
 
   return (
     <div className="w-full space-y-6 sm:space-y-8">
       <PageHero
         icon={ClipboardCheck}
         title="Technical Tests"
-        subtitle="In-depth coding challenges · Real-world scenarios · Detailed evaluation"
-        action={
-          state.tests.length > 0 ? (
-            <Button variant="secondary" onClick={state.handleShowHistory}>
-              <History className="h-4 w-4 mr-2" /> Past Tests (
-              {state.tests.length})
-            </Button>
-          ) : undefined
-        }
+        subtitle="Realistic take-home briefs · Write your solution · Review it against the rubric"
+        action={historyButton}
       />
+      {historyButton && <div className="sm:hidden">{historyButton}</div>}
 
-      {/* PREMIUM UPSELL BANNER FOR FREE USERS */}
-      {!isPremium && (
-        <PremiumUpgradeBanner
-          message={
-            usage
-              ? `${usage.techTestsRemaining ?? 0} free tests remaining this month — Upgrade for unlimited`
-              : "2 free tests per month — Upgrade for unlimited"
-          }
-        />
-      )}
-
-      {state.tests.length > 0 && (
-        <div className="sm:hidden">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={state.handleShowHistory}
-          >
-            <History className="h-4 w-4 mr-1.5" /> Past Tests (
-            {state.tests.length})
-          </Button>
-        </div>
+      {!isPremium && usage && meter && (
+        <section aria-label="Your free allowance" className="rounded-2xl border border-border bg-bg-elevated p-4 space-y-2">
+          <AllowanceMeter quota="techTests" meter={meter} />
+          <p className="text-xs text-text-secondary">
+            Free plan · Deleting a test doesn't give back an allowance. Premium removes the limit and adds AI reviews.
+          </p>
+        </section>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        {/* Left — Config */}
-        <div className="lg:col-span-2 space-y-5 sm:space-y-6">
-          <section>
-            <SectionHeading icon={TrendingUp} label="Experience Level" />
-            <OptionGrid
-              items={LEVEL_ITEMS}
-              value={state.level}
-              onChange={(v) => state.setLevel(v as InterviewLevel)}
-              columns="grid-cols-1 sm:grid-cols-3"
-            />
-          </section>
-          <section>
-            <TechStackPicker
-              selectedTags={state.selectedTags}
-              onToggleTag={state.toggleTag}
-            />
-          </section>
+        <div className="lg:col-span-2 space-y-6">
+          <ChoiceGrid
+            label="Role"
+            icon={Briefcase}
+            choices={ROLE_CHOICES}
+            value={setup.role}
+            onChange={setup.setRole}
+            columns="grid-cols-2 sm:grid-cols-4"
+          />
+          <ChoiceGrid
+            label="Experience level"
+            icon={TrendingUp}
+            choices={LEVEL_CHOICES}
+            value={setup.level}
+            onChange={setup.setLevel}
+            columns="grid-cols-1 sm:grid-cols-3"
+          />
+          <TechStackPicker
+            role={setup.role}
+            selectedTags={setup.selectedTags}
+            onToggleTag={setup.toggleTag}
+            onAddTags={setup.addTags}
+            onRemoveTags={setup.removeTags}
+            onClear={setup.clearTags}
+            limitReached={setup.tagLimitReached}
+          />
         </div>
 
-        {/* Right — Summary + Generate */}
         <div className="lg:col-span-1">
           <div className="lg:sticky lg:top-6 space-y-3">
-            {/* Test preview card */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-              <div className="h-1 bg-gradient-to-r from-violet-500 to-violet-600" />
-              <div className="p-5 space-y-4">
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1">
-                    Your Test
+            <section className="rounded-2xl border border-border bg-bg-elevated overflow-hidden shadow-sm" aria-labelledby="test-summary-heading">
+              <div className="h-1 bg-violet-600" />
+              <div className="p-5 space-y-3">
+                <h2 id="test-summary-heading" className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">
+                  Your test
+                </h2>
+                <p className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+                  <RoleIcon className="h-4 w-4 text-text-tertiary" aria-hidden="true" /> {role.label}
+                </p>
+                <p className="flex items-center gap-2 text-sm text-text-secondary">
+                  <LevelIcon className="h-4 w-4 text-text-tertiary" aria-hidden="true" /> {level.label}
+                </p>
+                {setup.selectedTags.length > 0 ? (
+                  <p className="text-xs text-text-secondary">
+                    {setup.selectedTags.slice(0, 6).map(getTechTagLabel).join(", ")}
+                    {setup.selectedTags.length > 6 ? ` +${setup.selectedTags.length - 6}` : ""}
                   </p>
-                  <h3 className="text-base font-bold text-gray-900 dark:text-gray-100">
-                    {levelMeta.label}
-                  </h3>
-                </div>
-                <div className="space-y-2.5">
-                  <PreviewRow
-                    icon={levelMeta.icon}
-                    label="Level"
-                    value={levelMeta.label}
-                  />
-                  {state.selectedTags.length > 0 && (
-                    <div className="pt-0.5">
-                      <p className="text-[10px] text-gray-400 dark:text-gray-500 mb-1.5">
-                        Tech Stack
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {state.selectedTags.slice(0, 6).map((t) => (
-                          <span
-                            key={t}
-                            className="text-[10px] font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-300 px-1.5 py-0.5 rounded-md"
-                          >
-                            {t}
-                          </span>
-                        ))}
-                        {state.selectedTags.length > 6 && (
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                            +{state.selectedTags.length - 6}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <p className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-400">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    Pick at least one technology
+                  </p>
+                )}
               </div>
-              <div className="px-5 pb-5">
-                <Button
-                  size="lg"
-                  onClick={state.handleGenerate}
-                  loading={state.isGenerating}
-                  className="w-full"
-                >
-                  <Play className="h-4 w-4 mr-1.5" /> Generate Test Scenario
+              <div className="px-5 pb-5 space-y-3">
+                <ActionError error={setup.error} title="Couldn't generate the test" onDismiss={setup.dismissError} />
+                {exhausted && (
+                  <Alert
+                    variant="warning"
+                    title="You've used this month's free tests"
+                    action={
+                      <Button size="sm" onClick={() => requestQuotaUpgrade("techTests", meter)}>
+                        See upgrade options
+                      </Button>
+                    }
+                  >
+                    {resetLabel ? `New tests are available from ${resetLabel}.` : "New tests are available next month."}
+                  </Alert>
+                )}
+                <Button size="lg" onClick={setup.generate} loading={setup.isGenerating} disabled={!canGenerate} className="w-full">
+                  <Play className="h-4 w-4" aria-hidden="true" />
+                  {setup.isGenerating ? "Generating…" : "Generate test"}
                 </Button>
               </div>
-            </div>
+            </section>
 
-            {/* How it works */}
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-800">
-                <Sparkles className="h-3.5 w-3.5 text-violet-500" />
-                <p className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
-                  How it works
-                </p>
-              </div>
-              <ul className="divide-y divide-gray-50 dark:divide-gray-800/60">
-                {[
-                  {
-                    emoji: "🎯",
-                    tip: "A realistic scenario is generated for your filters",
-                  },
-                  {
-                    emoji: "📋",
-                    tip: "Review the brief, requirements & acceptance criteria",
-                  },
-                  { emoji: "🚀", tip: "Start when ready and work at your pace" },
-                  {
-                    emoji: "✍️",
-                    tip: "Write your solution — code, architecture, trade-offs",
-                  },
-                  {
-                    emoji: "📊",
-                    tip: "Submit for automated evaluation & feedback",
-                  },
-                ].map(({ emoji, tip }) => (
-                  <li key={tip} className="flex items-center gap-3 px-4 py-2.5">
-                    <span className="text-sm shrink-0">{emoji}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 leading-snug">
-                      {tip}
-                    </span>
+            <section className="rounded-2xl border border-border bg-bg-elevated overflow-hidden" aria-labelledby="how-it-works-heading">
+              <h2
+                id="how-it-works-heading"
+                className="flex items-center gap-2 px-4 py-3 border-b border-border text-xs font-bold text-text-secondary uppercase tracking-wider"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-violet-500" aria-hidden="true" />
+                How it works
+              </h2>
+              <ol className="divide-y divide-border">
+                {HOW_IT_WORKS.map((tip, i) => (
+                  <li key={tip} className="flex items-start gap-3 px-4 py-2.5">
+                    <span className="text-[11px] font-bold text-violet-600 dark:text-violet-400 tabular-nums">{i + 1}</span>
+                    <span className="text-xs text-text-secondary leading-snug">{tip}</span>
                   </li>
                 ))}
-              </ul>
-            </div>
+              </ol>
+            </section>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function PreviewRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: string;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 shrink-0">
-        <span className="text-sm">{icon}</span>
-      </div>
-      <div className="flex-1 flex items-center justify-between min-w-0">
-        <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
-        <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-          {value}
-        </p>
       </div>
     </div>
   );

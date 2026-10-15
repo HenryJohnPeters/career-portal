@@ -1,167 +1,184 @@
-import {
-  CheckCircle2,
-  AlertTriangle,
-  Target,
-  Lightbulb,
-  FileText,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
-import { useState } from "react";
-import type { TechTestScenario } from "@careerportal/shared/types";
-import type { useTechTestState } from "../hooks/useTechTestState";
+import { useEffect, useId, useState } from "react";
+import { ChevronDown, Clock, FileText, Send } from "lucide-react";
+import type { TechnicalTest } from "@careerportal/shared/types";
+import { Button } from "@careerportal/web/ui";
+import { requestUpgradeForError, useSubmitTechnicalTest } from "@careerportal/web/data-access";
+import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { ActionError } from "../../interview-prep/components/common";
+import { useSubmissionDraft } from "../hooks/useSubmissionDraft";
+import { countWords, formatDuration, getSoftTimer } from "../timer";
+import { ScenarioBrief } from "./ScenarioBrief";
+import { TestHeader } from "./TestHeader";
+
+/** Matches the API's submission limit (PLAN §2.10). */
+const MAX_SUBMISSION_LENGTH = 100_000;
+
+const PLACEHOLDER = `Write your solution here…
+
+Suggested structure:
+
+## Approach
+Your high-level approach and architectural decisions.
+
+## Implementation
+\`\`\`ts
+// Key code
+\`\`\`
+
+## Trade-offs
+What you traded off and why.
+
+## Testing strategy
+How you would test this.
+
+## With more time
+What you'd do next.`;
 
 interface TechTestSessionProps {
-  state: ReturnType<typeof useTechTestState>;
+  test: TechnicalTest;
+  onBack: () => void;
 }
 
-export function TechTestSession({ state }: TechTestSessionProps) {
-  const test = state.activeTest;
+/** An in-progress test: brief on demand, autosaved editor, soft timer, submit. */
+export function TechTestSession({ test, onBack }: TechTestSessionProps) {
+  const editorId = useId();
+  const briefId = useId();
+  const draft = useSubmissionDraft(test.id, test.submission ?? "");
+  const submit = useSubmitTechnicalTest();
   const [showBrief, setShowBrief] = useState(false);
+  const [confirmSubmit, setConfirmSubmit] = useState(false);
 
-  if (!test) return null;
+  const words = countWords(draft.value);
+  const trimmedLength = draft.value.trim().length;
+  const tooLong = draft.value.length > MAX_SUBMISSION_LENGTH;
 
-  const scenario = test.scenario as TechTestScenario;
-  const wordCount = state.submission.split(/\s+/).filter(Boolean).length;
+  const handleSubmit = () => {
+    setConfirmSubmit(false);
+    submit.mutate(
+      { testId: test.id, submission: draft.value },
+      {
+        onSuccess: () => draft.clear(),
+        onError: (err) => requestUpgradeForError(err),
+      },
+    );
+  };
 
   return (
     <div className="w-full space-y-4">
-      {/* ── Sticky session header ── */}
-      <div className="sticky top-0 z-20 rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 sm:py-3 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <p className="text-xs text-gray-400 dark:text-gray-500 truncate max-w-xs">
-              {scenario.title}
-            </p>
+      <TestHeader
+        test={test}
+        onBack={onBack}
+        aside={<SoftTimer startedAt={test.startedAt} limitMinutes={test.timeLimit ?? null} />}
+      />
+
+      <div className="rounded-2xl border border-border bg-bg-elevated">
+        <button
+          type="button"
+          onClick={() => setShowBrief((v) => !v)}
+          aria-expanded={showBrief}
+          aria-controls={briefId}
+          className="w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3 text-left"
+        >
+          <span className="flex items-center gap-2 text-sm font-semibold text-text-primary">
+            <FileText className="h-4 w-4 text-violet-500" aria-hidden="true" />
+            {showBrief ? "Hide the brief" : "Show the brief"}
+          </span>
+          <ChevronDown className={`h-4 w-4 text-text-tertiary transition-transform ${showBrief ? "rotate-180" : ""}`} aria-hidden="true" />
+        </button>
+        {showBrief && (
+          <div id={briefId} className="border-t border-border p-4 max-h-[60vh] overflow-y-auto">
+            <ScenarioBrief scenario={test.scenario} />
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline text-[10px] text-gray-400 dark:text-gray-500 tabular-nums">
-              {wordCount} words
-            </span>
-            <button
-              onClick={() => setShowBrief(!showBrief)}
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 transition-all"
-            >
-              {showBrief ? (
-                <ChevronUp className="h-3 w-3" />
-              ) : (
-                <ChevronDown className="h-3 w-3" />
-              )}
-              <span className="hidden sm:inline">Brief</span>
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* ── Brief panel ── */}
-      {showBrief && (
-        <div className="rounded-2xl border border-violet-200/50 dark:border-violet-800/40 bg-violet-50/50 dark:bg-violet-950/20 p-5 space-y-4 max-h-[60vh] overflow-y-auto">
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <FileText className="h-4 w-4 text-violet-500 dark:text-violet-400" />
-              <h4 className="text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">
-                Problem Brief
-              </h4>
-            </div>
-            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-              {scenario.brief}
-            </p>
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle2 className="h-4 w-4 text-violet-500 dark:text-violet-400" />
-              <h4 className="text-xs font-bold uppercase tracking-widest text-violet-600 dark:text-violet-400">
-                Requirements ({scenario.requirements.length})
-              </h4>
-            </div>
-            <div className="space-y-1.5">
-              {scenario.requirements.map((req) => (
-                <div
-                  key={req.key}
-                  className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-400"
-                >
-                  <span className="text-[10px] font-bold text-violet-500 bg-violet-100 dark:bg-violet-900/30 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
-                    {req.key}
-                  </span>
-                  <span className="text-xs leading-relaxed">{req.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Target className="h-4 w-4 text-emerald-500" />
-                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  Acceptance Criteria
-                </h4>
-              </div>
-              <ul className="space-y-1">
-                {scenario.acceptanceCriteria.map((ac, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-1.5 text-xs text-gray-500"
-                  >
-                    <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0 mt-0.5" />{" "}
-                    {ac}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="h-4 w-4 text-amber-500" />
-                <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400">
-                  Hints
-                </h4>
-              </div>
-              <ul className="space-y-1">
-                {scenario.hints.map((h, i) => (
-                  <li
-                    key={i}
-                    className="flex items-start gap-1.5 text-xs text-gray-500"
-                  >
-                    <Lightbulb className="h-3 w-3 text-amber-400 shrink-0 mt-0.5" />{" "}
-                    {h}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Editor ── */}
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-800 gap-1">
-          <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-gray-400" />
-            <h3 className="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-              Your Solution
-            </h3>
-          </div>
-          <p className="text-[10px] text-gray-400 dark:text-gray-500">
-            Code, architecture decisions, trade-offs, testing strategy
+      <div className="rounded-2xl border border-border bg-bg-elevated overflow-hidden shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 sm:px-5 py-3 border-b border-border gap-1">
+          <label htmlFor={editorId} className="text-xs font-bold uppercase tracking-widest text-text-secondary">
+            Your solution
+          </label>
+          <p className="text-[11px] text-text-tertiary" aria-live="polite">
+            {words} words ·{" "}
+            {draft.status === "unavailable"
+              ? "drafts can't be saved in this browser — keep a copy"
+              : draft.status === "saved"
+                ? "draft saved on this device"
+                : "autosaves on this device"}
           </p>
         </div>
         <textarea
-          value={state.submission}
-          onChange={(e) => state.setSubmission(e.target.value)}
-          placeholder={`Write your solution here...\n\nSuggested structure:\n\n## Approach\nDescribe your high-level approach and architectural decisions.\n\n## Implementation\n\`\`\`typescript\n// Your code here\n\`\`\`\n\n## Trade-offs\nExplain the trade-offs you made and why.\n\n## Testing Strategy\nDescribe how you would test this solution.\n\n## What I'd Do Differently With More Time\n...`}
-          className="w-full min-h-[50vh] sm:min-h-[60vh] p-4 sm:p-5 font-mono text-sm text-gray-800 dark:text-gray-200 bg-transparent border-0 outline-none resize-y placeholder:text-gray-300 dark:placeholder:text-gray-700"
+          id={editorId}
+          value={draft.value}
+          onChange={(e) => draft.update(e.target.value)}
+          placeholder={PLACEHOLDER}
+          maxLength={MAX_SUBMISSION_LENGTH}
+          disabled={submit.isPending}
+          aria-describedby={`${editorId}-hint`}
+          className="w-full min-h-[50vh] sm:min-h-[60vh] p-4 sm:p-5 font-mono text-sm text-text-primary bg-transparent border-0 outline-none resize-y placeholder:text-text-tertiary/60"
           spellCheck={false}
         />
-      </div>
-
-      {/* ── Tip ── */}
-      <div className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/40">
-        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-700 dark:text-amber-400">
-          <strong>Tip:</strong> Include code snippets, explain your reasoning,
-          discuss trade-offs, and mention your testing approach. Quality of
-          explanation matters as much as code.
+        <p id={`${editorId}-hint`} className="px-4 sm:px-5 py-2 border-t border-border text-[11px] text-text-tertiary">
+          Explain your approach, show key code, discuss trade-offs and how you'd test it. Up to{" "}
+          {MAX_SUBMISSION_LENGTH.toLocaleString()} characters ({draft.value.length.toLocaleString()} used).
         </p>
       </div>
+
+      <ActionError error={submit.error} title="Couldn't submit your solution" />
+
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+        <p className="text-xs text-text-secondary">
+          After submitting you'll get an automated checklist of what your write-up covers, then rate yourself against the rubric.
+        </p>
+        <Button
+          size="lg"
+          onClick={() => setConfirmSubmit(true)}
+          loading={submit.isPending}
+          disabled={trimmedLength === 0 || tooLong}
+          className="shrink-0"
+        >
+          <Send className="h-4 w-4" aria-hidden="true" /> Submit solution
+        </Button>
+      </div>
+
+      <ConfirmDialog
+        open={confirmSubmit}
+        title="Submit your solution?"
+        description="You can't edit it after submitting."
+        confirmLabel="Submit"
+        cancelLabel="Keep editing"
+        onConfirm={handleSubmit}
+        onCancel={() => setConfirmSubmit(false)}
+      />
     </div>
+  );
+}
+
+function SoftTimer({ startedAt, limitMinutes }: { startedAt: string | null; limitMinutes: number | null }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const timer = getSoftTimer(startedAt, limitMinutes, now);
+  if (!timer) return null;
+
+  return (
+    <p
+      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold tabular-nums ${
+        timer.overLimit
+          ? "border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/20 text-amber-800 dark:text-amber-300"
+          : "border-border bg-bg-elevated text-text-secondary"
+      }`}
+      title="Advisory only — nothing is submitted automatically"
+    >
+      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+      {timer.limitMs === null
+        ? `${formatDuration(timer.elapsedMs)} elapsed`
+        : timer.overLimit
+          ? `${formatDuration(timer.elapsedMs - timer.limitMs)} over the suggested ${limitMinutes} min`
+          : `${formatDuration(timer.remainingMs ?? 0)} of ${limitMinutes} min left`}
+    </p>
   );
 }

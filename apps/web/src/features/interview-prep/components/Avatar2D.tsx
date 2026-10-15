@@ -1,21 +1,21 @@
 /**
- * Avatar2D.tsx
- *
- * Lightweight 2D avatar with lip-sync animation.
- * Uses pure SVG graphics - no external APIs needed, 100% free.
- * Each interviewer has a unique, realistic appearance.
+ * Lightweight 2D interviewer avatars: hand-drawn SVG faces plus a mouth
+ * overlay driven by useAvatarSpeech. No external assets or APIs.
  */
 
-import type { MouthShape } from "../hooks/use2DAvatarLipSync";
+import { memo } from "react";
+import type { MouthShape } from "../hooks/useAvatarSpeech";
 import type { InterviewerConfig } from "../interviewer-configs";
 
 interface Avatar2DProps {
   interviewer: InterviewerConfig;
-  mouthShape: MouthShape;
-  isSpeaking: boolean;
+  mouthShape?: MouthShape;
+  isSpeaking?: boolean;
+  /** Small, static rendering for picker cards (no glow layer). */
+  thumbnail?: boolean;
 }
 
-// SVG mouth shapes for lip-sync animation - MOVED LOWER
+// Mouth shapes (visemes) for the lip-sync overlay.
 const MOUTH_SHAPES: Record<MouthShape, JSX.Element> = {
   closed: (
     <path
@@ -49,15 +49,6 @@ const MOUTH_SHAPES: Record<MouthShape, JSX.Element> = {
   ),
   small: (
     <ellipse cx="100" cy="132" rx="6" ry="6" fill="#E85D75" opacity="0.9" />
-  ),
-  thinking: (
-    <path
-      d="M88 130 L112 130"
-      fill="none"
-      stroke="#E85D75"
-      strokeWidth="3"
-      strokeLinecap="round"
-    />
   ),
 };
 
@@ -1024,60 +1015,53 @@ function PhoenixAvatar() {
   );
 }
 
-// Pure SVG avatar generator - now with unique, realistic designs
-function generateSVGAvatar(interviewer: InterviewerConfig) {
-  switch (interviewer.id) {
-    case "alex":
-      return <AlexAvatar />;
-    case "morgan":
-      return <MorganAvatar />;
-    case "jordan":
-      return <JordanAvatar />;
-    case "sam":
-      return <SamAvatar />;
-    case "riley":
-      return <RileyAvatar />;
-    case "kai":
-      return <KaiAvatar />;
-    case "nova":
-      return <NovaAvatar />;
-    case "phoenix":
-      return <PhoenixAvatar />;
-    default:
-      return <AlexAvatar />;
-  }
-}
+const FACES: Record<string, () => JSX.Element> = {
+  alex: AlexAvatar,
+  morgan: MorganAvatar,
+  jordan: JordanAvatar,
+  sam: SamAvatar,
+  riley: RileyAvatar,
+  kai: KaiAvatar,
+  nova: NovaAvatar,
+  phoenix: PhoenixAvatar,
+};
+
+/** The static face SVG; memoised so lip-sync updates only touch the mouth overlay. */
+const AvatarFace = memo(function AvatarFace({ interviewerId }: { interviewerId: string }) {
+  const Face = FACES[interviewerId] ?? AlexAvatar;
+  return <Face />;
+});
+
+const RIPPLE_RINGS = [0, 1, 2] as const;
 
 export function Avatar2D({
   interviewer,
-  mouthShape,
-  isSpeaking,
+  mouthShape = "closed",
+  isSpeaking = false,
+  thumbnail = false,
 }: Avatar2DProps) {
   return (
-    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-      {/* Ambient glow behind avatar */}
-      <div
-        className={`absolute w-64 h-64 rounded-full blur-3xl transition-opacity duration-700 ${
-          isSpeaking ? "opacity-30" : "opacity-10"
-        }`}
-        style={{
-          background: `radial-gradient(circle, ${interviewer.avatar.lightAmbientColor} 0%, transparent 70%)`,
-        }}
-      />
+    <div className="relative w-full h-full flex items-center justify-center overflow-hidden" aria-hidden="true">
+      {!thumbnail && (
+        <div
+          className={`absolute w-64 h-64 rounded-full blur-3xl transition-opacity duration-700 ${
+            isSpeaking ? "opacity-30" : "opacity-10"
+          }`}
+          style={{
+            background: `radial-gradient(circle, ${interviewer.accentColor} 0%, transparent 70%)`,
+          }}
+        />
+      )}
 
-      {/* Avatar base */}
       <div
         className={`relative w-56 h-56 rounded-full overflow-hidden transition-all duration-500 ${
           isSpeaking
             ? "ring-[3px] ring-primary-400/60 shadow-lg shadow-primary-500/20 scale-[1.02]"
             : "ring-2 ring-white/10 shadow-md"
         }`}
-        style={{
-          background: interviewer.avatar.background,
-        }}
+        style={{ background: interviewer.background }}
       >
-        {/* Pure SVG Avatar */}
-        {generateSVGAvatar(interviewer)}
+        <AvatarFace interviewerId={interviewer.id} />
 
         {/* Animated mouth overlay */}
         <svg
@@ -1085,45 +1069,30 @@ export function Avatar2D({
           viewBox="0 0 200 240"
           preserveAspectRatio="xMidYMid meet"
         >
-          <g
-            className={`transition-all duration-75 ${
-              isSpeaking ? "opacity-100" : "opacity-90"
-            }`}
-          >
-            {MOUTH_SHAPES[mouthShape]}
-          </g>
+          <g className={isSpeaking ? "opacity-100" : "opacity-90"}>{MOUTH_SHAPES[mouthShape]}</g>
         </svg>
 
-        {/* Subtle inner vignette */}
         <div className="absolute inset-0 rounded-full shadow-[inset_0_0_30px_rgba(0,0,0,0.25)] pointer-events-none" />
       </div>
 
-      {/* Speaking ripples — clean concentric rings */}
+      {/* Speaking ripples (keyframes in tailwind.config.js; disabled for reduced motion) */}
       {isSpeaking && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {[0, 1, 2].map((i) => (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none motion-reduce:hidden">
+          {RIPPLE_RINGS.map((i) => (
             <div
               key={i}
-              className="absolute rounded-full border opacity-0"
+              className="absolute rounded-full border opacity-0 animate-ripple"
               style={{
                 width: `${240 + i * 40}px`,
                 height: `${240 + i * 40}px`,
-                borderColor: interviewer.avatar.lightAmbientColor,
+                borderColor: interviewer.accentColor,
                 borderWidth: `${2 - i * 0.5}px`,
-                animation: `ripple 2s ease-out ${i * 0.4}s infinite`,
+                animationDelay: `${i * 0.4}s`,
               }}
             />
           ))}
         </div>
       )}
-
-      {/* Inline keyframes for ripple */}
-      <style>{`
-        @keyframes ripple {
-          0% { transform: scale(0.9); opacity: 0.5; }
-          100% { transform: scale(1.3); opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 }

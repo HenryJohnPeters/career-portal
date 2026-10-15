@@ -1,106 +1,85 @@
-import { Spinner, ErrorState } from "@careerportal/web/ui";
-import { useInterviewState } from "./hooks/useInterviewState";
+import { useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
+import { isActivePremium, isMeterExhausted } from "@careerportal/shared/types";
+import { usePlanUsage } from "@careerportal/web/data-access";
+import { useAuth } from "../../lib/auth";
+import { useInterviewSetup } from "./hooks/useInterviewSetup";
+import { useVoiceMuted } from "./hooks/useVoiceMuted";
 import { InterviewSetup } from "./components/InterviewSetup";
 import { InterviewSession } from "./components/InterviewSession";
-import { InterviewReport } from "./components/InterviewReport";
-import { getInterviewerById } from "./interviewer-configs";
-import { useAuth } from "../../lib/auth";
-import { isActivePremium } from "@careerportal/shared/types";
-import { useAiUsage } from "@careerportal/web/data-access";
-import {
-  getInterviewerPreviewText,
-  playInterviewerSpeech,
-} from "./voice-utils";
-import { useEffect, useRef } from "react";
+import { InterviewReportView } from "./components/InterviewReport";
+import type { PracticeTab } from "./types";
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * /app/practice — URL-driven so refresh, back and deep links work:
+ *   (none) | ?tab=progress    setup / progress
+ *   ?session=<id>             the interview (resumes where it stopped)
+ *   ?session=<id>&view=report the report
+ */
 export function InterviewPrepPage() {
-  const state = useInterviewState();
+  const [params, setParams] = useSearchParams();
   const { user } = useAuth();
-  const { data: usageData } = useAiUsage();
+  const { data: usageData } = usePlanUsage();
   const usage = usageData?.data;
   const isPremium = usage?.isPremium ?? isActivePremium(user);
-  const previewPlaybackRef = useRef<{ cancel: () => void } | null>(null);
+  const [voiceMuted, toggleVoiceMuted] = useVoiceMuted();
 
-  // Resolve the full interviewer config object from the selected ID
-  const selectedInterviewer =
-    getInterviewerById(state.selectedInterviewerId) ?? null;
+  const rawSessionId = params.get("session");
+  const sessionId = rawSessionId && UUID_PATTERN.test(rawSessionId) ? rawSessionId : null;
+  const showReport = params.get("view") === "report";
+  const tab: PracticeTab = params.get("tab") === "progress" ? "progress" : "practice";
 
-  const handlePreviewInterviewerVoice = () => {
-    if (!selectedInterviewer || selectedInterviewer.id === "none") return;
-    previewPlaybackRef.current?.cancel();
-    previewPlaybackRef.current = playInterviewerSpeech({
-      interviewer: selectedInterviewer,
-      text: getInterviewerPreviewText(selectedInterviewer),
-      muted: state.voiceMuted,
-    });
-  };
+  const openSession = useCallback((id: string) => setParams({ session: id }), [setParams]);
+  const openReport = useCallback((id: string) => setParams({ session: id, view: "report" }), [setParams]);
+  const backToSetup = useCallback(() => setParams({}), [setParams]);
+  const changeTab = useCallback(
+    (next: PracticeTab) => setParams(next === "progress" ? { tab: "progress" } : {}),
+    [setParams],
+  );
 
-  useEffect(() => {
-    return () => {
-      previewPlaybackRef.current?.cancel();
-    };
-  }, []);
+  const setup = useInterviewSetup({
+    allInterviewers: usage?.features.allInterviewers ?? isPremium,
+    onCreated: openSession,
+  });
 
-  if (state.optionsLoading) return <Spinner />;
-  if (state.isError)
+  if (sessionId && showReport) {
     return (
-      <ErrorState
-        message={(state.error as Error).message}
-        onRetry={state.refetch}
-      />
-    );
-
-  if (state.view === "setup") {
-    return (
-      <InterviewSetup
-        track={state.track}
-        level={state.level}
-        selectedTags={state.selectedTags}
-        isCreating={state.isCreating}
-        onTrackChange={state.setTrack}
-        onLevelChange={state.setLevel}
-        onToggleTag={state.toggleTag}
-        onCreateSession={state.handleCreateSession}
-        selectedInterviewerId={state.selectedInterviewerId}
-        onInterviewerChange={state.setSelectedInterviewerId}
-        voiceMuted={state.voiceMuted}
-        onToggleVoiceMute={() => state.setVoiceMuted((prev: boolean) => !prev)}
-        onPreviewInterviewerVoice={handlePreviewInterviewerVoice}
-        isPremium={isPremium}
-        usage={usage}
+      <InterviewReportView
+        sessionId={sessionId}
+        onBack={backToSetup}
+        onResume={() => openSession(sessionId)}
       />
     );
   }
 
-  if (state.view === "session") {
+  if (sessionId) {
     return (
       <InterviewSession
-        nextQuestion={state.nextQuestion}
-        nextLoading={state.nextLoading}
-        lastFeedback={state.lastFeedback}
-        selectedOptionIndex={state.selectedOptionIndex}
-        isSubmitting={state.isSubmitting}
-        activeSession={state.activeSession}
-        onSelectOption={state.setSelectedOptionIndex}
-        onSubmitAnswer={state.handleSubmitAnswer}
-        onNextQuestion={state.handleNextQuestion}
-        onViewReport={state.handleViewReport}
-        onBackToSetup={state.handleBackToSetup}
-        selectedInterviewer={selectedInterviewer}
-        voiceMuted={state.voiceMuted}
-        onToggleVoiceMute={() => state.setVoiceMuted((prev: boolean) => !prev)}
+        key={sessionId}
+        sessionId={sessionId}
+        voiceMuted={voiceMuted}
+        onToggleVoiceMute={toggleVoiceMuted}
+        questionsExhausted={isMeterExhausted(usage?.meters.questions)}
+        onViewReport={() => openReport(sessionId)}
+        onLeave={backToSetup}
       />
     );
   }
 
-  if (state.view === "report" && state.activeSession) {
-    return (
-      <InterviewReport
-        activeSession={state.activeSession}
-        onStartNew={state.handleBackToSetup}
-      />
-    );
-  }
-
-  return null;
+  return (
+    <InterviewSetup
+      setup={setup}
+      tab={tab}
+      onTabChange={changeTab}
+      isPremium={isPremium}
+      usage={usage}
+      voiceMuted={voiceMuted}
+      onToggleVoiceMute={toggleVoiceMuted}
+      onResumeSession={openSession}
+      onViewReport={openReport}
+      invalidSessionLink={!!rawSessionId && !sessionId}
+    />
+  );
 }

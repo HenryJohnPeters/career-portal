@@ -1,357 +1,263 @@
 /**
- * interviewer-configs.ts
+ * Mock-interview interviewers: display data, browser-voice tuning and traits.
  *
- * Single source-of-truth for all Mock Interview interviewers.
- * Each entry maps to a 2D avatar style + browser SpeechSynthesis profile.
- *
- * To add a new interviewer:
- *   1. Add a new entry to INTERVIEWER_CONFIGS below.
- *   2. Add a matching SVG avatar renderer in Avatar2D if needed.
- *   3. That's it — the rest of the system picks it up automatically.
+ * The API owns the behaviour (apps/api/src/modules/interview-prep/
+ * interviewer-traits.ts: question count, 50/50 hints, persona and the order
+ * that decides which interviewers are free). Keep `id` order and `traits` here
+ * in sync with it; the server rejects locked interviewers regardless of the UI.
  */
 
-import type { InterviewerTraits } from "@careerportal/shared/types";
+import { FREE_TIER, type InterviewerTraits } from "@careerportal/shared/types";
+
+export type InterviewerId =
+  | "none"
+  | "alex"
+  | "riley"
+  | "morgan"
+  | "sam"
+  | "kai"
+  | "jordan"
+  | "phoenix"
+  | "nova";
 
 export interface InterviewerVoiceConfig {
-  /** Stable internal profile id for this interviewer voice */
-  voice: string;
-  /** Preferred browser language tag */
+  /** BCP 47 language tag for the utterances. */
   language: string;
-  /** Speaking speed multiplier [0.25 – 4] */
+  /** Speaking rate multiplier (speechSynthesis `rate`). */
   speed: number;
-  /** Pitch tuning [0 – 2], where 1 is neutral */
+  /** Pitch [0-2], 1 is neutral. */
   pitch?: number;
-  /** Output volume [0 – 1] */
+  /** Volume [0-1]. */
   volume?: number;
-  /** Candidate substrings used to rank available system voices */
+  /** Lowercase substrings of preferred system voice names, best first. */
   preferredVoiceNames?: string[];
-  /** Gender fallback hint when preferred names are unavailable */
-  fallbackGender?: "female" | "male" | "any";
-}
-
-export interface InterviewerAvatarConfig {
-  /** Reserved avatar asset path (legacy compatibility) */
-  url: string;
-  /** Body form: "M" | "F" */
-  body: "M" | "F";
-  /** Avatar mood for this persona */
-  avatarMood:
-    | "neutral"
-    | "happy"
-    | "angry"
-    | "sad"
-    | "fear"
-    | "disgust"
-    | "love"
-    | "sleep";
-  /** Camera framing hint for avatar components */
-  cameraView: "full" | "mid" | "upper" | "head";
-  /** CSS background for the canvas container — visually differentiates interviewers */
-  background: string;
-  /** Three.js ambient light colour hex */
-  lightAmbientColor: string;
-  /** Three.js directional light colour hex */
-  lightDirectColor: string;
+  /** Voice gender to prefer when no preferred voice is installed. */
+  gender: "female" | "male" | "any";
 }
 
 export interface InterviewerConfig {
-  /** Unique key — used as the interviewer ID */
-  id: string;
-  /** Display name */
+  id: InterviewerId;
   name: string;
-  /** One-line role description shown in the card */
-  role: string;
-  /** Short flavour description of their style */
+  /** Job title, e.g. "Senior Engineer". */
+  title: string;
+  /** Interview tone, e.g. "Friendly". */
+  tone: string;
+  /** One-line description of their interviewing style. */
   style: string;
-  /** Emoji badge shown when no avatar is loaded */
-  emoji: string;
-  /** Tailwind gradient for the card accent */
+  /** Tailwind gradient classes for the card accent. */
   gradient: string;
-  /** Avatar (TalkingHead) settings */
-  avatar: InterviewerAvatarConfig;
-  /** Voice (HeadTTS) settings */
+  /** CSS background behind the avatar. */
+  background: string;
+  /** Glow / speaking-ring colour. */
+  accentColor: string;
   voice: InterviewerVoiceConfig;
-  /** Fun tag words for the interviewer */
-  tags?: string[];
-  /** Interviewer traits that affect the interview experience */
-  traits?: InterviewerTraits;
+  traits: InterviewerTraits;
 }
 
-/**
- * Voice behavior is intentionally free and local-only:
- *  - Browser SpeechSynthesis audio
- *  - Deterministic ranked fallback by language + preferred voice names
- *  - Per-interviewer speed/pitch/volume tuning for distinct delivery
- */
-export const INTERVIEWER_CONFIGS: InterviewerConfig[] = [
+/** Same order as the API's INTERVIEWERS list: the first FREE_TIER.interviewerCount are free. */
+export const INTERVIEWER_CONFIGS: readonly InterviewerConfig[] = [
   {
     id: "none",
-    name: "Endless Questions",
-    role: "Practice Mode",
-    style: "Answer as many questions as you want without an interviewer",
-    emoji: "∞",
+    name: "Quick Practice",
+    title: "No interviewer",
+    tone: "Self-paced",
+    style: "Up to 25 questions at your own pace, without a voice",
     gradient: "from-gray-400 to-gray-600",
-    avatar: {
-      url: "",
-      body: "M",
-      avatarMood: "neutral",
-      cameraView: "upper",
-      background: "linear-gradient(160deg, #1a1a1a 0%, #0a0a0a 100%)",
-      lightAmbientColor: "#888888",
-      lightDirectColor: "#666666",
-    },
-    voice: {
-      voice: "practice-muted",
-      language: "en-US",
-      speed: 1,
-      pitch: 1,
-      volume: 1,
-      preferredVoiceNames: ["samantha", "victoria", "google us english"],
-      fallbackGender: "female",
-    },
-    tags: ["Solo", "Focused", "Minimal"],
+    background: "linear-gradient(160deg, #1a1a1a 0%, #0a0a0a 100%)",
+    accentColor: "#888888",
+    voice: { language: "en-US", speed: 1, gender: "any" },
+    traits: { questionCount: 25, adviceLevel: "standard", fiftyFifty: false },
   },
   {
     id: "alex",
     name: "Alex",
-    role: "Senior Engineer · Friendly",
+    title: "Senior Engineer",
+    tone: "Friendly",
     style: "Warm, encouraging, focuses on learning",
-    emoji: "😊",
     gradient: "from-emerald-500 to-teal-600",
-    avatar: {
-      url: "/avatars/alex.glb",
-      body: "F",
-      avatarMood: "happy",
-      cameraView: "upper",
-      background: "linear-gradient(160deg, #0d2a1f 0%, #0a1628 100%)",
-      lightAmbientColor: "#a8e6cf",
-      lightDirectColor: "#56c596",
-    },
+    background: "linear-gradient(160deg, #0d2a1f 0%, #0a1628 100%)",
+    accentColor: "#a8e6cf",
     voice: {
-      voice: "warm-coach",
       language: "en-US",
       speed: 0.98,
       pitch: 1.08,
       volume: 1,
       preferredVoiceNames: ["samantha", "karen", "victoria", "zira"],
-      fallbackGender: "female",
+      gender: "female",
     },
-    tags: ["Encouraging", "Patient", "Wholesome"],
     traits: { questionCount: 5, adviceLevel: "detailed", fiftyFifty: true },
   },
   {
     id: "riley",
     name: "Riley",
-    role: "Frontend Specialist · Creative",
+    title: "Frontend Specialist",
+    tone: "Creative",
     style: "UX-focused, visual design enthusiast",
-    emoji: "🎨",
     gradient: "from-cyan-500 to-blue-500",
-    avatar: {
-      url: "/avatars/riley.glb",
-      body: "F",
-      avatarMood: "happy",
-      cameraView: "upper",
-      background: "linear-gradient(160deg, #0d1f2a 0%, #0a1520 100%)",
-      lightAmbientColor: "#a8e0ff",
-      lightDirectColor: "#56b9ff",
-    },
+    background: "linear-gradient(160deg, #0d1f2a 0%, #0a1520 100%)",
+    accentColor: "#a8e0ff",
     voice: {
-      voice: "creative-fast",
       language: "en-US",
       speed: 1.04,
       pitch: 1.12,
       volume: 1,
       preferredVoiceNames: ["moira", "samantha", "google uk english female"],
-      fallbackGender: "female",
+      gender: "female",
     },
-    tags: ["Creative", "Artsy", "Vibey"],
     traits: { questionCount: 7, adviceLevel: "detailed", fiftyFifty: false },
   },
   {
     id: "morgan",
     name: "Morgan",
-    role: "Staff Engineer · Neutral",
+    title: "Staff Engineer",
+    tone: "Neutral",
     style: "Professional, balanced, covers all bases",
-    emoji: "🤝",
     gradient: "from-blue-500 to-indigo-600",
-    avatar: {
-      url: "/avatars/morgan.glb",
-      body: "F",
-      avatarMood: "neutral",
-      cameraView: "upper",
-      background: "linear-gradient(160deg, #0d1a2e 0%, #0a0f1e 100%)",
-      lightAmbientColor: "#a8c8ff",
-      lightDirectColor: "#5b9fff",
-    },
+    background: "linear-gradient(160deg, #0d1a2e 0%, #0a0f1e 100%)",
+    accentColor: "#a8c8ff",
     voice: {
-      voice: "balanced-pro",
       language: "en-US",
       speed: 0.94,
       pitch: 0.98,
       volume: 1,
       preferredVoiceNames: ["zira", "fiona", "google us english"],
-      fallbackGender: "female",
+      gender: "female",
     },
-    tags: ["Professional", "Balanced", "Corporate"],
     traits: { questionCount: 10, adviceLevel: "standard", fiftyFifty: false },
   },
   {
     id: "sam",
     name: "Sam",
-    role: "Tech Lead · Strategic",
+    title: "Tech Lead",
+    tone: "Strategic",
     style: "Big-picture thinker, focuses on architecture",
-    emoji: "🧠",
     gradient: "from-purple-500 to-pink-600",
-    avatar: {
-      url: "/avatars/sam.glb",
-      body: "M",
-      avatarMood: "neutral",
-      cameraView: "upper",
-      background: "linear-gradient(160deg, #1e0d2a 0%, #0e0a1e 100%)",
-      lightAmbientColor: "#d8a8ff",
-      lightDirectColor: "#a056ff",
-    },
+    background: "linear-gradient(160deg, #1e0d2a 0%, #0e0a1e 100%)",
+    accentColor: "#d8a8ff",
     voice: {
-      voice: "strategic-lead",
       language: "en-US",
       speed: 0.9,
       pitch: 0.9,
       volume: 1,
       preferredVoiceNames: ["daniel", "alex", "google uk english male"],
-      fallbackGender: "male",
+      gender: "male",
     },
-    tags: ["Strategic", "Wise", "Big Brain"],
     traits: { questionCount: 12, adviceLevel: "standard", fiftyFifty: false },
   },
   {
     id: "kai",
     name: "Kai",
-    role: "Backend Engineer · Pragmatic",
+    title: "Backend Engineer",
+    tone: "Pragmatic",
     style: "Performance-driven, systems thinking",
-    emoji: "⚡",
     gradient: "from-yellow-500 to-orange-500",
-    avatar: {
-      url: "/avatars/kai.glb",
-      body: "M",
-      avatarMood: "neutral",
-      cameraView: "upper",
-      background: "linear-gradient(160deg, #2a1f0d 0%, #1e150a 100%)",
-      lightAmbientColor: "#ffe4a8",
-      lightDirectColor: "#ffb856",
-    },
+    background: "linear-gradient(160deg, #2a1f0d 0%, #1e150a 100%)",
+    accentColor: "#ffe4a8",
     voice: {
-      voice: "pragmatic-systems",
       language: "en-US",
       speed: 0.96,
       pitch: 0.94,
       volume: 1,
       preferredVoiceNames: ["aaron", "nathan", "daniel", "siri"],
-      fallbackGender: "male",
+      gender: "male",
     },
-    tags: ["Pragmatic", "Chill", "Speedrunner"],
     traits: { questionCount: 15, adviceLevel: "minimal", fiftyFifty: false },
   },
   {
     id: "jordan",
     name: "Jordan",
-    role: "Principal Engineer · Tough",
+    title: "Principal Engineer",
+    tone: "Tough",
     style: "Challenging, direct, bar-raiser mindset",
-    emoji: "🔥",
     gradient: "from-orange-500 to-red-600",
-    avatar: {
-      url: "/avatars/jordan.glb",
-      body: "M",
-      avatarMood: "neutral",
-      cameraView: "upper",
-      background: "linear-gradient(160deg, #2a0d0d 0%, #1a0808 100%)",
-      lightAmbientColor: "#ffcba8",
-      lightDirectColor: "#ff7043",
-    },
+    background: "linear-gradient(160deg, #2a0d0d 0%, #1a0808 100%)",
+    accentColor: "#ffcba8",
     voice: {
-      voice: "bar-raiser",
       language: "en-US",
       speed: 0.94,
       pitch: 0.9,
       volume: 1,
       preferredVoiceNames: ["aaron", "arthur", "daniel", "siri"],
-      fallbackGender: "male",
+      gender: "male",
     },
-    tags: ["Intense", "Direct", "No-Nonsense"],
     traits: { questionCount: 15, adviceLevel: "minimal", fiftyFifty: false },
   },
   {
     id: "phoenix",
     name: "Phoenix",
-    role: "Security Engineer · Rigorous",
+    title: "Security Engineer",
+    tone: "Rigorous",
     style: "Security-first mindset, detail-oriented",
-    emoji: "🔒",
     gradient: "from-red-600 to-rose-700",
-    avatar: {
-      url: "/avatars/phoenix.glb",
-      body: "M",
-      avatarMood: "neutral",
-      cameraView: "upper",
-      background: "linear-gradient(160deg, #2a0d15 0%, #1a0810 100%)",
-      lightAmbientColor: "#ffa8c0",
-      lightDirectColor: "#ff5680",
-    },
+    background: "linear-gradient(160deg, #2a0d15 0%, #1a0810 100%)",
+    accentColor: "#ffa8c0",
     voice: {
-      voice: "security-rigorous",
       language: "en-US",
       speed: 0.92,
       pitch: 0.88,
       volume: 1,
       preferredVoiceNames: ["aaron", "nathan", "daniel", "siri"],
-      fallbackGender: "male",
+      gender: "male",
     },
-    tags: ["Serious", "Vigilant", "Hardcore"],
     traits: { questionCount: 18, adviceLevel: "minimal", fiftyFifty: false },
   },
   {
     id: "nova",
     name: "Nova",
-    role: "DevOps Engineer · Methodical",
+    title: "DevOps Engineer",
+    tone: "Methodical",
     style: "Infrastructure expert, automation focus",
-    emoji: "🛠️",
     gradient: "from-slate-500 to-gray-600",
-    avatar: {
-      url: "/avatars/nova.glb",
-      body: "F",
-      avatarMood: "neutral",
-      cameraView: "upper",
-      background: "linear-gradient(160deg, #1a1f2a 0%, #0f1218 100%)",
-      lightAmbientColor: "#c8d0e0",
-      lightDirectColor: "#8090a8",
-    },
+    background: "linear-gradient(160deg, #1a1f2a 0%, #0f1218 100%)",
+    accentColor: "#c8d0e0",
     voice: {
-      voice: "methodical-ops",
       language: "en-US",
       speed: 0.92,
       pitch: 0.95,
       volume: 1,
       preferredVoiceNames: ["fiona", "victoria", "google uk english female"],
-      fallbackGender: "female",
+      gender: "female",
     },
-    tags: ["Methodical", "Precise", "Calculated"],
     traits: { questionCount: 20, adviceLevel: "minimal", fiftyFifty: false },
   },
 ];
 
-/** Convenient lookup by id */
-export function getInterviewerById(id: string): InterviewerConfig | undefined {
-  return INTERVIEWER_CONFIGS.find((c) => c.id === id);
+export const DEFAULT_INTERVIEWER_ID: InterviewerId = "none";
+
+const FREE_INTERVIEWER_IDS: ReadonlySet<string> = new Set(
+  INTERVIEWER_CONFIGS.slice(0, FREE_TIER.interviewerCount).map((c) => c.id),
+);
+
+export function getInterviewerById(id: string | null | undefined): InterviewerConfig | undefined {
+  return id ? INTERVIEWER_CONFIGS.find((c) => c.id === id) : undefined;
 }
 
-/** The default interviewer used when none has been selected */
-const PREFERRED_DEFAULT_INTERVIEWER_ID = "none";
+/** Free-plan interviewers (Premium unlocks the rest). */
+export function isInterviewerFree(id: string): boolean {
+  return FREE_INTERVIEWER_IDS.has(id);
+}
 
-export const DEFAULT_INTERVIEWER_ID =
-  INTERVIEWER_CONFIGS.find((c) => c.id === PREFERRED_DEFAULT_INTERVIEWER_ID)
-    ?.id ??
-  INTERVIEWER_CONFIGS[0]?.id ??
-  PREFERRED_DEFAULT_INTERVIEWER_ID;
-
-export function resolveInterviewerId(id: string | null | undefined): string {
-  if (id && getInterviewerById(id)) return id;
+/** An interviewer the user may pick: unknown or locked ids fall back to the default. */
+export function resolveInterviewerId(id: string | null | undefined, allInterviewers: boolean): InterviewerId {
+  const config = getInterviewerById(id);
+  if (config && (allInterviewers || isInterviewerFree(config.id))) return config.id;
   return DEFAULT_INTERVIEWER_ID;
+}
+
+/** True for interviewers with an avatar and a voice ("none" has neither). */
+export function hasPersona(interviewer: InterviewerConfig | null | undefined): interviewer is InterviewerConfig {
+  return !!interviewer && interviewer.id !== "none";
+}
+
+const ADVICE_LABELS: Record<InterviewerTraits["adviceLevel"], string> = {
+  minimal: "brief feedback",
+  standard: "standard feedback",
+  detailed: "detailed feedback",
+};
+
+/** "5 questions · detailed feedback · 50/50 hints" */
+export function describeTraits(config: InterviewerConfig): string {
+  const parts = [`${config.traits.questionCount} questions`, ADVICE_LABELS[config.traits.adviceLevel]];
+  if (config.traits.fiftyFifty) parts.push("50/50 hints");
+  return parts.join(" · ");
 }

@@ -1,196 +1,170 @@
-import { Button } from "@careerportal/web/ui";
+import { useState } from "react";
+import { ArrowLeft, Bot, ClipboardCheck, Clock, Eye, Plus, Trash2 } from "lucide-react";
+import { getTechTagLabel, type TechnicalTestSummary } from "@careerportal/shared/types";
+import { Button, ErrorState, IconButton, Spinner } from "@careerportal/web/ui";
+import { getErrorMessage, useDeleteTechnicalTest, useTechnicalTests } from "@careerportal/web/data-access";
+import { ConfirmDialog } from "../../../components/ConfirmDialog";
+import { MetaChip } from "../../interview-prep/components/common";
 import {
-  ArrowLeft,
-  ClipboardCheck,
-  Trash2,
-  Eye,
-  Clock,
-  Plus,
-} from "lucide-react";
-import { LEVEL_META } from "../../shared";
-import {
-  ROLE_FOCUS_ITEMS,
-  DIFFICULTY_ITEMS,
-} from "../../interview-prep/constants";
-import type { TechnicalTest } from "@careerportal/shared/types";
-import type { useTechTestState } from "../hooks/useTechTestState";
+  SCORE_TONE_TEXT,
+  clampPercent,
+  formatShortDate,
+  getDifficultyMeta,
+  getLevelMeta,
+  getRoleFocusMeta,
+  scoreTone,
+} from "../../interview-prep/meta";
 
-interface TechTestHistoryProps {
-  state: ReturnType<typeof useTechTestState>;
-}
-
-const STATUS_META: Record<string, { label: string; color: string }> = {
+const STATUS_META: Record<string, { label: string; className: string }> = {
   not_started: {
-    label: "Not Started",
-    color: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+    label: "Not started",
+    className: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
   },
   in_progress: {
-    label: "In Progress",
-    color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    label: "In progress",
+    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
   },
   submitted: {
     label: "Submitted",
-    color:
-      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
   },
   evaluated: {
-    label: "Evaluated",
-    color:
-      "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+    label: "Submitted",
+    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
   },
 };
 
-export function TechTestHistory({ state }: TechTestHistoryProps) {
+interface TechTestHistoryProps {
+  isPremium: boolean;
+  onOpen: (testId: string) => void;
+  onBack: () => void;
+}
+
+export function TechTestHistory({ isPremium, onOpen, onBack }: TechTestHistoryProps) {
+  const { data, isPending, isError, error, refetch } = useTechnicalTests();
+  const deleteTest = useDeleteTechnicalTest();
+  const [pendingDelete, setPendingDelete] = useState<TechnicalTestSummary | null>(null);
+  const tests = data?.data ?? [];
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    deleteTest.mutate(pendingDelete.id, { onSettled: () => setPendingDelete(null) });
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto space-y-5">
-      {/* Header */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={state.handleBackToSetup}
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4 text-gray-500" />
-        </button>
+        <IconButton label="Back to technical tests" onClick={onBack} className="border border-border bg-bg-elevated">
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+        </IconButton>
         <div className="flex-1">
-          <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
-            Past Technical Tests
-          </h1>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-            {state.tests.length} test{state.tests.length !== 1 ? "s" : ""}
-          </p>
+          <h1 className="text-lg sm:text-xl font-bold text-text-primary">Past technical tests</h1>
+          {!isPending && !isError && (
+            <p className="text-xs text-text-secondary mt-0.5">
+              {tests.length} test{tests.length === 1 ? "" : "s"}
+            </p>
+          )}
         </div>
-        <Button onClick={state.handleBackToSetup}>
-          <Plus className="h-4 w-4 mr-1.5" /> New Test
+        <Button onClick={onBack}>
+          <Plus className="h-4 w-4" aria-hidden="true" /> New test
         </Button>
       </div>
 
-      {/* List */}
-      {state.isLoadingTests ? (
-        <div className="text-center py-20 text-gray-400 dark:text-gray-600">
-          Loading…
-        </div>
-      ) : state.tests.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700 py-20 text-center">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800 mb-3">
-            <ClipboardCheck className="h-6 w-6 text-gray-400" />
-          </div>
-          <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">
-            No tests yet
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 mb-5">
-            Generate your first scenario to get started
-          </p>
-          <Button onClick={state.handleBackToSetup}>
-            <Plus className="h-4 w-4 mr-1.5" /> Create Test
+      {isPending ? (
+        <Spinner label="Loading your tests" />
+      ) : isError ? (
+        <ErrorState message={getErrorMessage(error, "Couldn't load your tests.")} onRetry={() => void refetch()} />
+      ) : tests.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-border py-20 text-center">
+          <ClipboardCheck className="mx-auto h-8 w-8 text-text-tertiary mb-3" aria-hidden="true" />
+          <p className="text-sm font-semibold text-text-primary">No tests yet</p>
+          <p className="text-xs text-text-secondary mt-1 mb-5">Generate your first scenario to get started</p>
+          <Button onClick={onBack}>
+            <Plus className="h-4 w-4" aria-hidden="true" /> Create a test
           </Button>
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {state.tests.map((test) => (
-            <TestCard
-              key={test.id}
-              test={test}
-              onView={() => state.handleViewTest(test)}
-              onDelete={() => state.handleDelete(test.id)}
-            />
+        <ul className="space-y-2.5">
+          {tests.map((test) => (
+            <TestCard key={test.id} test={test} onOpen={() => onOpen(test.id)} onDelete={() => setPendingDelete(test)} />
           ))}
-        </div>
+        </ul>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        destructive
+        title="Delete this test?"
+        description={
+          isPremium
+            ? `“${pendingDelete?.title ?? ""}” and your submission will be removed.`
+            : `“${pendingDelete?.title ?? ""}” and your submission will be removed. Deleting doesn't give back a test from this month's free allowance.`
+        }
+        confirmLabel="Delete test"
+        loading={deleteTest.isPending}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }
 
 function TestCard({
   test,
-  onView,
+  onOpen,
   onDelete,
 }: {
-  test: TechnicalTest;
-  onView: () => void;
+  test: TechnicalTestSummary;
+  onOpen: () => void;
   onDelete: () => void;
 }) {
-  const levelMeta = LEVEL_META[test.level] ?? LEVEL_META.mid;
-  const roleMeta = ROLE_FOCUS_ITEMS.find((r) => r.key === test.roleFocus);
-  const diffMeta = DIFFICULTY_ITEMS.find((d) => d.key === test.difficulty);
-  const statusMeta = STATUS_META[test.status] ?? STATUS_META.not_started;
-  const date = new Date(test.createdAt).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const role = getRoleFocusMeta(test.roleFocus);
+  const level = getLevelMeta(test.level);
+  const difficulty = getDifficultyMeta(test.difficulty);
+  const status = STATUS_META[test.status] ?? STATUS_META.not_started;
+  const score = typeof test.score === "number" ? clampPercent(test.score) : null;
 
   return (
-    <div className="group rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 overflow-hidden hover:shadow-md hover:-translate-y-px transition-all duration-200">
-      <div className="flex items-center gap-3 p-4">
-        {/* Icon */}
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gray-100 dark:bg-gray-800">
-          <ClipboardCheck className="h-5 w-5 text-gray-400" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
-            {test.title}
-          </h3>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span
-              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${statusMeta.color}`}
-            >
-              {statusMeta.label}
-            </span>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">
-              {roleMeta?.icon} {roleMeta?.label}
-            </span>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">
-              {levelMeta.icon} {levelMeta.label}
-            </span>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">
-              {diffMeta?.icon} {diffMeta?.label}
-            </span>
+    <li className="rounded-2xl border border-border bg-bg-elevated p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex items-start gap-3 flex-1 min-w-0">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800" aria-hidden="true">
+          <ClipboardCheck className="h-5 w-5 text-text-tertiary" />
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold text-text-primary truncate">{test.title}</h2>
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${status.className}`}>{status.label}</span>
+            <MetaChip icon={role.icon}>{role.label}</MetaChip>
+            <MetaChip icon={level.icon}>{level.label}</MetaChip>
+            <MetaChip icon={difficulty.icon}>{difficulty.label}</MetaChip>
+            {test.hasAiReview && <MetaChip icon={Bot}>AI reviewed</MetaChip>}
           </div>
-          <div className="flex items-center gap-2 mt-1">
-            <Clock className="h-3 w-3 text-gray-300 dark:text-gray-600" />
-            <span className="text-[10px] text-gray-400 dark:text-gray-500">
-              {date}
-            </span>
+          <p className="flex items-center gap-1.5 mt-1.5 text-[11px] text-text-tertiary flex-wrap">
+            <Clock className="h-3 w-3" aria-hidden="true" />
+            {formatShortDate(test.createdAt)}
             {test.tags.length > 0 && (
-              <>
-                <span className="text-gray-300 dark:text-gray-700">·</span>
-                <div className="flex gap-1 flex-wrap">
-                  {test.tags.slice(0, 3).map((t) => (
-                    <span
-                      key={t}
-                      className="text-[9px] font-medium bg-violet-50 dark:bg-violet-900/20 text-violet-500 dark:text-violet-400 px-1.5 py-0.5 rounded-md"
-                    >
-                      {t}
-                    </span>
-                  ))}
-                  {test.tags.length > 3 && (
-                    <span className="text-[9px] text-gray-400 dark:text-gray-500">
-                      +{test.tags.length - 3}
-                    </span>
-                  )}
-                </div>
-              </>
+              <span>
+                · {test.tags.slice(0, 3).map(getTechTagLabel).join(", ")}
+                {test.tags.length > 3 ? ` +${test.tags.length - 3}` : ""}
+              </span>
             )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <Button variant="secondary" size="sm" onClick={onView}>
-            <Eye className="h-3 w-3 sm:mr-1.5" />
-            <span className="hidden sm:inline">View</span>
-          </Button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          </p>
         </div>
       </div>
-    </div>
+
+      <div className="flex items-center gap-2 sm:justify-end">
+        {score !== null && (
+          <span className={`text-xs font-semibold tabular-nums ${SCORE_TONE_TEXT[scoreTone(score)]}`} title="Automated checklist coverage">
+            {score}% coverage
+          </span>
+        )}
+        <Button variant="secondary" size="sm" onClick={onOpen} aria-label={`Open ${test.title}`}>
+          <Eye className="h-3.5 w-3.5" aria-hidden="true" /> Open
+        </Button>
+        <IconButton label={`Delete ${test.title}`} size="sm" onClick={onDelete} className="hover:!text-red-600">
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+        </IconButton>
+      </div>
+    </li>
   );
 }

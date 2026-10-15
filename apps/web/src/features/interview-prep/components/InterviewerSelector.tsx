@@ -1,53 +1,48 @@
-/**
- * InterviewerSelector.tsx
- *
- * Modern minimalist interviewer carousel with clean card design,
- * subtle glassmorphism, and smooth micro-interactions.
- */
-
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  Lightbulb,
-  MessageCircle,
-  Infinity,
-  Lock,
   Crown,
+  Lightbulb,
+  ListOrdered,
+  MessageCircle,
+  UserCircle2,
 } from "lucide-react";
-import { INTERVIEWER_CONFIGS } from "../interviewer-configs";
-import type { InterviewerConfig } from "../interviewer-configs";
-import { FREE_TIER } from "@careerportal/shared/types";
-import { SectionHeading } from "../../shared";
-import { UserCircle2 } from "lucide-react";
+import { requestUpgrade } from "@careerportal/web/data-access";
+import {
+  INTERVIEWER_CONFIGS,
+  describeTraits,
+  getInterviewerById,
+  isInterviewerFree,
+  type InterviewerConfig,
+  type InterviewerId,
+} from "../interviewer-configs";
 import { Avatar2D } from "./Avatar2D";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { SectionTitle } from "./common";
 
 interface InterviewerSelectorProps {
-  selectedId: string;
-  onSelect: (id: string) => void;
-  isPremium: boolean;
+  selectedId: InterviewerId;
+  onSelect: (id: InterviewerId) => void;
+  /** Premium/trial: every interviewer is available. */
+  allInterviewers: boolean;
 }
 
-export function InterviewerSelector({
-  selectedId,
-  onSelect,
-  isPremium,
-}: InterviewerSelectorProps) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+export function InterviewerSelector({ selectedId, onSelect, allInterviewers }: InterviewerSelectorProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const selected = getInterviewerById(selectedId) ?? INTERVIEWER_CONFIGS[0];
 
   const updateScrollState = useCallback(() => {
-    const el = scrollContainerRef.current;
+    const el = scrollRef.current;
     if (!el) return;
     setCanScrollLeft(el.scrollLeft > 8);
     setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 8);
   }, []);
 
   useEffect(() => {
-    const el = scrollContainerRef.current;
+    const el = scrollRef.current;
     if (!el) return;
     updateScrollState();
     el.addEventListener("scroll", updateScrollState, { passive: true });
@@ -59,226 +54,161 @@ export function InterviewerSelector({
   }, [updateScrollState]);
 
   const scroll = (dir: "left" | "right") => {
-    scrollContainerRef.current?.scrollBy({
-      left: dir === "left" ? -280 : 280,
-      behavior: "smooth",
-    });
+    scrollRef.current?.scrollBy({ left: dir === "left" ? -280 : 280, behavior: "smooth" });
+  };
+
+  const choose = (config: InterviewerConfig) => {
+    if (!allInterviewers && !isInterviewerFree(config.id)) {
+      requestUpgrade({ reason: "premium_required", feature: "interviewers" });
+      return;
+    }
+    onSelect(config.id);
   };
 
   return (
-    <section className="relative">
-      <SectionHeading icon={UserCircle2} label="Choose Your Interviewer" />
+    <section aria-labelledby="interviewer-heading">
+      <SectionTitle icon={UserCircle2}>
+        <span id="interviewer-heading">Choose your interviewer</span>
+      </SectionTitle>
 
-      {/* Scroll navigation */}
-      <div className="relative group/carousel">
+      <div className="relative">
         {canScrollLeft && (
           <button
+            type="button"
             onClick={() => scroll("left")}
-            className="absolute -left-2 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-bg-elevated/90 backdrop-blur-sm border border-border shadow-md items-center justify-center opacity-0 group-hover/carousel:opacity-100 hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-glow-sm transition-all duration-300 hidden md:flex"
-            aria-label="Scroll left"
+            aria-label="Show previous interviewers"
+            className="absolute -left-2 top-1/2 -translate-y-1/2 z-20 hidden md:flex h-8 w-8 items-center justify-center rounded-full bg-bg-elevated/90 border border-border shadow-md hover:bg-primary-50 dark:hover:bg-primary-950/40"
           >
-            <ChevronLeft className="h-3.5 w-3.5 text-text-secondary" />
+            <ChevronLeft className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
           </button>
         )}
-
         {canScrollRight && (
           <button
+            type="button"
             onClick={() => scroll("right")}
-            className="absolute -right-2 top-1/2 -translate-y-1/2 z-20 h-8 w-8 rounded-full bg-bg-elevated/90 backdrop-blur-sm border border-border shadow-md items-center justify-center opacity-0 group-hover/carousel:opacity-100 hover:bg-primary-50 dark:hover:bg-primary-950/40 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-glow-sm transition-all duration-300 hidden md:flex"
-            aria-label="Scroll right"
+            aria-label="Show more interviewers"
+            className="absolute -right-2 top-1/2 -translate-y-1/2 z-20 hidden md:flex h-8 w-8 items-center justify-center rounded-full bg-bg-elevated/90 border border-border shadow-md hover:bg-primary-50 dark:hover:bg-primary-950/40"
           >
-            <ChevronRight className="h-3.5 w-3.5 text-text-secondary" />
+            <ChevronRight className="h-3.5 w-3.5 text-text-secondary" aria-hidden="true" />
           </button>
         )}
 
-        {/* Fade edges */}
-        {canScrollLeft && (
-          <div className="absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-bg-primary to-transparent z-10 pointer-events-none" />
-        )}
-        {canScrollRight && (
-          <div className="absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-bg-primary to-transparent z-10 pointer-events-none" />
-        )}
-
-        {/* Scrolling container */}
         <div
-          ref={scrollContainerRef}
-          className="flex gap-2.5 overflow-x-auto pb-3 pt-0.5 px-0.5 snap-x snap-mandatory scrollbar-hide"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          ref={scrollRef}
+          role="list"
+          className="flex gap-2.5 overflow-x-auto pb-3 pt-0.5 px-0.5 snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none" }}
         >
-          {INTERVIEWER_CONFIGS.map((cfg, i) => (
-            <InterviewerCard
-              key={cfg.id}
-              config={cfg}
-              selected={selectedId === cfg.id}
-              locked={!isPremium && i >= FREE_TIER.interviewerCount}
-              onSelect={() => {
-                if (!isPremium && i >= FREE_TIER.interviewerCount) return;
-                onSelect(cfg.id);
-              }}
-              index={i}
-            />
+          {INTERVIEWER_CONFIGS.map((config) => (
+            <div role="listitem" key={config.id} className="snap-center shrink-0">
+              <InterviewerCard
+                config={config}
+                selected={selectedId === config.id}
+                locked={!allInterviewers && !isInterviewerFree(config.id)}
+                onChoose={() => choose(config)}
+              />
+            </div>
           ))}
         </div>
       </div>
 
-      {/* Minimal scroll indicator */}
-      <div className="flex justify-center gap-1 mt-2">
-        {INTERVIEWER_CONFIGS.map((cfg) => (
-          <button
-            key={cfg.id}
-            onClick={() => onSelect(cfg.id)}
-            className={`rounded-full transition-all duration-500 ease-out ${
-              selectedId === cfg.id
-                ? "w-5 h-1 bg-primary-500"
-                : "w-1 h-1 bg-neutral-300 dark:bg-neutral-700 hover:bg-neutral-400 dark:hover:bg-neutral-500"
-            }`}
-            aria-label={`Select ${cfg.name}`}
-          />
-        ))}
-      </div>
+      <p className="mt-1 text-xs text-text-secondary" aria-live="polite">
+        <span className="font-semibold text-text-primary">{selected.name}</span>
+        {selected.id !== "none" && ` — ${selected.title} · ${selected.tone}`}. {selected.style}.{" "}
+        <span className="text-text-tertiary">{describeTraits(selected)}.</span>
+      </p>
     </section>
   );
 }
-
-/* ── Interviewer card ──────────────────────────────────────────────────── */
 
 function InterviewerCard({
   config,
   selected,
   locked,
-  onSelect,
-  index,
+  onChoose,
 }: {
   config: InterviewerConfig;
   selected: boolean;
   locked: boolean;
-  onSelect: () => void;
-  index: number;
+  onChoose: () => void;
 }) {
   const isNone = config.id === "none";
+  const label = `${config.name}${isNone ? "" : `, ${config.title}`}. ${describeTraits(config)}${
+    locked ? ". Premium — select to see upgrade options" : ""
+  }`;
 
   return (
     <button
       type="button"
-      onClick={onSelect}
-      disabled={locked}
-      style={{ animationDelay: `${index * 40}ms` }}
+      onClick={onChoose}
+      aria-pressed={selected}
+      aria-label={label}
       className={[
-        "group relative flex-shrink-0 w-[152px] snap-center rounded-xl overflow-hidden transition-all duration-300 animate-fade-in-up",
-        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary",
+        "group relative w-[152px] rounded-xl overflow-hidden text-left transition-all duration-200",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary",
         locked
-          ? "opacity-60 cursor-not-allowed ring-1 ring-transparent bg-bg-secondary/40"
+          ? "opacity-70 ring-1 ring-transparent bg-bg-secondary/40"
           : selected
-            ? "ring-[1.5px] ring-primary-500 dark:ring-primary-400 bg-bg-elevated shadow-lg shadow-primary-500/8 dark:shadow-primary-500/5"
+            ? "ring-[1.5px] ring-primary-500 dark:ring-primary-400 bg-bg-elevated shadow-lg"
             : "ring-1 ring-transparent bg-bg-secondary/60 hover:bg-bg-secondary hover:ring-border hover:shadow-md",
       ].join(" ")}
     >
-      {/* Premium lock badge */}
       {locked && (
-        <span className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-accent-500/90 shadow-sm">
-          <Crown className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+        <span className="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full bg-accent-500/90 px-1.5 py-0.5 text-[9px] font-bold text-white shadow-sm">
+          <Crown className="h-2.5 w-2.5" strokeWidth={3} aria-hidden="true" />
+          Premium
         </span>
       )}
-      {/* Selection check */}
       {selected && (
-        <span className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 shadow-sm animate-scale-in">
-          <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+        <span className="absolute top-2 right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-primary-500 shadow-sm">
+          <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} aria-hidden="true" />
         </span>
       )}
 
-      {/* Avatar area */}
       <div className="relative px-3 pt-3">
         <div
-          className={`w-full aspect-[4/3] rounded-lg overflow-hidden transition-all duration-300 ${
-            selected ? "shadow-sm" : "opacity-80 group-hover:opacity-100"
-          }`}
-          style={{ background: config.avatar.background }}
+          className={`w-full aspect-[4/3] rounded-lg overflow-hidden ${selected ? "" : "opacity-80 group-hover:opacity-100"}`}
+          style={{ background: config.background }}
         >
           {isNone ? (
-            <div className="w-full h-full flex items-center justify-center">
-              <Infinity
-                className={`h-10 w-10 transition-all duration-300 ${
-                  selected
-                    ? "text-primary-400"
-                    : "text-neutral-500 group-hover:text-neutral-400"
-                }`}
-                strokeWidth={1.5}
-              />
+            <div className="w-full h-full flex items-center justify-center" aria-hidden="true">
+              <ListOrdered className={`h-10 w-10 ${selected ? "text-primary-400" : "text-neutral-500"}`} strokeWidth={1.5} />
             </div>
           ) : (
-            <div className="scale-[0.7] origin-top translate-y-[-8%]">
-              <Avatar2D
-                interviewer={config}
-                mouthShape="closed"
-                isSpeaking={false}
-              />
+            <div className="scale-[0.7] origin-top -translate-y-[8%]">
+              <Avatar2D interviewer={config} thumbnail />
             </div>
           )}
         </div>
-
-        {/* Gradient accent line */}
         <div
-          className={`absolute bottom-0 left-3 right-3 h-[2px] rounded-full bg-gradient-to-r ${
-            config.gradient
-          } transition-opacity duration-300 ${
+          className={`absolute bottom-0 left-3 right-3 h-[2px] rounded-full bg-gradient-to-r ${config.gradient} ${
             selected ? "opacity-80" : "opacity-0 group-hover:opacity-40"
           }`}
+          aria-hidden="true"
         />
       </div>
 
-      {/* Info */}
       <div className="px-3 pt-2.5 pb-1">
-        <p
-          className={`text-[13px] font-semibold leading-tight transition-colors duration-200 ${
-            selected
-              ? "text-primary-600 dark:text-primary-400"
-              : "text-text-primary"
-          }`}
-        >
+        <p className={`text-[13px] font-semibold leading-tight ${selected ? "text-primary-600 dark:text-primary-400" : "text-text-primary"}`}>
           {config.name}
         </p>
-        <p className="text-[10px] text-text-tertiary mt-0.5 leading-snug truncate">
-          {isNone ? config.role : config.role.split("·")[0].trim()}
-        </p>
+        <p className="text-[10px] text-text-tertiary mt-0.5 leading-snug truncate">{config.title}</p>
       </div>
 
-      {/* Tags */}
-      <div className="px-3 pb-3 pt-1">
-        {isNone ? (
-          <span
-            className={`inline-flex items-center gap-1 text-[9px] font-semibold px-2 py-0.5 rounded-full transition-colors duration-200 ${
-              selected
-                ? "bg-primary-100/80 dark:bg-primary-900/30 text-primary-600 dark:text-primary-300"
-                : "bg-neutral-100 dark:bg-neutral-800/60 text-text-tertiary"
-            }`}
-          >
-            <Sparkles className="h-2.5 w-2.5" />
-            Unlimited
+      <div className="px-3 pb-3 pt-1 flex items-center gap-1 flex-wrap" aria-hidden="true">
+        <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold px-2 py-0.5 rounded-full bg-neutral-100 dark:bg-neutral-800/60 text-text-secondary">
+          {config.traits.questionCount}Q
+        </span>
+        {config.traits.adviceLevel === "detailed" && (
+          <span className="inline-flex items-center text-[9px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded-full" title="Detailed feedback">
+            <MessageCircle className="h-2.5 w-2.5" />
           </span>
-        ) : config.traits ? (
-          <div className="flex items-center gap-1 flex-wrap">
-            <span
-              className={`inline-flex items-center gap-0.5 text-[9px] font-semibold px-2 py-0.5 rounded-full transition-colors duration-200 ${
-                selected
-                  ? "bg-primary-100/80 dark:bg-primary-900/30 text-primary-600 dark:text-primary-300"
-                  : "bg-neutral-100 dark:bg-neutral-800/60 text-text-tertiary"
-              }`}
-            >
-              <Sparkles className="h-2.5 w-2.5" />
-              {config.traits.questionCount}Q
-            </span>
-            {config.traits.adviceLevel === "detailed" && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/30 px-1.5 py-0.5 rounded-full">
-                <MessageCircle className="h-2.5 w-2.5" />
-              </span>
-            )}
-            {config.traits.fiftyFifty && (
-              <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded-full">
-                <Lightbulb className="h-2.5 w-2.5" />
-              </span>
-            )}
-          </div>
-        ) : null}
+        )}
+        {config.traits.fiftyFifty && (
+          <span className="inline-flex items-center text-[9px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded-full" title="50/50 hints">
+            <Lightbulb className="h-2.5 w-2.5" />
+          </span>
+        )}
       </div>
     </button>
   );

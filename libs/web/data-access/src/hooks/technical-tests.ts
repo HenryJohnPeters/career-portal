@@ -7,11 +7,21 @@ import {
 import type {
   ApiResponse,
   CreateTechnicalTestRequest,
+  SubmitTechnicalTestRequest,
   TechnicalTest,
+  TechnicalTestSummary,
   TechTestSelfReviewRequest,
 } from "@careerportal/shared/types";
-import { AI_TIMEOUT_MS, api } from "../api-client";
+import { AI_TIMEOUT_MS, api, isApiError } from "../api-client";
 import { invalidateUsage, queryKeys } from "../query-keys";
+
+/*
+ * Technical tests (PLAN §2.10). Mutations the page renders inline are
+ * `meta.silent` (no global toast); delete keeps the global error toast.
+ */
+
+const testPath = (testId: string | null) =>
+  `/technical-tests/${encodeURIComponent(testId ?? "")}`;
 
 /** Store a full test returned by a mutation and refresh the history list. */
 function storeTest(qc: QueryClient, res: ApiResponse<TechnicalTest>) {
@@ -19,16 +29,21 @@ function storeTest(qc: QueryClient, res: ApiResponse<TechnicalTest>) {
   void qc.invalidateQueries({ queryKey: queryKeys.technicalTests, exact: true });
 }
 
-/**
- * GET /technical-tests. PLAN §2.10: the API returns `TechnicalTestSummary[]`
- * (no scenario/submission/evaluation) once api-techtests lands — switch the
- * generic to `TechnicalTestSummary` and load details with useTechnicalTest(id).
- */
-export function useTechnicalTests() {
+/** 409: the test changed elsewhere (started, submitted or reviewed in another tab) — reload it. */
+function refreshOnConflict(qc: QueryClient, err: unknown, testId: string) {
+  if (isApiError(err) && err.status === 409) {
+    void qc.invalidateQueries({ queryKey: queryKeys.technicalTest(testId) });
+    void qc.invalidateQueries({ queryKey: queryKeys.technicalTests, exact: true });
+  }
+}
+
+/** GET /technical-tests — summaries (no scenario/submission), newest first, ≤100. */
+export function useTechnicalTests(enabled = true) {
   return useQuery({
     queryKey: queryKeys.technicalTests,
     queryFn: ({ signal }) =>
-      api.get<ApiResponse<TechnicalTest[]>>("/technical-tests", { signal }),
+      api.get<ApiResponse<TechnicalTestSummary[]>>("/technical-tests", { signal }),
+    enabled,
   });
 }
 
@@ -37,11 +52,12 @@ export function useTechnicalTest(id: string | null) {
   return useQuery({
     queryKey: queryKeys.technicalTest(id),
     queryFn: ({ signal }) =>
-      api.get<ApiResponse<TechnicalTest>>(`/technical-tests/${id}`, { signal }),
+      api.get<ApiResponse<TechnicalTest>>(testPath(id), { signal }),
     enabled: !!id,
   });
 }
 
+/** POST /technical-tests — counts toward the monthly free allowance. */
 export function useCreateTechnicalTest() {
   const qc = useQueryClient();
   return useMutation({
@@ -49,6 +65,7 @@ export function useCreateTechnicalTest() {
       api.post<ApiResponse<TechnicalTest>>("/technical-tests", data, {
         timeoutMs: AI_TIMEOUT_MS,
       }),
+    meta: { silent: true },
     onSuccess: (res) => {
       storeTest(qc, res);
       void qc.invalidateQueries({ queryKey: queryKeys.dashboardSummary });
@@ -63,24 +80,27 @@ export function useStartTechnicalTest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (testId: string) =>
-      api.post<ApiResponse<TechnicalTest>>(`/technical-tests/${testId}/start`),
+      api.post<ApiResponse<TechnicalTest>>(`${testPath(testId)}/start`),
+    meta: { silent: true },
     onSuccess: (res) => storeTest(qc, res),
+    onError: (err, testId) => refreshOnConflict(qc, err, testId),
   });
 }
 
+/** POST /technical-tests/:id/submit — 1..100000 characters; re-submitting returns 409. */
 export function useSubmitTechnicalTest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ testId, submission }: { testId: string; submission: string }) =>
-      api.post<ApiResponse<TechnicalTest>>(
-        `/technical-tests/${testId}/submit`,
-        { submission },
-        { timeoutMs: AI_TIMEOUT_MS },
-      ),
+    mutationFn: ({ testId, submission }: { testId: string } & SubmitTechnicalTestRequest) =>
+      api.post<ApiResponse<TechnicalTest>>(`${testPath(testId)}/submit`, {
+        submission,
+      }),
+    meta: { silent: true },
     onSuccess: (res) => {
       storeTest(qc, res);
       void qc.invalidateQueries({ queryKey: queryKeys.dashboardSummary });
     },
+    onError: (err, vars) => refreshOnConflict(qc, err, vars.testId),
   });
 }
 
@@ -89,7 +109,8 @@ export function useSelfReviewTechTest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ testId, ...data }: { testId: string } & TechTestSelfReviewRequest) =>
-      api.put<ApiResponse<TechnicalTest>>(`/technical-tests/${testId}/self-review`, data),
+      api.put<ApiResponse<TechnicalTest>>(`${testPath(testId)}/self-review`, data),
+    meta: { silent: true },
     onSuccess: (res) => {
       qc.setQueryData(queryKeys.technicalTest(res.data.id), res);
     },
@@ -102,28 +123,30 @@ export function useAiReviewTechTest() {
   return useMutation({
     mutationFn: (testId: string) =>
       api.post<ApiResponse<TechnicalTest>>(
-        `/technical-tests/${testId}/ai-review`,
+        `${testPath(testId)}/ai-review`,
         undefined,
         { timeoutMs: AI_TIMEOUT_MS },
       ),
+    meta: { silent: true },
     onSuccess: (res) => storeTest(qc, res),
+    onError: (err, testId) => refreshOnConflict(qc, err, testId),
     onSettled: () => {
       void invalidateUsage(qc);
     },
   });
 }
 
-/** DELETE /technical-tests/:id — soft delete; still counts toward the monthly free quota. */
+/** DELETE /technical-tests/:id — soft delete; still counts toward the monthly free allowance. */
 export function useDeleteTechnicalTest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (testId: string) => api.delete(`/technical-tests/${testId}`),
+    mutationFn: (testId: string) => api.delete(testPath(testId)),
     onSuccess: (_res, testId) => {
-      qc.setQueryData<ApiResponse<{ id: string }[]>>(
+      qc.setQueryData<ApiResponse<TechnicalTestSummary[]>>(
         queryKeys.technicalTests,
         (old) => old && { ...old, data: old.data.filter((t) => t.id !== testId) },
       );
-      qc.removeQueries({ queryKey: queryKeys.technicalTest(testId) });
+      qc.removeQueries({ queryKey: queryKeys.technicalTest(testId), exact: true });
       void qc.invalidateQueries({ queryKey: queryKeys.dashboardSummary });
       return qc.invalidateQueries({ queryKey: queryKeys.technicalTests, exact: true });
     },
