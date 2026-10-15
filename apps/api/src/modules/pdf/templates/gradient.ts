@@ -6,6 +6,7 @@ import {
   CvSection,
   ContactItem,
   escapeHtml,
+  renderContactItem,
   renderSectionContent,
 } from "./shared";
 
@@ -202,15 +203,4 @@ export function renderGradientLayout(
     .join("\n");
 
   return `<div class="gradient-container">${header}<div class="gradient-body">${sectionsHtml}</div></div>`;
-}
-
-function renderContactItem(item: ContactItem): string {
-  const inner = `<span class="contact-item-icon">${
-    item.icon
-  }</span><span class="contact-item-text">${escapeHtml(item.text)}</span>`;
-  if (item.href)
-    return `<a href="${escapeHtml(
-      item.href
-    )}" class="contact-item">${inner}</a>`;
-  return `<span class="contact-item">${inner}</span>`;
 }

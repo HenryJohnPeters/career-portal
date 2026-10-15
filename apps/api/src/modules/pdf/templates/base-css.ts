@@ -1,6 +1,6 @@
 // base-css.ts — Base CSS shared by all CV templates
 
-import { ResolvedTheme, fontImportUrl } from "./shared";
+import { ResolvedTheme, fontImportUrl } from "./theme";
 
 // ─── Font size / spacing maps ────────────────────────────
 

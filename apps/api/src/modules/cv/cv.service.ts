@@ -1,486 +1,391 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-} from "@nestjs/common";
-import { Prisma } from "@prisma/client";
+import { Injectable, NotFoundException } from "@nestjs/common";
+import type { Prisma } from "@prisma/client";
 import { PrismaService } from "../../common/prisma.service";
+import { DEFAULT_CV_SECTIONS, FREE_TEMPLATE_IDS } from "../../common/constants";
+import { QuotaExceededException } from "../../common/errors";
+import { lockedTransaction, userLockKey } from "../../common/plan";
+import { EntitlementsService } from "../entitlements/entitlements.service";
 import { AiService } from "../ai/ai.service";
-import { AiUsageService } from "../ai/ai-usage.service";
 import type { AiCvAction, AiFullCvResult } from "../ai/ai.service";
+import { normalizeThemeConfig } from "../pdf/templates/theme";
+import { CV_LIMITS } from "./cv.rules";
 import {
-  FREE_TIER,
-  FREE_TEMPLATE_IDS,
-  DEFAULT_CV_SECTIONS,
-} from "../../common/constants";
-import { isActivePremium } from "../../common/subscription.util";
+  buildSnapshot,
+  CONTACT_FIELDS,
+  parseSnapshot,
+  pickContact,
+  snapshotToJson,
+  type CvContact,
+  type SnapshotSection,
+} from "./cv-snapshot";
+import {
+  CV_VERSION_SELECT,
+  HAS_SNAPSHOT,
+  SECTION_ORDER,
+  cvSectionNotFound,
+  cvVersionNotFound,
+  toCvVersionPayload,
+  type CvVersionPayload,
+} from "./cv.queries";
+import type {
+  ApplyCvContentDto,
+  CvContactDto,
+  UpdateCvVersionDto,
+} from "./cv.dto";
+
+type Tx = Prisma.TransactionClient;
+
+/** Contact select used for snapshots. */
+const CONTACT_SELECT = Object.fromEntries(
+  CONTACT_FIELDS.map((field) => [field, true]),
+) as Record<(typeof CONTACT_FIELDS)[number], true>;
+
+/** What an undo snapshot captures. */
+const CONTENT_SELECT = {
+  ...CONTACT_SELECT,
+  sections: {
+    select: { title: true, content: true, sectionType: true },
+    orderBy: SECTION_ORDER,
+  },
+} satisfies Prisma.CvVersionSelect;
+
+/** Keeps a generated title (e.g. "<title> (Copy)") within the title limit. */
+function clampTitle(title: string): string {
+  return Array.from(title).slice(0, CV_LIMITS.versionTitle).join("");
+}
+
+/** Only the contact fields the request actually set (undefined = unchanged). */
+function contactUpdate(dto: CvContactDto | undefined): Partial<CvContact> {
+  const update: Partial<CvContact> = {};
+  if (!dto) return update;
+  for (const field of CONTACT_FIELDS) {
+    const value = dto[field];
+    if (value !== undefined) update[field] = value;
+  }
+  return update;
+}
 
 @Injectable()
 export class CvService {
   constructor(
     private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
     private readonly aiService: AiService,
-    private readonly aiUsage: AiUsageService,
   ) {}
 
-  async getVersions(userId: string) {
-    return this.prisma.cvVersion.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      include: { sections: { orderBy: { order: "asc" } } },
-    });
+  /* ── Versions ───────────────────────────────────────────────────── */
+
+  async getVersions(userId: string): Promise<CvVersionPayload[]> {
+    const [rows, withSnapshot] = await Promise.all([
+      this.prisma.cvVersion.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        select: CV_VERSION_SELECT,
+      }),
+      this.prisma.cvVersion.findMany({
+        where: { userId, ...HAS_SNAPSHOT },
+        select: { id: true },
+      }),
+    ]);
+    const snapshotIds = new Set(withSnapshot.map((v) => v.id));
+    return rows.map((row) => toCvVersionPayload(row, snapshotIds.has(row.id)));
   }
 
-  async createVersion(userId: string, title: string) {
-    // Enforce free-user cap
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    if (!user || !isActivePremium(user)) {
-      return this.prisma.$transaction(
-        async (tx) => {
-          const count = await tx.cvVersion.count({ where: { userId } });
-          if (count >= FREE_TIER.cvVersions) {
-            throw new ForbiddenException(
-              `Free accounts are limited to ${FREE_TIER.cvVersions} CV. Upgrade to Premium for unlimited CVs.`,
-            );
-          }
+  /** One version with its sections (404 unless it is the user's). */
+  async getVersion(userId: string, id: string): Promise<CvVersionPayload> {
+    const [row, hasSnapshot] = await Promise.all([
+      this.prisma.cvVersion.findFirst({
+        where: { id, userId },
+        select: CV_VERSION_SELECT,
+      }),
+      this.hasSnapshot(id),
+    ]);
+    if (!row) throw cvVersionNotFound();
+    return toCvVersionPayload(row, hasSnapshot);
+  }
 
-          const version = await tx.cvVersion.create({
-            data: { userId, title },
-          });
-
-          await tx.cvSection.createMany({
-            data: DEFAULT_CV_SECTIONS.map((s, i) => ({
-              cvVersionId: version.id,
-              title: s.title,
-              sectionType: s.sectionType,
-              content: "",
-              order: i,
-            })),
-          });
-
-          return tx.cvVersion.findUnique({
-            where: { id: version.id },
-            include: { sections: { orderBy: { order: "asc" } } },
-          });
+  async createVersion(userId: string, title: string): Promise<CvVersionPayload> {
+    const limit = await this.versionLimit(userId);
+    const row = await lockedTransaction(this.prisma, userLockKey("cv", userId), async (tx) => {
+      await this.assertVersionQuota(tx, userId, limit);
+      return tx.cvVersion.create({
+        data: {
+          userId,
+          title,
+          sections: {
+            createMany: {
+              data: DEFAULT_CV_SECTIONS.map((s, i) => ({
+                title: s.title,
+                sectionType: s.sectionType,
+                content: "",
+                order: i,
+              })),
+            },
+          },
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
-    }
-
-    const version = await this.prisma.cvVersion.create({
-      data: { userId, title },
+        select: CV_VERSION_SELECT,
+      });
     });
-
-    // Create default sections in a single batch insert
-    await this.prisma.cvSection.createMany({
-      data: DEFAULT_CV_SECTIONS.map((s, i) => ({
-        cvVersionId: version.id,
-        title: s.title,
-        sectionType: s.sectionType,
-        content: "",
-        order: i,
-      })),
-    });
-
-    return this.prisma.cvVersion.findUnique({
-      where: { id: version.id },
-      include: { sections: { orderBy: { order: "asc" } } },
-    });
+    return toCvVersionPayload(row, false);
   }
 
   async updateVersion(
     userId: string,
     id: string,
-    data: {
-      title?: string;
-      isActive?: boolean;
-      templateId?: string;
-      themeConfig?: Record<string, unknown>;
-      headerLayout?: string;
-      name?: string;
-      email?: string;
-      photoUrl?: string;
-      phone?: string;
-      location?: string;
-      website?: string;
-      linkedin?: string;
-      github?: string;
-    },
-  ) {
-    const version = await this.assertVersionOwner(userId, id);
-    const { themeConfig: _incomingThemeConfig, ...restData } = data;
-    const safeThemeConfig = this.sanitizeThemeConfig(data.themeConfig);
+    dto: UpdateCvVersionDto,
+  ): Promise<CvVersionPayload> {
+    const current = await this.prisma.cvVersion.findFirst({
+      where: { id, userId },
+      select: { templateId: true, themeConfig: true },
+    });
+    if (!current) throw cvVersionNotFound();
 
-    // Restrict template selection for free users
-    if (data.templateId) {
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (
-        (!user || !isActivePremium(user)) &&
-        !(FREE_TEMPLATE_IDS as readonly string[]).includes(data.templateId)
-      ) {
-        throw new ForbiddenException(
-          "Free accounts can only use the first 5 templates. Upgrade to Premium for all templates.",
-        );
-      }
+    // Only a change of template is gated, so a version that kept a premium
+    // template after premium lapsed can still be edited.
+    if (
+      dto.templateId !== undefined &&
+      dto.templateId !== current.templateId &&
+      !FREE_TEMPLATE_IDS.includes(dto.templateId)
+    ) {
+      await this.entitlements.assertPremium(userId, "templates");
     }
 
-    // If setting active, deactivate others
-    if (data.isActive) {
-      await this.prisma.cvVersion.updateMany({
-        where: { userId },
-        data: { isActive: false },
-      });
-    }
-
-    const updated = await this.prisma.cvVersion.update({
-      where: { id },
-      data: {
-        ...restData,
-        ...(safeThemeConfig !== undefined && { themeConfig: safeThemeConfig }),
-      },
-      include: { sections: { orderBy: { order: "asc" } } },
-    });
-
-    return updated;
-  }
-
-  async deleteVersion(userId: string, id: string) {
-    await this.assertVersionOwner(userId, id);
-    await this.prisma.cvVersion.delete({ where: { id } });
-  }
-
-  async getSections(userId: string, versionId: string) {
-    await this.assertVersionOwner(userId, versionId);
-    return this.prisma.cvSection.findMany({
-      where: { cvVersionId: versionId },
-      orderBy: { order: "asc" },
-    });
-  }
-
-  async createSection(
-    userId: string,
-    versionId: string,
-    title: string,
-    content?: string,
-    sectionType?: string,
-  ) {
-    await this.assertVersionOwner(userId, versionId);
-    const maxOrder = await this.prisma.cvSection.aggregate({
-      where: { cvVersionId: versionId },
-      _max: { order: true },
-    });
-    const order = (maxOrder._max.order ?? -1) + 1;
-
-    return this.prisma.cvSection.create({
-      data: {
-        cvVersionId: versionId,
-        title,
-        content: content || "",
-        sectionType: sectionType || "custom",
-        order,
-      },
-    });
-  }
-
-  async updateSection(
-    userId: string,
-    sectionId: string,
-    data: { title?: string; content?: string; sectionType?: string },
-  ) {
-    const section = await this.assertSectionOwner(userId, sectionId);
-    return this.prisma.cvSection.update({ where: { id: sectionId }, data });
-  }
-
-  async deleteSection(userId: string, sectionId: string) {
-    await this.assertSectionOwner(userId, sectionId);
-    await this.prisma.cvSection.delete({ where: { id: sectionId } });
-  }
-
-  async moveSection(
-    userId: string,
-    sectionId: string,
-    direction: "up" | "down",
-  ) {
-    const section = await this.assertSectionOwner(userId, sectionId);
-    const sections = await this.prisma.cvSection.findMany({
-      where: { cvVersionId: section.cvVersionId },
-      orderBy: { order: "asc" },
-    });
-
-    const idx = sections.findIndex((s) => s.id === sectionId);
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (swapIdx < 0 || swapIdx >= sections.length) return sections;
-
-    // Swap orders
-    await this.prisma.$transaction([
-      this.prisma.cvSection.update({
-        where: { id: sections[idx].id },
-        data: { order: sections[swapIdx].order },
-      }),
-      this.prisma.cvSection.update({
-        where: { id: sections[swapIdx].id },
-        data: { order: sections[idx].order },
-      }),
-    ]);
-
-    return this.prisma.cvSection.findMany({
-      where: { cvVersionId: section.cvVersionId },
-      orderBy: { order: "asc" },
-    });
-  }
-
-  async duplicateVersion(userId: string, id: string) {
-    // Enforce free-user cap
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    // Single fetch with sections — assertVersionOwner + sections in one query
-    const original = await this.prisma.cvVersion.findUnique({
-      where: { id },
-      include: { sections: true },
-    });
-    if (!original) throw new NotFoundException("CV version not found");
-    if (original.userId !== userId)
-      throw new ForbiddenException("Access denied");
-
-    if (!user || !isActivePremium(user)) {
-      return this.prisma.$transaction(
-        async (tx) => {
-          const count = await tx.cvVersion.count({ where: { userId } });
-          if (count >= FREE_TIER.cvVersions) {
-            throw new ForbiddenException(
-              `Free accounts are limited to ${FREE_TIER.cvVersions} CV. Upgrade to Premium for unlimited CVs.`,
-            );
-          }
-
-          const copy = await tx.cvVersion.create({
-            data: {
-              userId,
-              title: `${original.title} (Copy)`,
-              isActive: false,
-              templateId: original.templateId,
-              themeConfig: original.themeConfig ?? {},
-              headerLayout: original.headerLayout,
-              name: original.name,
-              email: original.email,
-              photoUrl: original.photoUrl,
-              phone: original.phone,
-              location: original.location,
-              website: original.website,
-              linkedin: original.linkedin,
-              github: original.github,
-            },
-          });
-
-          await tx.cvSection.createMany({
-            data: original.sections.map((section) => ({
-              cvVersionId: copy.id,
-              title: section.title,
-              content: section.content,
-              sectionType: section.sectionType,
-              order: section.order,
-            })),
-          });
-
-          return tx.cvVersion.findUnique({
-            where: { id: copy.id },
-            include: { sections: { orderBy: { order: "asc" } } },
-          });
+    const data: Prisma.CvVersionUpdateInput = {
+      ...contactUpdate(dto),
+      ...(dto.title !== undefined && { title: dto.title }),
+      ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+      ...(dto.templateId !== undefined && { templateId: dto.templateId }),
+      ...(dto.headerLayout !== undefined && { headerLayout: dto.headerLayout }),
+      ...(dto.themeConfig !== undefined && {
+        themeConfig: {
+          ...normalizeThemeConfig(dto.themeConfig, normalizeThemeConfig(current.themeConfig)),
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-      );
-    }
+      }),
+    };
 
-    const copy = await this.prisma.cvVersion.create({
-      data: {
-        userId,
-        title: `${original.title} (Copy)`,
-        isActive: false,
-        templateId: original.templateId,
-        themeConfig: original.themeConfig ?? {},
-        headerLayout: original.headerLayout,
-        name: original.name,
-        email: original.email,
-        photoUrl: original.photoUrl,
-        phone: original.phone,
-        location: original.location,
-        website: original.website,
-        linkedin: original.linkedin,
-        github: original.github,
-      },
+    const update = this.prisma.cvVersion.update({
+      where: { id },
+      data,
+      select: CV_VERSION_SELECT,
     });
-
-    // Batch-insert duplicated sections
-    await this.prisma.cvSection.createMany({
-      data: original.sections.map((section) => ({
-        cvVersionId: copy.id,
-        title: section.title,
-        content: section.content,
-        sectionType: section.sectionType,
-        order: section.order,
-      })),
-    });
-
-    return this.prisma.cvVersion.findUnique({
-      where: { id: copy.id },
-      include: { sections: { orderBy: { order: "asc" } } },
-    });
+    const [row, hasSnapshot] = await Promise.all([
+      dto.isActive
+        ? this.prisma
+            .$transaction([
+              this.prisma.cvVersion.updateMany({
+                where: { userId, isActive: true, NOT: { id } },
+                data: { isActive: false },
+              }),
+              update,
+            ])
+            .then(([, updated]) => updated)
+        : update,
+      this.hasSnapshot(id),
+    ]);
+    return toCvVersionPayload(row, hasSnapshot);
   }
 
-  async reorderSections(
+  async deleteVersion(userId: string, id: string): Promise<void> {
+    const { count } = await this.prisma.cvVersion.deleteMany({ where: { id, userId } });
+    if (count === 0) throw cvVersionNotFound();
+  }
+
+  /**
+   * Copies a version (theme, contact and sections; not the undo snapshot).
+   * Counts toward the free CV-version limit.
+   */
+  async duplicateVersion(
     userId: string,
-    versionId: string,
-    sectionIds: string[],
-  ) {
-    await this.assertVersionOwner(userId, versionId);
-    const sections = await this.prisma.cvSection.findMany({
-      where: { cvVersionId: versionId },
+    id: string,
+    options: { title?: string } = {},
+  ): Promise<CvVersionPayload> {
+    const limit = await this.versionLimit(userId);
+    const row = await lockedTransaction(this.prisma, userLockKey("cv", userId), async (tx) => {
+      const original = await tx.cvVersion.findFirst({
+        where: { id, userId },
+        select: {
+          ...CONTACT_SELECT,
+          title: true,
+          templateId: true,
+          themeConfig: true,
+          headerLayout: true,
+          sections: {
+            select: { title: true, content: true, sectionType: true },
+            orderBy: SECTION_ORDER,
+          },
+        },
+      });
+      if (!original) throw cvVersionNotFound();
+      await this.assertVersionQuota(tx, userId, limit);
+
+      const { sections, title, themeConfig, ...rest } = original;
+      return tx.cvVersion.create({
+        data: {
+          ...rest,
+          userId,
+          title: clampTitle(options.title ?? `${title} (Copy)`),
+          isActive: false,
+          themeConfig: { ...normalizeThemeConfig(themeConfig) },
+          sections: {
+            createMany: {
+              data: sections.map((section, order) => ({ ...section, order })),
+            },
+          },
+        },
+        select: CV_VERSION_SELECT,
+      });
     });
-
-    // Validate all section IDs belong to this version
-    const sectionIdSet = new Set(sections.map((s) => s.id));
-    for (const id of sectionIds) {
-      if (!sectionIdSet.has(id))
-        throw new NotFoundException(`Section ${id} not found in this version`);
-    }
-
-    // Update orders in a transaction
-    await this.prisma.$transaction(
-      sectionIds.map((id, index) =>
-        this.prisma.cvSection.update({
-          where: { id },
-          data: { order: index },
-        }),
-      ),
-    );
-
-    return this.prisma.cvSection.findMany({
-      where: { cvVersionId: versionId },
-      orderBy: { order: "asc" },
-    });
+    return toCvVersionPayload(row, false);
   }
 
+  /* ── Bulk content + undo ────────────────────────────────────────── */
+
+  /**
+   * Replaces all sections (and the given contact fields) in one transaction.
+   * The previous content becomes the version's undo snapshot.
+   */
+  async applyContent(
+    userId: string,
+    id: string,
+    dto: ApplyCvContentDto,
+  ): Promise<CvVersionPayload> {
+    const row = await lockedTransaction(this.prisma, userLockKey("cv", userId), async (tx) => {
+      const current = await tx.cvVersion.findFirst({
+        where: { id, userId },
+        select: CONTENT_SELECT,
+      });
+      if (!current) throw cvVersionNotFound();
+      const snapshot = buildSnapshot(pickContact(current), current.sections);
+      return this.replaceContent(tx, id, dto.sections, {
+        contact: contactUpdate(dto.contact),
+        lastSnapshot: snapshotToJson(snapshot),
+      });
+    });
+    return toCvVersionPayload(row, true);
+  }
+
+  /** Swaps the current content with the undo snapshot (404 when there is none). */
+  async restoreSnapshot(userId: string, id: string): Promise<CvVersionPayload> {
+    const row = await lockedTransaction(this.prisma, userLockKey("cv", userId), async (tx) => {
+      const current = await tx.cvVersion.findFirst({
+        where: { id, userId },
+        select: { ...CONTENT_SELECT, lastSnapshot: true },
+      });
+      if (!current) throw cvVersionNotFound();
+      const previous = parseSnapshot(current.lastSnapshot);
+      if (!previous) throw new NotFoundException("There is nothing to undo for this CV.");
+      const snapshot = buildSnapshot(pickContact(current), current.sections);
+      return this.replaceContent(tx, id, previous.sections, {
+        contact: previous.contact,
+        lastSnapshot: snapshotToJson(snapshot),
+      });
+    });
+    return toCvVersionPayload(row, true);
+  }
+
+  /* ── AI ─────────────────────────────────────────────────────────── */
+
+  /** AiService validates input and reserves usage itself; never wrap it in a reservation. */
   async aiGenerateSection(
     userId: string,
     sectionId: string,
-    dto: { action: AiCvAction; jobTitle?: string; jobDescription?: string },
-  ) {
-    const section = await this.assertSectionOwner(userId, sectionId);
-
-    return this.aiUsage.withReservation(userId, "cv-section", async () => {
-      const [allSections, user] = await Promise.all([
-        this.prisma.cvSection.findMany({
-          where: { cvVersionId: section.cvVersionId },
-          orderBy: { order: "asc" },
-        }),
-        this.prisma.user.findUnique({
-          where: { id: userId },
-          select: { name: true },
-        }),
-      ]);
-
-      const content = await this.aiService.generateCvSectionContent({
-        action: dto.action,
-        sectionType: section.sectionType,
-        sectionTitle: section.title,
-        currentContent: section.content,
-        jobTitle: dto.jobTitle,
-        jobDescription: dto.jobDescription,
-        userName: user?.name,
-        allSections: allSections
-          .filter((s) => s.id !== sectionId)
-          .map((s) => ({
-            title: s.title,
-            sectionType: s.sectionType,
-            content: s.content,
-          })),
-      });
-
-      return { content };
+    dto: {
+      action: AiCvAction;
+      jobTitle?: string;
+      jobDescription?: string;
+      currentContent?: string;
+    },
+  ): Promise<{ content: string; truncated: boolean }> {
+    const section = await this.prisma.cvSection.findFirst({
+      where: { id: sectionId, cvVersion: { userId } },
+      select: { title: true, content: true, sectionType: true, cvVersionId: true },
     });
+    if (!section) throw cvSectionNotFound();
+
+    const otherSections = await this.prisma.cvSection.findMany({
+      where: { cvVersionId: section.cvVersionId, NOT: { id: sectionId } },
+      orderBy: SECTION_ORDER,
+      select: { title: true, sectionType: true, content: true },
+    });
+
+    const result = await this.aiService.generateCvSectionContent(userId, {
+      action: dto.action,
+      sectionType: section.sectionType,
+      sectionTitle: section.title,
+      currentContent: dto.currentContent ?? section.content,
+      jobTitle: dto.jobTitle,
+      jobDescription: dto.jobDescription,
+      allSections: otherSections,
+    });
+    return { content: result.content, truncated: result.truncated };
   }
 
+  /** Generates a full CV from pasted text. Nothing is saved (see applyContent). */
   async aiGenerateFullCv(
     userId: string,
+    versionId: string,
     dto: { rawText: string; jobTitle?: string; jobDescription?: string },
-  ): Promise<AiFullCvResult> {
-    return this.aiUsage.withReservation(userId, "cv-full", async () => {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { name: true },
-      });
+  ): Promise<AiFullCvResult & { truncated: boolean }> {
+    const version = await this.prisma.cvVersion.findFirst({
+      where: { id: versionId, userId },
+      select: { name: true, user: { select: { name: true } } },
+    });
+    if (!version) throw cvVersionNotFound();
 
-      return this.aiService.generateFullCvFromRawText({
-        rawText: dto.rawText,
-        jobTitle: dto.jobTitle,
-        jobDescription: dto.jobDescription,
-        userName: user?.name,
-      });
+    return this.aiService.generateFullCvFromRawText(userId, {
+      rawText: dto.rawText,
+      jobTitle: dto.jobTitle,
+      jobDescription: dto.jobDescription,
+      userName: version.name || version.user.name || undefined,
     });
   }
 
-  private async assertVersionOwner(userId: string, versionId: string) {
-    const version = await this.prisma.cvVersion.findUnique({
-      where: { id: versionId },
-    });
-    if (!version) throw new NotFoundException("CV version not found");
-    if (version.userId !== userId)
-      throw new ForbiddenException("Access denied");
-    return version;
+  /* ── Internals ──────────────────────────────────────────────────── */
+
+  private async hasSnapshot(id: string): Promise<boolean> {
+    const count = await this.prisma.cvVersion.count({ where: { id, ...HAS_SNAPSHOT } });
+    return count > 0;
   }
 
-  private sanitizeThemeConfig(
-    themeConfig?: Record<string, unknown>,
-  ): Prisma.InputJsonObject | undefined {
-    if (themeConfig === undefined) return undefined;
+  /** Free-plan CV-version limit, or null when unlimited. */
+  private async versionLimit(userId: string): Promise<number | null> {
+    const plan = await this.entitlements.getPlan(userId);
+    return plan.limits.cvVersions;
+  }
 
-    type SafeJson =
-      | string
-      | number
-      | boolean
-      | Prisma.InputJsonObject
-      | Prisma.InputJsonArray;
-
-    const sanitize = (value: unknown, depth = 0): SafeJson => {
-      if (depth > 4) return "";
-      if (typeof value === "string") return value.slice(0, 200);
-      if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-      if (typeof value === "boolean") return value;
-
-      if (Array.isArray(value)) {
-        return value.slice(0, 50).map((item) => sanitize(item, depth + 1));
-      }
-
-      if (value && typeof value === "object") {
-        const entries = Object.entries(value as Record<string, unknown>).slice(
-          0,
-          50,
-        );
-
-        return Object.fromEntries(
-          entries.map(([key, item]) => [
-            key.slice(0, 100),
-            sanitize(item, depth + 1),
-          ]),
-        ) as Prisma.InputJsonObject;
-      }
-
-      return "";
-    };
-
-    const sanitized = sanitize(themeConfig);
-    if (Array.isArray(sanitized) || typeof sanitized !== "object") {
-      return {};
+  /** Call inside the per-user "cv" lock so concurrent creates can't overshoot. */
+  private async assertVersionQuota(
+    tx: Tx,
+    userId: string,
+    limit: number | null,
+  ): Promise<void> {
+    if (limit === null) return;
+    const used = await tx.cvVersion.count({ where: { userId } });
+    if (used >= limit) {
+      throw new QuotaExceededException("cvVersions", limit, used, null);
     }
-    return sanitized as Prisma.InputJsonObject;
   }
 
-  private async assertSectionOwner(userId: string, sectionId: string) {
-    const section = await this.prisma.cvSection.findUnique({
-      where: { id: sectionId },
-      include: { cvVersion: true },
+  private async replaceContent(
+    tx: Tx,
+    id: string,
+    sections: readonly Pick<SnapshotSection, "title" | "content" | "sectionType">[],
+    update: { contact: Partial<CvContact>; lastSnapshot: Prisma.InputJsonObject },
+  ) {
+    await tx.cvSection.deleteMany({ where: { cvVersionId: id } });
+    await tx.cvSection.createMany({
+      data: sections.map((s, order) => ({
+        cvVersionId: id,
+        title: s.title,
+        content: s.content,
+        sectionType: s.sectionType,
+        order,
+      })),
     });
-    if (!section) throw new NotFoundException("Section not found");
-    if (section.cvVersion.userId !== userId)
-      throw new ForbiddenException("Access denied");
-    return section;
+    return tx.cvVersion.update({
+      where: { id },
+      data: { ...update.contact, lastSnapshot: update.lastSnapshot },
+      select: CV_VERSION_SELECT,
+    });
   }
 }

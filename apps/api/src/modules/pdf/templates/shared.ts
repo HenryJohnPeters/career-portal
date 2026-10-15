@@ -1,5 +1,9 @@
 // shared.ts — Shared types, utilities, and icons for CV templates
 
+import { normalizeContactUrl } from "../../cv/cv.rules";
+
+export type { ResolvedTheme } from "./theme";
+
 export interface CvSection {
   title: string;
   content: string;
@@ -13,27 +17,16 @@ export interface CvData {
   userName?: string;
   userEmail?: string;
   templateId?: string;
-  themeConfig?: Record<string, unknown>;
+  /** Raw stored theme; whitelisted by resolveTheme before it reaches CSS. */
+  themeConfig?: unknown;
   headerLayout?: string;
+  /** Inline `data:` image URI (the renderer never loads remote images). */
   photoUrl?: string;
   phone?: string;
   location?: string;
   website?: string;
   linkedin?: string;
   github?: string;
-}
-
-export interface ResolvedTheme {
-  primaryColor: string;
-  primaryLight: string;
-  primaryDark: string;
-  fontHeading: string;
-  fontBody: string;
-  fontSize: string;
-  spacing: string;
-  accentStyle: string;
-  bulletStyle: string;
-  dividerStyle: string;
 }
 
 export interface ContactItem {
@@ -44,81 +37,37 @@ export interface ContactItem {
 
 // ─── Utility Functions ───────────────────────────────────
 
+const HTML_ESCAPES: Record<string, string> = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+/** Escape text for HTML element content and quoted attribute values. */
 export function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+  return str.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
 }
 
-/** Sanitise a URL to prevent javascript: / data: / vbscript: XSS vectors. */
+const SAFE_URL_SCHEMES = new Set(["http", "https", "mailto", "tel"]);
+
+/**
+ * Allow only http(s)/mailto/tel links (or scheme-less ones). Takes and returns
+ * an already-escaped attribute value; anything else becomes "#".
+ */
 export function sanitizeUrl(url: string): string {
   const decoded = url
-    .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"')
-    .trim();
-  const normalized = decoded.replace(/[\x00-\x1f\x7f]/g, "").toLowerCase();
-  if (
-    normalized.startsWith("javascript:") ||
-    normalized.startsWith("data:") ||
-    normalized.startsWith("vbscript:")
-  ) {
-    return "#";
-  }
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+  // Browsers ignore control characters and whitespace inside a scheme.
+  const compact = decoded.replace(/[\x00-\x20\x7f]/g, "").toLowerCase();
+  const scheme = /^([a-z][a-z0-9+.-]*):/.exec(compact);
+  if (scheme && !SAFE_URL_SCHEMES.has(scheme[1])) return "#";
   return url;
-}
-
-export function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const h = hex.replace("#", "");
-  return {
-    r: parseInt(h.substring(0, 2), 16),
-    g: parseInt(h.substring(2, 4), 16),
-    b: parseInt(h.substring(4, 6), 16),
-  };
-}
-
-export function darkenHex(hex: string, amount: number): string {
-  const { r, g, b } = hexToRgb(hex);
-  const f = 1 - amount;
-  const nr = Math.round(r * f)
-    .toString(16)
-    .padStart(2, "0");
-  const ng = Math.round(g * f)
-    .toString(16)
-    .padStart(2, "0");
-  const nb = Math.round(b * f)
-    .toString(16)
-    .padStart(2, "0");
-  return `#${nr}${ng}${nb}`;
-}
-
-export function resolveTheme(config: Record<string, unknown>): ResolvedTheme {
-  const primary = (config.primaryColor as string) || "#2563eb";
-  const rgb = hexToRgb(primary);
-  return {
-    primaryColor: primary,
-    primaryLight: `rgba(${rgb.r},${rgb.g},${rgb.b},0.10)`,
-    primaryDark: darkenHex(primary, 0.2),
-    fontHeading: (config.fontHeading as string) || "Merriweather",
-    fontBody: (config.fontBody as string) || "Source Sans 3",
-    fontSize: (config.fontSize as string) || "medium",
-    spacing: (config.spacing as string) || "comfortable",
-    accentStyle: (config.accentStyle as string) || "left-border",
-    bulletStyle: (config.bulletStyle as string) || "disc",
-    dividerStyle: (config.dividerStyle as string) || "line",
-  };
-}
-
-export function fontImportUrl(heading: string, body: string): string {
-  const families = new Set<string>();
-  families.add(heading);
-  families.add(body);
-  const familyArray = Array.from(families);
-  const params = familyArray
-    .map((f) => `family=${f.replace(/ /g, "+")}:wght@300;400;500;600;700;800`)
-    .join("&");
-  return `https://fonts.googleapis.com/css2?${params}&display=swap`;
 }
 
 // ─── Inline SVG Icons ────────────────────────────────────
@@ -153,37 +102,29 @@ export function buildContactItems(data: CvData): ContactItem[] {
   if (data.location) {
     items.push({ icon: ICONS.location, text: data.location });
   }
+  // Older rows may hold bare values such as "linkedin.com/in/jane".
   if (data.website) {
-    const url = data.website.startsWith("http")
-      ? data.website
-      : `https://${data.website}`;
+    const href = normalizeContactUrl("website", data.website);
     items.push({
       icon: ICONS.globe,
-      text: data.website.replace(/^https?:\/\//, ""),
-      href: url,
+      text: href.replace(/^https?:\/\//i, ""),
+      href,
     });
   }
   if (data.linkedin) {
-    const url = data.linkedin.startsWith("http")
-      ? data.linkedin
-      : `https://linkedin.com/in/${data.linkedin}`;
+    const href = normalizeContactUrl("linkedin", data.linkedin);
     items.push({
       icon: ICONS.linkedin,
-      text: data.linkedin.replace(
-        /^https?:\/\/(www\.)?linkedin\.com\/in\//,
-        ""
-      ),
-      href: url,
+      text: href.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//i, ""),
+      href,
     });
   }
   if (data.github) {
-    const url = data.github.startsWith("http")
-      ? data.github
-      : `https://github.com/${data.github}`;
+    const href = normalizeContactUrl("github", data.github);
     items.push({
       icon: ICONS.github,
-      text: data.github.replace(/^https?:\/\/(www\.)?github\.com\//, ""),
-      href: url,
+      text: href.replace(/^https?:\/\/(www\.)?github\.com\//i, ""),
+      href,
     });
   }
   return items;
@@ -202,39 +143,39 @@ export function renderContactItem(
 }
 
 // ─── Enhanced Markdown Renderer ──────────────────────────
+//
+// Every pattern is bounded and cannot span lines, so rendering stays linear
+// in the content length (no catastrophic backtracking on inputs like "[[[[").
 
-export function renderMarkdown(
-  content: string,
-  sectionType: string,
-  templateId: string
-): string {
+const MD_BOLD = /\*\*(.{1,500}?)\*\*/g;
+const MD_BOLD_UNDERSCORE = /__(.{1,500}?)__/g;
+const MD_ITALIC = /(?<!\*)\*(?!\*)(.{1,500}?)(?<!\*)\*(?!\*)/g;
+const MD_ITALIC_UNDERSCORE = /(?<!_)_(?!_)(.{1,500}?)(?<!_)_(?!_)/g;
+const MD_LINK = /\[([^[\]\n]{1,300})\]\(([^()\s[\]]{1,2000})\)/g;
+const MD_SKILL = /\[skill:[ \t]*([^\s[\]][^[\]\n]{0,99})\]/g;
+const MD_RATING = /\[rating:[ \t]*(\d)\/(\d)\]/g;
+
+export function renderMarkdown(content: string): string {
   if (!content.trim()) return "";
 
   let html = escapeHtml(content);
 
-  // Bold
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/__(.+?)__/g, "<strong>$1</strong>");
+  html = html.replace(MD_BOLD, "<strong>$1</strong>");
+  html = html.replace(MD_BOLD_UNDERSCORE, "<strong>$1</strong>");
+  html = html.replace(MD_ITALIC, "<em>$1</em>");
+  html = html.replace(MD_ITALIC_UNDERSCORE, "<em>$1</em>");
 
-  // Italic
-  html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
-  html = html.replace(/(?<!_)_(?!_)(.+?)(?<!_)_(?!_)/g, "<em>$1</em>");
-
-  // Links
   html = html.replace(
-    /\[([^\]]+)\]\(([^)]+)\)/g,
+    MD_LINK,
     (_match: string, text: string, href: string) =>
       `<a href="${sanitizeUrl(href)}" class="cv-link">${text}</a>`
   );
 
   // Skill badges: [skill: React]
-  html = html.replace(
-    /\[skill:\s*([^\]]+)\]/g,
-    '<span class="skill-badge">$1</span>'
-  );
+  html = html.replace(MD_SKILL, '<span class="skill-badge">$1</span>');
 
   // Rating dots: [rating: 4/5]
-  html = html.replace(/\[rating:\s*(\d)\/(\d)\]/g, (_m, filled, total) => {
+  html = html.replace(MD_RATING, (_m, filled, total) => {
     const f = parseInt(filled, 10);
     const t = parseInt(total, 10);
     let dots = "";
@@ -254,7 +195,7 @@ export function renderMarkdown(
     // ### Title | Subtitle | Date  → flex entry heading
     if (/^###\s+/.test(line)) {
       const raw = line.replace(/^###\s+/, "");
-      const parts = raw.split(/\s*\|\s*/);
+      const parts = raw.split("|").map((part) => part.trim());
       if (parts.length >= 2) {
         const datePart =
           parts.length >= 3
@@ -335,9 +276,9 @@ export function renderMarkdown(
 
 export function renderSectionContent(
   section: CvSection,
-  templateId: string
+  _templateId: string
 ): string {
-  const md = renderMarkdown(section.content, section.sectionType, templateId);
+  const md = renderMarkdown(section.content);
   if (!md) return '<p class="empty">—</p>';
 
   switch (section.sectionType) {
